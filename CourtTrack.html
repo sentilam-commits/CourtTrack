@@ -23,70 +23,37 @@
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
 <script type="text/babel">
-// ─── ios-frame ───────────────────────────────────────────────────────────────
+const { useState, useMemo, useEffect } = React;
+
+// ─── iOS frame ───────────────────────────────────────────────────────────────
 
 function IOSStatusBar({ dark = false, time = '9:41' }) {
   const c = dark ? '#fff' : '#000';
   return (
-    <div style={{
-      display: 'flex', gap: 154, alignItems: 'center', justifyContent: 'center',
-      padding: '21px 24px 19px', boxSizing: 'border-box',
-      position: 'relative', zIndex: 20, width: '100%',
-    }}>
+    <div style={{ display: 'flex', gap: 154, alignItems: 'center', justifyContent: 'center', padding: '21px 24px 19px', boxSizing: 'border-box', position: 'relative', zIndex: 20, width: '100%' }}>
       <div style={{ flex: 1, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 1.5 }}>
         <span style={{ fontFamily: '-apple-system, "SF Pro", system-ui', fontWeight: 590, fontSize: 17, lineHeight: '22px', color: c }}>{time}</span>
       </div>
       <div style={{ flex: 1, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, paddingTop: 1, paddingRight: 1 }}>
         <svg width="19" height="12" viewBox="0 0 19 12">
-          <rect x="0" y="7.5" width="3.2" height="4.5" rx="0.7" fill={c}/>
-          <rect x="4.8" y="5" width="3.2" height="7" rx="0.7" fill={c}/>
-          <rect x="9.6" y="2.5" width="3.2" height="9.5" rx="0.7" fill={c}/>
-          <rect x="14.4" y="0" width="3.2" height="12" rx="0.7" fill={c}/>
+          <rect x="0" y="7.5" width="3.2" height="4.5" rx="0.7" fill={c}/><rect x="4.8" y="5" width="3.2" height="7" rx="0.7" fill={c}/><rect x="9.6" y="2.5" width="3.2" height="9.5" rx="0.7" fill={c}/><rect x="14.4" y="0" width="3.2" height="12" rx="0.7" fill={c}/>
         </svg>
         <svg width="17" height="12" viewBox="0 0 17 12">
-          <path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z" fill={c}/>
-          <path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z" fill={c}/>
-          <circle cx="8.5" cy="10.5" r="1.5" fill={c}/>
+          <path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z" fill={c}/><path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z" fill={c}/><circle cx="8.5" cy="10.5" r="1.5" fill={c}/>
         </svg>
         <svg width="27" height="13" viewBox="0 0 27 13">
-          <rect x="0.5" y="0.5" width="23" height="12" rx="3.5" stroke={c} strokeOpacity="0.35" fill="none"/>
-          <rect x="2" y="2" width="20" height="9" rx="2" fill={c}/>
-          <path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill={c} fillOpacity="0.4"/>
+          <rect x="0.5" y="0.5" width="23" height="12" rx="3.5" stroke={c} strokeOpacity="0.35" fill="none"/><rect x="2" y="2" width="20" height="9" rx="2" fill={c}/><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill={c} fillOpacity="0.4"/>
         </svg>
       </div>
-    </div>
-  );
-}
-
-function IOSGlassPill({ children, dark = false, style = {} }) {
-  return (
-    <div style={{
-      height: 44, minWidth: 44, borderRadius: 9999,
-      position: 'relative', overflow: 'hidden',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      boxShadow: dark ? '0 2px 6px rgba(0,0,0,0.35), 0 6px 16px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.07), 0 3px 10px rgba(0,0,0,0.06)',
-      ...style,
-    }}>
-      <div style={{ position: 'absolute', inset: 0, borderRadius: 9999, backdropFilter: 'blur(12px) saturate(180%)', WebkitBackdropFilter: 'blur(12px) saturate(180%)', background: dark ? 'rgba(120,120,128,0.28)' : 'rgba(255,255,255,0.5)' }} />
-      <div style={{ position: 'absolute', inset: 0, borderRadius: 9999, boxShadow: dark ? 'inset 1.5px 1.5px 1px rgba(255,255,255,0.15), inset -1px -1px 1px rgba(255,255,255,0.08)' : 'inset 1.5px 1.5px 1px rgba(255,255,255,0.7), inset -1px -1px 1px rgba(255,255,255,0.4)', border: dark ? '0.5px solid rgba(255,255,255,0.15)' : '0.5px solid rgba(0,0,0,0.06)' }} />
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', padding: '0 4px' }}>{children}</div>
     </div>
   );
 }
 
 function IOSDevice({ children, width = 402, height = 874, dark = false, time = '9:41' }) {
   return (
-    <div style={{
-      width, height, borderRadius: 48, overflow: 'hidden',
-      position: 'relative', background: dark ? '#000' : '#F2F2F7',
-      boxShadow: '0 40px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.12)',
-      fontFamily: '-apple-system, system-ui, sans-serif',
-      WebkitFontSmoothing: 'antialiased',
-    }}>
+    <div style={{ width, height, borderRadius: 48, overflow: 'hidden', position: 'relative', background: dark ? '#000' : '#F2F2F7', boxShadow: '0 40px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.12)', fontFamily: '-apple-system, system-ui, sans-serif', WebkitFontSmoothing: 'antialiased' }}>
       <div style={{ position: 'absolute', top: 11, left: '50%', transform: 'translateX(-50%)', width: 126, height: 37, borderRadius: 24, background: '#000', zIndex: 50 }} />
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
-        <IOSStatusBar dark={dark} time={time} />
-      </div>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}><IOSStatusBar dark={dark} time={time} /></div>
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, overflow: 'auto' }}>{children}</div>
       </div>
@@ -99,86 +66,53 @@ function IOSDevice({ children, width = 402, height = 874, dark = false, time = '
 
 // ─── data ────────────────────────────────────────────────────────────────────
 
-const FOCUS_OPTIONS = [
-  'Derecha', 'Revés', 'Volea', 'Bandeja', 'Víbora',
-  'Saque', 'Resto', 'Posicionamiento', 'Defensa', 'Control de red',
-  'Decisiones de partido', 'Consistencia'
+const COACH_ACCOUNTS = [
+  { email: 'diego@courttrack.app', password: 'padel123', name: 'Diego Marín', initials: 'DM' },
+  { email: 'sara@courttrack.app',  password: 'padel123', name: 'Sara Vidal',  initials: 'SV' },
 ];
-const IMPROVED_OPTIONS = [
-  'Timing', 'Punto de contacto', 'Control', 'Juego de pies', 'Confianza',
-  'Paciencia', 'Posicionamiento', 'Consistencia', 'Recuperación tras golpe', 'Selección de golpe'
-];
-const CORRECTION_OPTIONS = [
-  'Demasiado swing', 'Contacto tardío', 'Mala recuperación',
-  'Demasiado cerca de la red', 'Demasiado atrás',
-  'Apresurar el punto', 'Split step deficiente', 'Preparación de pala baja',
-  'Mala decisión bajo presión', 'Falta de paciencia'
-];
-const HOMEWORK_OPTIONS = [
-  '10 min de voleas en pared, 3x esta semana',
-  '50 swings en sombra enfocando el punto de contacto',
-  '3 series de 20 derechas controladas',
-  '3 series de 20 revés controlados',
-  'Practicar split step antes de cada golpe',
-  'Ver 10 puntos pro: ataque vs defensa',
-  'Práctica de saque: 30 saques de colocación',
-  'Drill de footwork: 5 minutos al día',
-  'Practicar el movimiento de recuperación tras bandeja',
-  'Reflexión de partido: escribir 3 puntos apresurados'
-];
-const SKILLS = ['Derecha', 'Revés', 'Volea', 'Bandeja', 'Posicionamiento', 'Toma de decisiones', 'Consistencia', 'Confianza en partido'];
-const LEVELS = ['Principiante', 'Intermedio', 'Avanzado'];
-const CLASS_TYPES = ['Privada', 'Grupo', 'Análisis de partido'];
-const FREQUENCIES = ['1x / semana', '2x / semana', '3x / semana', 'Ocasional'];
+
+const FOCUS_OPTIONS = ['Derecha','Revés','Volea','Bandeja','Víbora','Saque','Resto','Posicionamiento','Defensa','Control de red','Decisiones de partido','Consistencia'];
+const IMPROVED_OPTIONS = ['Timing','Punto de contacto','Control','Juego de pies','Confianza','Paciencia','Posicionamiento','Consistencia','Recuperación tras golpe','Selección de golpe'];
+const CORRECTION_OPTIONS = ['Demasiado swing','Contacto tardío','Mala recuperación','Demasiado cerca de la red','Demasiado atrás','Apresurar el punto','Split step deficiente','Preparación de pala baja','Mala decisión bajo presión','Falta de paciencia'];
+const HOMEWORK_OPTIONS = ['10 min de voleas en pared, 3x esta semana','50 swings en sombra enfocando el punto de contacto','3 series de 20 derechas controladas','3 series de 20 revés controlados','Practicar split step antes de cada golpe','Ver 10 puntos pro: ataque vs defensa','Práctica de saque: 30 saques de colocación','Drill de footwork: 5 minutos al día','Practicar el movimiento de recuperación tras bandeja','Reflexión de partido: escribir 3 puntos apresurados'];
+const SKILLS = ['Derecha','Revés','Volea','Bandeja','Posicionamiento','Toma de decisiones','Consistencia','Confianza en partido'];
+const LEVELS = ['Principiante','Intermedio','Avanzado'];
+const CLASS_TYPES = ['Privada','Grupo','Análisis de partido'];
+const FREQUENCIES = ['1x / semana','2x / semana','3x / semana','Ocasional'];
 
 const INITIAL_STUDENTS = [
-  {
-    id: 's1', name: 'Benito Álvarez', contact: 'benito@mail.com',
-    level: 'Intermedio', goal: 'Mejor control de red', frequency: '2x / semana', startDate: '2025-09-12',
+  { id: 's1', name: 'Benito Álvarez', contact: 'benito@mail.com', level: 'Intermedio', goal: 'Mejor control de red', frequency: '2x / semana', startDate: '2025-09-12',
     scores: { 'Derecha': 4, 'Revés': 3, 'Volea': 3, 'Bandeja': 2, 'Posicionamiento': 3, 'Toma de decisiones': 3, 'Consistencia': 4, 'Confianza en partido': 3 },
     classes: [
-      { id: 'c1', date: '2026-05-06', type: 'Privada', focus: 'Volea', improved: ['Punto de contacto', 'Control'], correction: 'Demasiado swing', homework: '10 min de voleas en pared, 3x esta semana', nextFocus: 'Bandeja', note: 'Buen progreso hoy. Mantén la calma en la red.' },
+      { id: 'c1', date: '2026-05-06', type: 'Privada', focus: 'Volea', improved: ['Punto de contacto','Control'], correction: 'Demasiado swing', homework: '10 min de voleas en pared, 3x esta semana', nextFocus: 'Bandeja', note: 'Buen progreso hoy. Mantén la calma en la red.' },
       { id: 'c2', date: '2026-05-02', type: 'Privada', focus: 'Posicionamiento', improved: ['Juego de pies'], correction: 'Demasiado atrás', homework: 'Practicar split step antes de cada golpe', nextFocus: 'Volea', note: '' },
-      { id: 'c3', date: '2026-04-28', type: 'Grupo', focus: 'Derecha', improved: ['Timing', 'Confianza'], correction: 'Contacto tardío', homework: '3 series de 20 derechas controladas', nextFocus: 'Posicionamiento', note: 'Derecha más sólida esta sesión.' },
-    ],
-  },
-  {
-    id: 's2', name: 'Lucía Romero', contact: '+34 612 90 88 21',
-    level: 'Avanzado', goal: 'Recuperación de bandeja más nítida', frequency: '3x / semana', startDate: '2024-11-03',
+      { id: 'c3', date: '2026-04-28', type: 'Grupo', focus: 'Derecha', improved: ['Timing','Confianza'], correction: 'Contacto tardío', homework: '3 series de 20 derechas controladas', nextFocus: 'Posicionamiento', note: 'Derecha más sólida esta sesión.' },
+    ] },
+  { id: 's2', name: 'Lucía Romero', contact: '+34 612 90 88 21', level: 'Avanzado', goal: 'Recuperación de bandeja más nítida', frequency: '3x / semana', startDate: '2024-11-03',
     scores: { 'Derecha': 5, 'Revés': 4, 'Volea': 4, 'Bandeja': 4, 'Posicionamiento': 4, 'Toma de decisiones': 4, 'Consistencia': 4, 'Confianza en partido': 5 },
     classes: [
-      { id: 'c4', date: '2026-05-05', type: 'Análisis de partido', focus: 'Decisiones de partido', improved: ['Selección de golpe', 'Paciencia'], correction: 'Apresurar el punto', homework: 'Ver 10 puntos pro: ataque vs defensa', nextFocus: 'Defensa', note: 'La claridad táctica mejora rápido.' },
+      { id: 'c4', date: '2026-05-05', type: 'Análisis de partido', focus: 'Decisiones de partido', improved: ['Selección de golpe','Paciencia'], correction: 'Apresurar el punto', homework: 'Ver 10 puntos pro: ataque vs defensa', nextFocus: 'Defensa', note: 'La claridad táctica mejora rápido.' },
       { id: 'c5', date: '2026-05-01', type: 'Privada', focus: 'Bandeja', improved: ['Recuperación tras golpe'], correction: 'Mala recuperación', homework: 'Practicar el movimiento de recuperación tras bandeja', nextFocus: 'Decisiones de partido', note: '' },
-    ],
-  },
-  {
-    id: 's3', name: 'Marco Lindholm', contact: 'marco.l@mail.com',
-    level: 'Principiante', goal: 'Construir peloteos consistentes', frequency: '1x / semana', startDate: '2026-03-20',
+    ] },
+  { id: 's3', name: 'Marco Lindholm', contact: 'marco.l@mail.com', level: 'Principiante', goal: 'Construir peloteos consistentes', frequency: '1x / semana', startDate: '2026-03-20',
     scores: { 'Derecha': 2, 'Revés': 2, 'Volea': 1, 'Bandeja': 1, 'Posicionamiento': 2, 'Toma de decisiones': 2, 'Consistencia': 2, 'Confianza en partido': 2 },
     classes: [
       { id: 'c6', date: '2026-05-04', type: 'Privada', focus: 'Revés', improved: ['Timing'], correction: 'Preparación de pala baja', homework: '50 swings en sombra enfocando el punto de contacto', nextFocus: 'Derecha', note: 'Mantén la pala arriba pronto.' },
-    ],
-  },
-  {
-    id: 's4', name: 'Aïsha Benhaddou', contact: 'aisha.b@mail.com',
-    level: 'Intermedio', goal: 'Segundo saque más sólido', frequency: '2x / semana', startDate: '2025-06-15',
+    ] },
+  { id: 's4', name: 'Aïsha Benhaddou', contact: 'aisha.b@mail.com', level: 'Intermedio', goal: 'Segundo saque más sólido', frequency: '2x / semana', startDate: '2025-06-15',
     scores: { 'Derecha': 3, 'Revés': 4, 'Volea': 3, 'Bandeja': 3, 'Posicionamiento': 4, 'Toma de decisiones': 3, 'Consistencia': 3, 'Confianza en partido': 3 },
     classes: [
       { id: 'c7', date: '2026-04-30', type: 'Privada', focus: 'Saque', improved: ['Confianza'], correction: 'Mala decisión bajo presión', homework: 'Práctica de saque: 30 saques de colocación', nextFocus: 'Resto', note: '' },
-    ],
-  },
+    ] },
 ];
 
 function fmtDate(iso) {
   if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+  return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
 }
 function relDate(iso) {
   if (!iso) return '—';
-  const d = new Date(iso);
-  const now = new Date('2026-05-07');
-  const diff = Math.round((now - d) / 86400000);
+  const diff = Math.round((new Date('2026-05-07') - new Date(iso)) / 86400000);
   if (diff === 0) return 'Hoy';
   if (diff === 1) return 'Ayer';
   if (diff < 7) return `hace ${diff}d`;
@@ -189,22 +123,18 @@ function relDate(iso) {
 // ─── ui atoms ────────────────────────────────────────────────────────────────
 
 const CT = {
-  green: 'oklch(0.62 0.14 152)',
-  greenSoft: 'oklch(0.95 0.04 152)',
-  greenDeep: 'oklch(0.42 0.12 152)',
+  green: 'oklch(0.62 0.14 152)', greenSoft: 'oklch(0.95 0.04 152)', greenDeep: 'oklch(0.42 0.12 152)',
   ink: '#0E1311', ink2: '#3A4441', ink3: '#6B746F', ink4: '#9AA29D',
-  line: '#E8EAE7', card: '#F4F5F2', card2: '#FAFAF8', bg: '#FFFFFF',
+  line: '#E8EAE7', card: '#F4F5F2', card2: '#FAFAF8',
 };
 
 function Icon({ size = 22, stroke = 'currentColor', fill = 'none', sw = 1.8, children }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke}
-         strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
       {children}
     </svg>
   );
 }
-
 const Icons = {
   plus:   <Icon><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>,
   back:   <Icon><polyline points="15 18 9 12 15 6"/></Icon>,
@@ -217,19 +147,13 @@ const Icons = {
   search: <Icon><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></Icon>,
   flag:   <Icon><path d="M4 22V4a1 1 0 0 1 1-1h13l-2 5 2 5H5"/></Icon>,
   arrow:  <Icon><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></Icon>,
+  eye:    <Icon><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></Icon>,
+  eyeOff: <Icon><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></Icon>,
 };
 
 function Chip({ children, active, onClick, color = CT.green, style = {} }) {
   return (
-    <button onClick={onClick} style={{
-      padding: '9px 14px', borderRadius: 999,
-      border: `1px solid ${active ? color : CT.line}`,
-      background: active ? color : '#fff',
-      color: active ? '#fff' : CT.ink,
-      fontSize: 14, fontWeight: 500, cursor: 'pointer',
-      whiteSpace: 'nowrap', transition: 'all 0.15s', fontFamily: 'inherit',
-      ...style,
-    }}>{children}</button>
+    <button onClick={onClick} style={{ padding: '9px 14px', borderRadius: 999, border: `1px solid ${active ? color : CT.line}`, background: active ? color : '#fff', color: active ? '#fff' : CT.ink, fontSize: 14, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s', fontFamily: 'inherit', ...style }}>{children}</button>
   );
 }
 
@@ -241,64 +165,32 @@ function LevelBadge({ level, small }) {
   };
   const c = map[level] || map['Intermedio'];
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center',
-      padding: small ? '3px 8px' : '4px 10px', borderRadius: 999,
-      background: c.bg, color: c.fg,
-      fontSize: small ? 11 : 12, fontWeight: 600, letterSpacing: 0.1,
-    }}>{level}</span>
+    <span style={{ display: 'inline-flex', alignItems: 'center', padding: small ? '3px 8px' : '4px 10px', borderRadius: 999, background: c.bg, color: c.fg, fontSize: small ? 11 : 12, fontWeight: 600, letterSpacing: 0.1, whiteSpace: 'nowrap' }}>{level}</span>
   );
 }
 
 function PrimaryButton({ children, onClick, disabled, style = {} }) {
   return (
-    <button onClick={onClick} disabled={disabled} style={{
-      width: '100%', height: 54, borderRadius: 16, border: 'none',
-      background: disabled ? '#C7CCC9' : CT.ink,
-      color: '#fff', fontSize: 16, fontWeight: 600, fontFamily: 'inherit',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-      cursor: disabled ? 'not-allowed' : 'pointer',
-      transition: 'transform 0.08s, background 0.15s',
-      ...style,
-    }}
-    onMouseDown={(e) => !disabled && (e.currentTarget.style.transform = 'scale(0.98)')}
-    onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-    onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+    <button onClick={onClick} disabled={disabled} style={{ width: '100%', height: 54, borderRadius: 16, border: 'none', background: disabled ? '#C7CCC9' : CT.ink, color: '#fff', fontSize: 16, fontWeight: 600, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: disabled ? 'not-allowed' : 'pointer', transition: 'transform 0.08s, background 0.15s', ...style }}
+      onMouseDown={(e) => !disabled && (e.currentTarget.style.transform = 'scale(0.98)')}
+      onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+      onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
     >{children}</button>
   );
 }
 
 function GhostButton({ children, onClick, style = {} }) {
   return (
-    <button onClick={onClick} style={{
-      height: 44, padding: '0 16px', borderRadius: 12,
-      border: `1px solid ${CT.line}`, background: '#fff',
-      color: CT.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit',
-      cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6,
-      ...style,
-    }}>{children}</button>
+    <button onClick={onClick} style={{ height: 44, padding: '0 16px', borderRadius: 12, border: `1px solid ${CT.line}`, background: '#fff', color: CT.ink, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, ...style }}>{children}</button>
   );
 }
 
 function SectionLabel({ children, style = {} }) {
-  return (
-    <div style={{
-      fontSize: 12, fontWeight: 600, color: CT.ink3, textTransform: 'uppercase',
-      letterSpacing: 0.6, marginBottom: 10, ...style,
-    }}>{children}</div>
-  );
+  return <div style={{ fontSize: 12, fontWeight: 600, color: CT.ink3, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10, ...style }}>{children}</div>;
 }
 
 function Card({ children, style = {}, onClick, soft }) {
-  return (
-    <div onClick={onClick} style={{
-      background: soft ? CT.card2 : CT.card,
-      border: `1px solid ${CT.line}`,
-      borderRadius: 18, padding: 16,
-      cursor: onClick ? 'pointer' : 'default',
-      ...style,
-    }}>{children}</div>
-  );
+  return <div onClick={onClick} style={{ background: soft ? CT.card2 : CT.card, border: `1px solid ${CT.line}`, borderRadius: 18, padding: 16, cursor: onClick ? 'pointer' : 'default', ...style }}>{children}</div>;
 }
 
 function Label({ children }) {
@@ -308,12 +200,7 @@ function Label({ children }) {
 function TextInput({ value, onChange, placeholder, type = 'text', style = {} }) {
   return (
     <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-      style={{
-        width: '100%', height: 50, padding: '0 16px', borderRadius: 14,
-        border: `1px solid ${CT.line}`, background: '#fff', fontSize: 16,
-        fontFamily: 'inherit', color: CT.ink, outline: 'none', boxSizing: 'border-box',
-        ...style,
-      }}
+      style={{ width: '100%', height: 50, padding: '0 16px', borderRadius: 14, border: `1px solid ${CT.line}`, background: '#fff', fontSize: 16, fontFamily: 'inherit', color: CT.ink, outline: 'none', boxSizing: 'border-box', ...style }}
       onFocus={(e) => e.target.style.borderColor = CT.green}
       onBlur={(e) => e.target.style.borderColor = CT.line}
     />
@@ -334,13 +221,7 @@ function ScreenHeader({ title, onBack, right }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 6px 14px', minHeight: 44 }}>
       <div style={{ width: 56, display: 'flex' }}>
-        {onBack && (
-          <button onClick={onBack} style={{
-            width: 40, height: 40, borderRadius: 12, border: 'none',
-            background: 'transparent', cursor: 'pointer', color: CT.ink,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>{Icons.back}</button>
-        )}
+        {onBack && <button onClick={onBack} style={{ width: 40, height: 40, borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', color: CT.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icons.back}</button>}
       </div>
       <div style={{ fontSize: 16, fontWeight: 600, color: CT.ink, flex: 1, textAlign: 'center' }}>{title}</div>
       <div style={{ width: 56, display: 'flex', justifyContent: 'flex-end' }}>{right}</div>
@@ -348,9 +229,7 @@ function ScreenHeader({ title, onBack, right }) {
   );
 }
 
-function Divider() {
-  return <div style={{ height: 1, background: CT.line }} />;
-}
+function Divider() { return <div style={{ height: 1, background: CT.line }} />; }
 
 function Row({ k, v, accent, danger }) {
   return (
@@ -361,34 +240,212 @@ function Row({ k, v, accent, danger }) {
   );
 }
 
-// ─── dashboard ───────────────────────────────────────────────────────────────
+// ─── auth screen ─────────────────────────────────────────────────────────────
 
-function Dashboard({ students, nav }) {
-  const [q, setQ] = React.useState('');
-  const filtered = students.filter(s => s.name.toLowerCase().includes(q.toLowerCase()));
-  const todayCount = students.filter(s => {
-    const last = s.classes[0]?.date;
-    return last === '2026-05-06' || last === '2026-05-07';
-  }).length;
+function AuthScreen({ onLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [error, setError] = useState('');
+  const [requestSent, setRequestSent] = useState(false);
+
+  const valid = email.trim().length > 0 && password.length > 0;
+
+  const tryLogin = (em, pw) => {
+    const acct = COACH_ACCOUNTS.find(a => a.email.toLowerCase() === em.trim().toLowerCase() && a.password === pw);
+    if (!acct) { setError('Email o contraseña incorrectos.'); return; }
+    onLogin(acct);
+  };
+
+  const submit = () => {
+    if (!valid) return;
+    setError('');
+    tryLogin(email, password);
+  };
+
+  const enterAsDemo = () => {
+    setError('');
+    tryLogin('diego@courttrack.app', 'padel123');
+  };
+
+  if (requestSent) {
+    return (
+      <div style={{ background: '#fff', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, textAlign: 'center' }}>
+        <div style={{ width: 56, height: 56, borderRadius: 18, background: CT.greenSoft, color: CT.greenDeep, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>{Icons.check}</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: CT.ink, letterSpacing: -0.3 }}>Solicitud enviada</div>
+        <div style={{ fontSize: 14, color: CT.ink3, marginTop: 8, lineHeight: 1.5, maxWidth: 280 }}>Te contactaremos pronto para darte acceso a CourtTrack.</div>
+        <button onClick={() => setRequestSent(false)} style={{ marginTop: 24, height: 44, padding: '0 18px', borderRadius: 12, border: `1px solid ${CT.line}`, background: '#fff', color: CT.ink, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Volver al inicio de sesión</button>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ background: '#fff', minHeight: '100%', paddingBottom: 120 }}>
-      <div style={{ padding: '4px 20px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-          <div>
-            <div style={{ fontSize: 13, color: CT.ink3, fontWeight: 500 }}>Jueves, 7 mayo</div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: CT.ink, letterSpacing: -0.6, marginTop: 2 }}>Hola, Coach Diego</div>
+    <div style={{ background: '#fff', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Hero header */}
+      <div style={{ padding: '32px 24px 28px', background: CT.ink, color: '#fff', borderBottomLeftRadius: 28, borderBottomRightRadius: 28, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', right: -40, top: -40, width: 180, height: 180, borderRadius: 999, background: `radial-gradient(circle, ${CT.green}55, transparent 70%)` }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={CT.green} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9"/><path d="M3.5 9c4 1 9-1 13.5-3"/><path d="M20.5 15c-4-1-9 1-13.5 3"/>
+            </svg>
           </div>
-          <div style={{ width: 44, height: 44, borderRadius: 999, background: CT.greenSoft, color: CT.greenDeep, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15 }}>DM</div>
+          <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.4 }}>CourtTrack</div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 18 }}>
-          <StatCard k={students.length} label="Alumnos" />
-          <StatCard k={todayCount} label="Hoy" accent />
-          <StatCard k={students.reduce((a,s) => a + s.classes.length, 0)} label="Registros" />
+        <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.5, marginTop: 22, lineHeight: 1.2 }}>Bienvenido a CourtTrack</div>
+        <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: 6, lineHeight: 1.45 }}>
+          Gestiona alumnos, registra clases y comparte progreso sin complicarte.
         </div>
       </div>
 
-      <div style={{ padding: '4px 20px 12px' }}>
+      {/* Form */}
+      <div style={{ padding: '24px 20px 0', display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
+        <div>
+          <Label>Email</Label>
+          <TextInput value={email} onChange={(v) => { setEmail(v); if (error) setError(''); }} placeholder="coach@correo.com" type="email" />
+        </div>
+        <div>
+          <Label>Contraseña</Label>
+          <div style={{ position: 'relative' }}>
+            <TextInput
+              value={password}
+              onChange={(v) => { setPassword(v); if (error) setError(''); }}
+              placeholder="••••••••"
+              type={showPw ? 'text' : 'password'}
+              style={{ paddingRight: 64 }}
+            />
+            <button onClick={() => setShowPw(!showPw)} style={{ position: 'absolute', right: 8, top: 8, height: 34, padding: '0 10px', borderRadius: 8, border: 'none', background: 'transparent', color: CT.ink3, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+              {showPw ? 'Ocultar' : 'Ver'}
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div style={{ padding: '10px 14px', borderRadius: 12, background: '#FDECEC', color: '#A04020', fontSize: 13, fontWeight: 500 }}>{error}</div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+          <PrimaryButton onClick={submit} disabled={!valid} style={{ background: valid ? CT.greenDeep : '#C7CCC9' }}>
+            Iniciar sesión
+          </PrimaryButton>
+          <button onClick={enterAsDemo} style={{ width: '100%', height: 50, borderRadius: 14, background: '#fff', color: CT.ink, border: `1px solid ${CT.line}`, fontSize: 15, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+            Entrar como coach demo
+          </button>
+        </div>
+
+        <div style={{ fontSize: 12, color: CT.ink4, textAlign: 'center', marginTop: 2 }}>
+          Demo: diego@courttrack.app / padel123
+        </div>
+
+        <div style={{ textAlign: 'center', fontSize: 14, color: CT.ink3, marginTop: 4 }}>
+          ¿Quieres usarlo con tus alumnos?{' '}
+          <button onClick={() => setRequestSent(true)} style={{ background: 'transparent', border: 'none', color: CT.greenDeep, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, padding: 0 }}>
+            Solicita acceso
+          </button>
+        </div>
+      </div>
+
+      <div style={{ textAlign: 'center', fontSize: 11, color: CT.ink4, padding: '24px 20px 32px' }}>
+        Al continuar, aceptas los términos de CourtTrack.
+      </div>
+    </div>
+  );
+}
+
+// ─── dashboard ───────────────────────────────────────────────────────────────
+
+function studentStatus(s) {
+  const last = s.classes[0];
+  if (!last) return { label: 'Sin clase', tone: 'warn' };
+  if (!last.homework) return { label: 'Sin tarea', tone: 'muted' };
+  const days = Math.round((new Date('2026-05-07') - new Date(last.date)) / 86400000);
+  if (days <= 2) return { label: 'Actualizado', tone: 'good' };
+  return { label: 'Pendiente', tone: 'warn' };
+}
+
+function StatusPill({ status }) {
+  const palette = {
+    good:  { bg: CT.greenSoft, fg: CT.greenDeep },
+    warn:  { bg: '#FDF2E5', fg: '#A05A1B' },
+    muted: { bg: CT.card, fg: CT.ink3 },
+  }[status.tone];
+  return (
+    <span style={{ padding: '3px 8px', borderRadius: 999, background: palette.bg, color: palette.fg, fontSize: 11, fontWeight: 600, letterSpacing: 0.1, whiteSpace: 'nowrap' }}>{status.label}</span>
+  );
+}
+
+function Dashboard({ students, nav, coach, onLogout }) {
+  const [q, setQ] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const filtered = students.filter(s => s.name.toLowerCase().includes(q.toLowerCase()));
+
+  const todayCount = students.filter(s => { const d = s.classes[0]?.date; return d === '2026-05-06' || d === '2026-05-07'; }).length;
+  const totalClasses = students.reduce((a, s) => a + s.classes.length, 0);
+  const forToday = students.filter(s => { const st = studentStatus(s); return st.tone !== 'good'; }).slice(0, 1);
+
+  return (
+    <div style={{ background: '#fff', minHeight: '100%', paddingBottom: 24 }} onClick={() => menuOpen && setMenuOpen(false)}>
+      {/* Header */}
+      <div style={{ padding: '4px 20px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 4, gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, color: CT.ink3, fontWeight: 500 }}>Jueves, 7 mayo</div>
+            <div style={{ fontSize: 26, fontWeight: 700, color: CT.ink, letterSpacing: -0.5, marginTop: 2 }}>
+              Hola, {coach?.name?.split(' ')[0] || 'Coach'}
+            </div>
+            <div style={{ fontSize: 13, color: CT.ink3, marginTop: 3, lineHeight: 1.4 }}>
+              Registra progreso y tareas en menos de 60 segundos.
+            </div>
+          </div>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} style={{ width: 44, height: 44, borderRadius: 999, background: CT.greenSoft, color: CT.greenDeep, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+              {coach?.initials || 'C'}
+            </button>
+            {menuOpen && (
+              <div style={{ position: 'absolute', right: 0, top: 52, zIndex: 30, background: '#fff', border: `1px solid ${CT.line}`, borderRadius: 14, boxShadow: '0 12px 32px rgba(14,19,17,0.12)', minWidth: 200, overflow: 'hidden' }}>
+                <div style={{ padding: '12px 14px', borderBottom: `1px solid ${CT.line}` }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: CT.ink }}>{coach?.name}</div>
+                  <div style={{ fontSize: 12, color: CT.ink3, marginTop: 2 }}>{coach?.email}</div>
+                </div>
+                <button onClick={() => { setMenuOpen(false); onLogout(); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '12px 14px', border: 'none', background: 'transparent', fontSize: 14, color: '#A04020', fontFamily: 'inherit', cursor: 'pointer', fontWeight: 500 }}>
+                  Cerrar sesión
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 16 }}>
+          <StatCard k={students.length} label="Alumnos" />
+          <StatCard k={todayCount} label="Clase hoy" accent />
+          <StatCard k={totalClasses} label="Registros" />
+        </div>
+      </div>
+
+      {/* Para hoy */}
+      {forToday.length > 0 && (
+        <div style={{ padding: '0 20px 12px' }}>
+          <SectionLabel>Para hoy</SectionLabel>
+          {forToday.map(s => (
+            <div key={s.id} style={{ background: '#fff', border: `1px solid ${CT.green}55`, borderRadius: 18, padding: '14px 14px 14px 16px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: `0 6px 18px ${CT.green}15` }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: CT.greenSoft, color: CT.greenDeep, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>
+                {s.name.split(' ').map(x => x[0]).slice(0,2).join('')}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: CT.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
+                <div style={{ fontSize: 12, color: CT.ink3, marginTop: 2 }}>
+                  {s.classes[0]?.nextFocus && <>Próxima clase: <b style={{ color: CT.greenDeep }}>{s.classes[0].nextFocus}</b> · </>}
+                  Último registro: {s.classes[0] ? relDate(s.classes[0].date) : 'nunca'}
+                </div>
+              </div>
+              <button onClick={() => nav('logClass', s.id)} style={{ height: 40, padding: '0 14px', borderRadius: 12, background: CT.ink, color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0 }}>Registrar</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Search */}
+      <div style={{ padding: '0 20px 12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 46, padding: '0 14px', borderRadius: 14, background: CT.card, border: `1px solid ${CT.line}` }}>
           <span style={{ color: CT.ink4 }}>{Icons.search}</span>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar alumnos"
@@ -396,29 +453,26 @@ function Dashboard({ students, nav }) {
         </div>
       </div>
 
-      <div style={{ padding: '6px 20px 0' }}>
-        <SectionLabel>Alumnos</SectionLabel>
+      {/* Student list */}
+      <div style={{ padding: '0 20px' }}>
+        <SectionLabel>Todos los alumnos</SectionLabel>
+        {filtered.length === 0 && (
+          <div style={{ padding: 24, borderRadius: 18, background: CT.card, textAlign: 'center', color: CT.ink3, fontSize: 14 }}>
+            No se encontraron alumnos.
+          </div>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {filtered.map(s => <StudentRow key={s.id} s={s} onClick={() => nav('profile', s.id)} />)}
+          {filtered.map(s => <StudentRow key={s.id} s={s} status={studentStatus(s)} onClick={() => nav('profile', s.id)} />)}
         </div>
       </div>
 
-      <div style={{ position: 'absolute', left: 20, right: 20, bottom: 32, display: 'flex', gap: 10 }}>
-        <button onClick={() => nav('addStudent')} style={{
-          flex: 1, height: 56, borderRadius: 16, background: '#fff', color: CT.ink, fontSize: 15, fontWeight: 600,
-          border: `1px solid ${CT.line}`, fontFamily: 'inherit', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          boxShadow: '0 8px 24px rgba(14,19,17,0.08)',
-        }}>
+      {/* Sticky CTA */}
+      <div style={{ position: 'sticky', bottom: 16, margin: '20px 20px 0', display: 'flex', gap: 10, zIndex: 10 }}>
+        <button onClick={() => nav('addStudent')} style={{ flex: 1, height: 56, borderRadius: 16, background: '#fff', color: CT.ink, fontSize: 15, fontWeight: 600, border: `1px solid ${CT.line}`, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 24px rgba(14,19,17,0.10)' }}>
           {Icons.user}<span>Añadir alumno</span>
         </button>
-        <button onClick={() => nav('pickStudent')} style={{
-          flex: 1.4, height: 56, borderRadius: 16, background: CT.ink, color: '#fff', fontSize: 15, fontWeight: 600,
-          border: 'none', fontFamily: 'inherit', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          boxShadow: '0 12px 28px rgba(14,19,17,0.25)',
-        }}>
-          {Icons.plus}<span>Registrar clase</span>
+        <button onClick={() => nav('pickStudent')} style={{ flex: 1.4, height: 56, borderRadius: 16, background: CT.ink, color: '#fff', fontSize: 15, fontWeight: 600, border: 'none', fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 12px 28px rgba(14,19,17,0.30)' }}>
+          {Icons.plus}<span>Registro rápido</span>
         </button>
       </div>
     </div>
@@ -429,35 +483,30 @@ function StatCard({ k, label, accent }) {
   return (
     <div style={{ background: accent ? CT.ink : CT.card, color: accent ? '#fff' : CT.ink, border: accent ? 'none' : `1px solid ${CT.line}`, borderRadius: 16, padding: '12px 14px' }}>
       <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.4 }}>{k}</div>
-      <div style={{ fontSize: 11, fontWeight: 500, color: accent ? 'rgba(255,255,255,0.7)' : CT.ink3, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: accent ? 'rgba(255,255,255,0.75)' : CT.ink3, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
     </div>
   );
 }
 
-function StudentRow({ s, onClick }) {
+function StudentRow({ s, status, onClick }) {
   const last = s.classes[0];
   const initials = s.name.split(' ').map(x => x[0]).slice(0, 2).join('');
   return (
-    <div onClick={onClick} style={{ background: CT.card, border: `1px solid ${CT.line}`, borderRadius: 18, padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14 }}>
-      <div style={{ width: 44, height: 44, borderRadius: 14, flexShrink: 0, background: '#fff', border: `1px solid ${CT.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: CT.ink2 }}>{initials}</div>
+    <div onClick={onClick} style={{ background: CT.card, border: `1px solid ${CT.line}`, borderRadius: 18, padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+      <div style={{ width: 44, height: 44, borderRadius: 14, flexShrink: 0, background: '#fff', border: `1px solid ${CT.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: CT.ink2, marginTop: 2 }}>{initials}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: CT.ink }}>{s.name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: CT.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
           <LevelBadge level={s.level} small />
         </div>
-        <div style={{ fontSize: 13, color: CT.ink3, marginTop: 4, display: 'flex', gap: 10 }}>
-          <span>{last ? `Foco: ${last.focus}` : 'Sin clases aún'}</span>
-          <span style={{ color: CT.ink4 }}>·</span>
-          <span>{last ? relDate(last.date) : '—'}</span>
+        <div style={{ fontSize: 13, color: CT.ink3, marginTop: 6, lineHeight: 1.5 }}>
+          <div>Foco: <span style={{ color: CT.ink2, fontWeight: 500 }}>{last ? last.focus : '—'}</span></div>
+          <div>Última clase: <span style={{ color: CT.ink2, fontWeight: 500 }}>{last ? relDate(last.date) : '—'}</span></div>
+          {last?.nextFocus && <div>Siguiente foco: <span style={{ color: CT.greenDeep, fontWeight: 600 }}>{last.nextFocus}</span></div>}
         </div>
-        {last?.nextFocus && (
-          <div style={{ fontSize: 12, color: CT.greenDeep, marginTop: 6, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 4, height: 4, borderRadius: 999, background: CT.green }} />
-            Próximo: {last.nextFocus}
-          </div>
-        )}
+        {status && <div style={{ marginTop: 8 }}><StatusPill status={status} /></div>}
       </div>
-      <span style={{ color: CT.ink4 }}>{Icons.chevR}</span>
+      <span style={{ color: CT.ink4, marginTop: 12 }}>{Icons.chevR}</span>
     </div>
   );
 }
@@ -465,25 +514,25 @@ function StudentRow({ s, onClick }) {
 // ─── add student ─────────────────────────────────────────────────────────────
 
 function AddStudent({ nav, addStudent }) {
-  const [name, setName] = React.useState('');
-  const [contact, setContact] = React.useState('');
-  const [level, setLevel] = React.useState('Intermedio');
-  const [goal, setGoal] = React.useState('');
-  const [freq, setFreq] = React.useState('2x / semana');
-  const [date, setDate] = React.useState('2026-05-07');
+  const [name, setName] = useState('');
+  const [contact, setContact] = useState('');
+  const [level, setLevel] = useState('Intermedio');
+  const [goal, setGoal] = useState('');
+  const [freq, setFreq] = useState('2x / semana');
+  const [date, setDate] = useState('2026-05-07');
   const valid = name.trim().length > 1;
 
   const submit = () => {
     if (!valid) return;
     const id = 's' + Date.now();
-    addStudent({ id, name, contact, level, goal, frequency: freq, startDate: date, scores: SKILLS.reduce((acc, k) => (acc[k] = 3, acc), {}), classes: [] });
+    addStudent({ id, name, contact, level, goal, frequency: freq, startDate: date, scores: SKILLS.reduce((a,k) => (a[k]=3, a), {}), classes: [] });
     nav('profile', id);
   };
 
   return (
-    <div style={{ background: '#fff', minHeight: '100%', paddingBottom: 130 }}>
+    <div style={{ background: '#fff', minHeight: '100%', display: 'flex', flexDirection: 'column', paddingBottom: 24 }}>
       <ScreenHeader title="Nuevo alumno" onBack={() => nav('dashboard')} />
-      <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 18, flex: 1 }}>
         <div><Label>Nombre completo</Label><TextInput value={name} onChange={setName} placeholder="ej. Benito Álvarez" /></div>
         <div><Label>Teléfono o email</Label><TextInput value={contact} onChange={setContact} placeholder="benito@mail.com" /></div>
         <div>
@@ -500,8 +549,13 @@ function AddStudent({ nav, addStudent }) {
           </div>
         </div>
         <div><Label>Fecha de inicio</Label><TextInput type="date" value={date} onChange={setDate} /></div>
+        {!valid && name.length > 0 && (
+          <div style={{ fontSize: 13, color: '#A04020', padding: '10px 14px', background: '#FDECEC', borderRadius: 12 }}>
+            El nombre debe tener al menos 2 caracteres.
+          </div>
+        )}
       </div>
-      <div style={{ position: 'absolute', left: 20, right: 20, bottom: 32 }}>
+      <div style={{ position: 'sticky', bottom: 16, margin: '20px 20px 0' }}>
         <PrimaryButton onClick={submit} disabled={!valid}>Añadir alumno</PrimaryButton>
       </div>
     </div>
@@ -514,8 +568,11 @@ function PickStudent({ students, nav }) {
   return (
     <div style={{ background: '#fff', minHeight: '100%', paddingBottom: 60 }}>
       <ScreenHeader title="Elige un alumno" onBack={() => nav('dashboard')} />
+      {students.length === 0 && (
+        <div style={{ padding: '30px 20px', textAlign: 'center', color: CT.ink3, fontSize: 14 }}>No hay alumnos. Añade uno primero.</div>
+      )}
       <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {students.map(s => <StudentRow key={s.id} s={s} onClick={() => nav('logClass', s.id)} />)}
+        {students.map(s => <StudentRow key={s.id} s={s} status={studentStatus(s)} onClick={() => nav('logClass', s.id)} />)}
       </div>
     </div>
   );
@@ -524,22 +581,20 @@ function PickStudent({ students, nav }) {
 // ─── student profile ─────────────────────────────────────────────────────────
 
 function StudentProfile({ student, nav, updateScores }) {
-  const [tab, setTab] = React.useState('overview');
-  const [editingScores, setEditingScores] = React.useState(false);
-  const [scoreDraft, setScoreDraft] = React.useState(student.scores);
+  const [tab, setTab] = useState('overview');
+  const [editingScores, setEditingScores] = useState(false);
+  const [scoreDraft, setScoreDraft] = useState(student.scores);
   const last = student.classes[0];
   const initials = student.name.split(' ').map(x => x[0]).slice(0, 2).join('');
 
-  React.useEffect(() => { setScoreDraft(student.scores); }, [student.id]);
+  useEffect(() => { setScoreDraft(student.scores); }, [student.id]);
 
   return (
-    <div style={{ background: '#fff', minHeight: '100%', paddingBottom: 120 }}>
+    <div style={{ background: '#fff', minHeight: '100%', paddingBottom: 24 }}>
       <ScreenHeader
         title=""
         onBack={() => nav('dashboard')}
-        right={
-          <button onClick={() => nav('share', student.id)} style={{ width: 40, height: 40, borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', color: CT.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icons.share}</button>
-        }
+        right={<button onClick={() => nav('share', student.id)} style={{ width: 40, height: 40, borderRadius: 12, border: 'none', background: 'transparent', cursor: 'pointer', color: CT.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icons.share}</button>}
       />
 
       <div style={{ padding: '0 20px 12px' }}>
@@ -547,7 +602,7 @@ function StudentProfile({ student, nav, updateScores }) {
           <div style={{ width: 56, height: 56, borderRadius: 18, background: CT.greenSoft, color: CT.greenDeep, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 18 }}>{initials}</div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 22, fontWeight: 700, color: CT.ink, letterSpacing: -0.4 }}>{student.name}</div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
               <LevelBadge level={student.level} small />
               <span style={{ fontSize: 12, color: CT.ink3 }}>{student.frequency}</span>
               <span style={{ fontSize: 12, color: CT.ink4 }}>·</span>
@@ -558,7 +613,7 @@ function StudentProfile({ student, nav, updateScores }) {
 
         <div style={{ marginTop: 16, padding: '14px 16px', borderRadius: 16, background: CT.greenSoft, border: `1px solid ${CT.green}33`, display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ color: CT.greenDeep }}>{Icons.flag}</span>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: CT.greenDeep, textTransform: 'uppercase', letterSpacing: 0.5 }}>Objetivo principal</div>
             <div style={{ fontSize: 15, fontWeight: 600, color: CT.greenDeep, marginTop: 2 }}>{student.goal || '—'}</div>
           </div>
@@ -568,13 +623,7 @@ function StudentProfile({ student, nav, updateScores }) {
       <div style={{ padding: '0 20px', marginTop: 8 }}>
         <div style={{ display: 'flex', gap: 4, padding: 4, background: CT.card, borderRadius: 12, border: `1px solid ${CT.line}` }}>
           {[['overview','Resumen'],['history','Historial'],['scores','Puntuación']].map(([t, label]) => (
-            <button key={t} onClick={() => setTab(t)} style={{
-              flex: 1, height: 36, borderRadius: 9, border: 'none',
-              background: tab === t ? '#fff' : 'transparent',
-              color: tab === t ? CT.ink : CT.ink3,
-              fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
-              boxShadow: tab === t ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-            }}>{label}</button>
+            <button key={t} onClick={() => setTab(t)} style={{ flex: 1, height: 36, borderRadius: 9, border: 'none', background: tab === t ? '#fff' : 'transparent', color: tab === t ? CT.ink : CT.ink3, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', boxShadow: tab === t ? '0 1px 3px rgba(0,0,0,0.06)' : 'none' }}>{label}</button>
           ))}
         </div>
       </div>
@@ -595,13 +644,7 @@ function StudentProfile({ student, nav, updateScores }) {
                   <Row k="Tarea" v={last.homework} />
                   <Divider />
                   <Row k="Próximo foco" v={last.nextFocus} accent />
-                  {last.note && (
-                    <>
-                      <Divider />
-                      <div style={{ fontSize: 13, color: CT.ink3, marginBottom: 4, marginTop: 4 }}>Nota del coach</div>
-                      <div style={{ fontSize: 14, color: CT.ink, fontStyle: 'italic', lineHeight: 1.4 }}>"{last.note}"</div>
-                    </>
-                  )}
+                  {last.note && (<><Divider /><div style={{ fontSize: 13, color: CT.ink3, marginTop: 4, marginBottom: 2 }}>Nota del coach</div><div style={{ fontSize: 14, color: CT.ink, fontStyle: 'italic', lineHeight: 1.4 }}>"{last.note}"</div></>)}
                 </Card>
               </div>
             ) : (
@@ -611,7 +654,7 @@ function StudentProfile({ student, nav, updateScores }) {
               <SectionLabel>Estadísticas rápidas</SectionLabel>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <MiniStat label="Clases" value={student.classes.length} />
-                <MiniStat label="Promedio" value={(Object.values(student.scores).reduce((a, b) => a + b, 0) / SKILLS.length).toFixed(1)} />
+                <MiniStat label="Promedio" value={(Object.values(student.scores).reduce((a,b)=>a+b,0)/SKILLS.length).toFixed(1)} />
               </div>
             </div>
           </div>
@@ -619,9 +662,7 @@ function StudentProfile({ student, nav, updateScores }) {
 
         {tab === 'history' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {student.classes.length === 0 && (
-              <div style={{ padding: 30, borderRadius: 18, background: CT.card, textAlign: 'center', color: CT.ink3, fontSize: 14 }}>Aún no hay historial.</div>
-            )}
+            {student.classes.length === 0 && <div style={{ padding: 30, borderRadius: 18, background: CT.card, textAlign: 'center', color: CT.ink3, fontSize: 14 }}>Aún no hay historial.</div>}
             {student.classes.map(c => (
               <Card key={c.id} soft>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -630,6 +671,7 @@ function StudentProfile({ student, nav, updateScores }) {
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 600, color: CT.ink, marginTop: 6 }}>{c.focus}</div>
                 <div style={{ fontSize: 13, color: CT.ink3, marginTop: 4 }}>Mejoró: {c.improved.join(', ')}</div>
+                {c.nextFocus && <div style={{ fontSize: 13, color: CT.greenDeep, marginTop: 4, fontWeight: 500 }}>Siguiente: {c.nextFocus}</div>}
               </Card>
             ))}
           </div>
@@ -652,13 +694,7 @@ function StudentProfile({ student, nav, updateScores }) {
                     {editingScores ? (
                       <div style={{ display: 'flex', gap: 4 }}>
                         {[1,2,3,4,5].map(n => (
-                          <button key={n} onClick={() => setScoreDraft({...scoreDraft, [sk]: n})} style={{
-                            width: 28, height: 28, borderRadius: 8,
-                            border: `1px solid ${scoreDraft[sk] === n ? CT.green : CT.line}`,
-                            background: scoreDraft[sk] === n ? CT.green : '#fff',
-                            color: scoreDraft[sk] === n ? '#fff' : CT.ink2,
-                            fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                          }}>{n}</button>
+                          <button key={n} onClick={() => setScoreDraft({...scoreDraft, [sk]: n})} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${scoreDraft[sk]===n ? CT.green : CT.line}`, background: scoreDraft[sk]===n ? CT.green : '#fff', color: scoreDraft[sk]===n ? '#fff' : CT.ink2, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{n}</button>
                         ))}
                       </div>
                     ) : (
@@ -676,19 +712,13 @@ function StudentProfile({ student, nav, updateScores }) {
       </div>
 
       {!editingScores && (
-        <div style={{ position: 'absolute', left: 20, right: 20, bottom: 32, display: 'flex', gap: 10 }}>
-          <button onClick={() => nav('share', student.id)} style={{
-            flex: 1, height: 54, borderRadius: 16, background: '#fff', color: CT.ink, fontSize: 15, fontWeight: 600,
-            border: `1px solid ${CT.line}`, fontFamily: 'inherit', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            boxShadow: '0 8px 24px rgba(14,19,17,0.06)',
-          }}>{Icons.share} Compartir</button>
-          <button onClick={() => nav('logClass', student.id)} style={{
-            flex: 1.4, height: 54, borderRadius: 16, background: CT.ink, color: '#fff', fontSize: 15, fontWeight: 600,
-            border: 'none', fontFamily: 'inherit', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            boxShadow: '0 12px 28px rgba(14,19,17,0.25)',
-          }}>{Icons.plus} Registrar clase</button>
+        <div style={{ position: 'sticky', bottom: 16, margin: '20px 20px 0', display: 'flex', gap: 10, zIndex: 10 }}>
+          <button onClick={() => nav('share', student.id)} style={{ flex: 1, height: 54, borderRadius: 16, background: '#fff', color: CT.ink, fontSize: 15, fontWeight: 600, border: `1px solid ${CT.line}`, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 8px 24px rgba(14,19,17,0.06)' }}>
+            {Icons.share} Compartir
+          </button>
+          <button onClick={() => nav('logClass', student.id)} style={{ flex: 1.4, height: 54, borderRadius: 16, background: CT.ink, color: '#fff', fontSize: 15, fontWeight: 600, border: 'none', fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 12px 28px rgba(14,19,17,0.25)' }}>
+            {Icons.plus} Registrar clase
+          </button>
         </div>
       )}
     </div>
@@ -707,17 +737,17 @@ function MiniStat({ label, value }) {
 // ─── log class ───────────────────────────────────────────────────────────────
 
 function LogClass({ student, nav, addClass }) {
-  const [step, setStep] = React.useState(0);
-  const [date, setDate] = React.useState('2026-05-07');
-  const [type, setType] = React.useState('Privada');
-  const [focus, setFocus] = React.useState('');
-  const [improved, setImproved] = React.useState([]);
-  const [correction, setCorrection] = React.useState('');
-  const [homework, setHomework] = React.useState('');
-  const [homeworkCustom, setHomeworkCustom] = React.useState('');
-  const [nextFocus, setNextFocus] = React.useState('');
-  const [nextFocusCustom, setNextFocusCustom] = React.useState('');
-  const [note, setNote] = React.useState('');
+  const [step, setStep] = useState(0);
+  const [date, setDate] = useState('2026-05-07');
+  const [type, setType] = useState('Privada');
+  const [focus, setFocus] = useState('');
+  const [improved, setImproved] = useState([]);
+  const [correction, setCorrection] = useState('');
+  const [homework, setHomework] = useState('');
+  const [homeworkCustom, setHomeworkCustom] = useState('');
+  const [nextFocus, setNextFocus] = useState('');
+  const [nextFocusCustom, setNextFocusCustom] = useState('');
+  const [note, setNote] = useState('');
 
   const homeworkValue = homework === '__other' ? homeworkCustom.trim() : homework;
   const nextFocusValue = nextFocus === '__other' ? nextFocusCustom.trim() : nextFocus;
@@ -758,11 +788,8 @@ function LogClass({ student, nav, addClass }) {
         title={`Clase de ${student.name.split(' ')[0]}`}
         onBack={() => step === 0 ? nav('profile', student.id) : setStep(step - 1)}
       />
-
       <div style={{ padding: '0 20px 8px', display: 'flex', gap: 4 }}>
-        {steps.map((s, i) => (
-          <div key={s.key} style={{ flex: 1, height: 4, borderRadius: 2, background: i <= step ? CT.green : CT.line, transition: 'background 0.2s' }} />
-        ))}
+        {steps.map((s, i) => <div key={s.key} style={{ flex: 1, height: 4, borderRadius: 2, background: i <= step ? CT.green : CT.line, transition: 'background 0.2s' }} />)}
       </div>
       <div style={{ padding: '4px 20px 0', fontSize: 12, color: CT.ink3, fontWeight: 500 }}>Paso {step + 1} de {total}</div>
 
@@ -782,40 +809,26 @@ function LogClass({ student, nav, addClass }) {
         )}
 
         {cur.key === 'focus' && <ChipGrid options={FOCUS_OPTIONS} value={focus} onSelect={setFocus} />}
-
         {cur.key === 'improved' && (
           <div>
             <div style={{ fontSize: 13, color: CT.ink3, marginBottom: 14 }}>Marca todo lo que aplique</div>
             <ChipGrid options={IMPROVED_OPTIONS} value={improved} onSelect={toggleImproved} multi />
           </div>
         )}
-
         {cur.key === 'correction' && <ChipGrid options={CORRECTION_OPTIONS} value={correction} onSelect={setCorrection} />}
 
         {cur.key === 'homework' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <ChipGrid options={HOMEWORK_OPTIONS} value={homework} onSelect={setHomework} stacked />
-            <button onClick={() => setHomework('__other')} style={{
-              textAlign: 'left', padding: '14px 16px',
-              border: `1px dashed ${homework === '__other' ? CT.green : CT.ink4}`,
-              background: homework === '__other' ? CT.greenSoft : '#fff',
-              color: homework === '__other' ? CT.greenDeep : CT.ink2,
-              borderRadius: 14, fontSize: 14, fontWeight: 500, fontFamily: 'inherit',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
-            }}>
+            <button onClick={() => setHomework('__other')} style={{ textAlign: 'left', padding: '14px 16px', border: `1px dashed ${homework === '__other' ? CT.green : CT.ink4}`, background: homework === '__other' ? CT.greenSoft : '#fff', color: homework === '__other' ? CT.greenDeep : CT.ink2, borderRadius: 14, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ width: 18, height: 18, borderRadius: 6, border: `1.5px solid ${homework === '__other' ? CT.green : CT.ink4}`, background: homework === '__other' ? CT.green : 'transparent', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {homework === '__other' && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
               </span>
               <span style={{ flex: 1 }}>Otro — escribe tu propia tarea</span>
             </button>
             {homework === '__other' && (
-              <textarea
-                value={homeworkCustom}
-                onChange={(e) => setHomeworkCustom(e.target.value)}
-                placeholder="ej. 15 min de peloteo cruzado de revés, 2x esta semana"
-                rows={3} autoFocus
-                style={{ width: '100%', padding: 14, borderRadius: 14, border: `1px solid ${CT.green}`, background: '#fff', fontSize: 15, fontFamily: 'inherit', color: CT.ink, outline: 'none', boxSizing: 'border-box', resize: 'none', lineHeight: 1.4, marginTop: 4 }}
-              />
+              <textarea value={homeworkCustom} onChange={(e) => setHomeworkCustom(e.target.value)} placeholder="ej. 15 min de peloteo cruzado de revés, 2x esta semana" rows={3} autoFocus
+                style={{ width: '100%', padding: 14, borderRadius: 14, border: `1px solid ${CT.green}`, background: '#fff', fontSize: 15, fontFamily: 'inherit', color: CT.ink, outline: 'none', boxSizing: 'border-box', resize: 'none', lineHeight: 1.4, marginTop: 4 }} />
             )}
           </div>
         )}
@@ -823,21 +836,10 @@ function LogClass({ student, nav, addClass }) {
         {cur.key === 'next' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <ChipGrid options={FOCUS_OPTIONS} value={nextFocus} onSelect={setNextFocus} />
-            <button onClick={() => setNextFocus('__other')} style={{
-              alignSelf: 'flex-start', padding: '9px 14px',
-              border: `1px dashed ${nextFocus === '__other' ? CT.green : CT.ink4}`,
-              background: nextFocus === '__other' ? CT.greenSoft : '#fff',
-              color: nextFocus === '__other' ? CT.greenDeep : CT.ink2,
-              borderRadius: 999, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer',
-            }}>+ Otro</button>
+            <button onClick={() => setNextFocus('__other')} style={{ alignSelf: 'flex-start', padding: '9px 14px', border: `1px dashed ${nextFocus === '__other' ? CT.green : CT.ink4}`, background: nextFocus === '__other' ? CT.greenSoft : '#fff', color: nextFocus === '__other' ? CT.greenDeep : CT.ink2, borderRadius: 999, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer' }}>+ Otro</button>
             {nextFocus === '__other' && (
-              <input
-                value={nextFocusCustom}
-                onChange={(e) => setNextFocusCustom(e.target.value)}
-                placeholder="ej. Globo defensivo"
-                autoFocus
-                style={{ width: '100%', height: 50, padding: '0 16px', borderRadius: 14, border: `1px solid ${CT.green}`, background: '#fff', fontSize: 16, fontFamily: 'inherit', color: CT.ink, outline: 'none', boxSizing: 'border-box' }}
-              />
+              <input value={nextFocusCustom} onChange={(e) => setNextFocusCustom(e.target.value)} placeholder="ej. Globo defensivo" autoFocus
+                style={{ width: '100%', height: 50, padding: '0 16px', borderRadius: 14, border: `1px solid ${CT.green}`, background: '#fff', fontSize: 16, fontFamily: 'inherit', color: CT.ink, outline: 'none', boxSizing: 'border-box' }} />
             )}
           </div>
         )}
@@ -845,8 +847,7 @@ function LogClass({ student, nav, addClass }) {
         {cur.key === 'note' && (
           <div>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="¿Algo personal que decir?" rows={5}
-              style={{ width: '100%', padding: 16, borderRadius: 14, border: `1px solid ${CT.line}`, background: '#fff', fontSize: 16, fontFamily: 'inherit', color: CT.ink, outline: 'none', boxSizing: 'border-box', resize: 'none', lineHeight: 1.4 }}
-            />
+              style={{ width: '100%', padding: 16, borderRadius: 14, border: `1px solid ${CT.line}`, background: '#fff', fontSize: 16, fontFamily: 'inherit', color: CT.ink, outline: 'none', boxSizing: 'border-box', resize: 'none', lineHeight: 1.4 }} />
             <div style={{ fontSize: 12, color: CT.ink4, marginTop: 8 }}>Opcional — puede quedar vacío.</div>
           </div>
         )}
@@ -854,18 +855,12 @@ function LogClass({ student, nav, addClass }) {
         {cur.key === 'review' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Card>
-              <Row k="Fecha" v={fmtDate(date)} />
-              <Divider />
-              <Row k="Tipo" v={type} />
-              <Divider />
-              <Row k="Foco" v={focus} />
-              <Divider />
-              <Row k="Mejoró" v={improved.join(', ')} />
-              <Divider />
-              <Row k="Corrección" v={correction} danger />
-              <Divider />
-              <Row k="Tarea" v={homeworkValue} />
-              <Divider />
+              <Row k="Fecha" v={fmtDate(date)} /><Divider />
+              <Row k="Tipo" v={type} /><Divider />
+              <Row k="Foco" v={focus} /><Divider />
+              <Row k="Mejoró" v={improved.join(', ')} /><Divider />
+              <Row k="Corrección" v={correction} danger /><Divider />
+              <Row k="Tarea" v={homeworkValue} /><Divider />
               <Row k="Próximo foco" v={nextFocusValue} accent />
               {note && (<><Divider /><Row k="Nota" v={note} /></>)}
             </Card>
@@ -894,14 +889,7 @@ function ChipGrid({ options, value, onSelect, multi, stacked }) {
         {options.map(o => {
           const active = multi ? value.includes(o) : value === o;
           return (
-            <button key={o} onClick={() => onSelect(o)} style={{
-              textAlign: 'left', padding: '14px 16px',
-              border: `1px solid ${active ? CT.green : CT.line}`,
-              background: active ? CT.greenSoft : '#fff',
-              color: active ? CT.greenDeep : CT.ink,
-              borderRadius: 14, fontSize: 14, fontWeight: 500, fontFamily: 'inherit',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
-            }}>
+            <button key={o} onClick={() => onSelect(o)} style={{ textAlign: 'left', padding: '14px 16px', border: `1px solid ${active ? CT.green : CT.line}`, background: active ? CT.greenSoft : '#fff', color: active ? CT.greenDeep : CT.ink, borderRadius: 14, fontSize: 14, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ width: 18, height: 18, borderRadius: 6, border: `1.5px solid ${active ? CT.green : CT.ink4}`, background: active ? CT.green : 'transparent', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {active && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
               </span>
@@ -924,8 +912,8 @@ function ChipGrid({ options, value, onSelect, multi, stacked }) {
 
 // ─── share + public ──────────────────────────────────────────────────────────
 
-function ShareScreen({ student, nav, fromLog }) {
-  const [copied, setCopied] = React.useState(false);
+function ShareScreen({ student, nav, fromLog, coach }) {
+  const [copied, setCopied] = useState(false);
   const url = `courttrack.app/p/${student.id}`;
 
   return (
@@ -934,9 +922,9 @@ function ShareScreen({ student, nav, fromLog }) {
 
       {fromLog && (
         <div style={{ margin: '0 20px 16px', padding: '14px 16px', background: CT.greenSoft, border: `1px solid ${CT.green}33`, borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ width: 28, height: 28, borderRadius: 999, background: CT.green, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>{Icons.check}</span>
+          <span style={{ width: 28, height: 28, borderRadius: 999, background: CT.green, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>{Icons.check}</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: CT.greenDeep }}>Clase registrada</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: CT.greenDeep }}>¡Clase registrada!</div>
             <div style={{ fontSize: 12, color: CT.greenDeep, opacity: 0.8, marginTop: 1 }}>La página de {student.name.split(' ')[0]} se ha actualizado.</div>
           </div>
         </div>
@@ -953,19 +941,16 @@ function ShareScreen({ student, nav, fromLog }) {
             <div style={{ fontSize: 11, color: CT.ink4, marginLeft: 6, fontFamily: 'ui-monospace, monospace' }}>{url}</div>
           </div>
           <div style={{ padding: 16, transform: 'scale(0.78)', transformOrigin: 'top center', height: 360, overflow: 'hidden' }}>
-            <PublicProgress student={student} previewMode />
+            <PublicProgress student={student} previewMode coachName={coach?.name} />
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px', borderRadius: 14, background: CT.card, border: `1px solid ${CT.line}` }}>
           <span style={{ color: CT.ink3 }}>{Icons.link}</span>
           <div style={{ flex: 1, fontSize: 13, color: CT.ink2, fontFamily: 'ui-monospace, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{url}</div>
-          <button onClick={() => { setCopied(true); setTimeout(() => setCopied(false), 1400); }} style={{
-            height: 36, padding: '0 14px', borderRadius: 10,
-            background: copied ? CT.green : CT.ink, color: '#fff',
-            border: 'none', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}>{copied ? <>{Icons.check} Copiado</> : <>{Icons.copy} Copiar</>}</button>
+          <button onClick={() => { setCopied(true); setTimeout(() => setCopied(false), 1400); }} style={{ height: 36, padding: '0 14px', borderRadius: 10, background: copied ? CT.green : CT.ink, color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            {copied ? <>{Icons.check} Copiado</> : <>{Icons.copy} Copiar</>}
+          </button>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -977,10 +962,10 @@ function ShareScreen({ student, nav, fromLog }) {
   );
 }
 
-function PublicProgress({ student, nav, previewMode }) {
+function PublicProgress({ student, nav, previewMode, coachName }) {
   const last = student.classes[0];
   const firstName = student.name.split(' ')[0];
-  const avg = (Object.values(student.scores).reduce((a, b) => a + b, 0) / SKILLS.length).toFixed(1);
+  const avg = (Object.values(student.scores).reduce((a,b) => a+b, 0) / SKILLS.length).toFixed(1);
 
   return (
     <div style={{ background: '#fff', minHeight: '100%', paddingBottom: 60 }}>
@@ -1004,10 +989,10 @@ function PublicProgress({ student, nav, previewMode }) {
       <div style={{ padding: previewMode ? '20px 0 0' : '20px 20px 0', display: 'flex', flexDirection: 'column', gap: 18 }}>
         <Card style={{ background: CT.greenSoft, borderColor: `${CT.green}33` }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: CT.greenDeep, textTransform: 'uppercase', letterSpacing: 0.5 }}>Objetivo principal</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: CT.greenDeep, marginTop: 4, letterSpacing: -0.2 }}>{student.goal}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: CT.greenDeep, marginTop: 4, letterSpacing: -0.2 }}>{student.goal || '—'}</div>
         </Card>
 
-        {last && (
+        {last ? (
           <>
             <div>
               <SectionLabel>Última clase · {fmtDate(last.date)}</SectionLabel>
@@ -1016,18 +1001,15 @@ function PublicProgress({ student, nav, previewMode }) {
                 <div style={{ fontSize: 20, fontWeight: 700, color: CT.ink, marginTop: 2, letterSpacing: -0.3 }}>{last.focus}</div>
               </Card>
             </div>
-
             <FeedbackBlock kicker="Mejoraste" body={improvedSentence(last.improved)} tone="good" />
             <FeedbackBlock kicker="Sigue trabajando en" body={correctionSentence(last.correction)} tone="warn" />
             <FeedbackBlock kicker="Tarea de la semana" body={last.homework} tone="action" />
-
             {last.note && (
               <Card style={{ background: '#fff', border: `1px dashed ${CT.line}` }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: CT.ink3, textTransform: 'uppercase', letterSpacing: 0.5 }}>Nota del coach</div>
                 <div style={{ fontSize: 15, color: CT.ink, marginTop: 6, fontStyle: 'italic', lineHeight: 1.45 }}>"{last.note}"</div>
               </Card>
             )}
-
             <div>
               <SectionLabel>Próxima clase</SectionLabel>
               <div style={{ padding: '16px 18px', borderRadius: 16, background: CT.ink, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1039,6 +1021,8 @@ function PublicProgress({ student, nav, previewMode }) {
               </div>
             </div>
           </>
+        ) : (
+          <div style={{ padding: 24, borderRadius: 18, background: CT.card, textAlign: 'center', color: CT.ink3, fontSize: 14 }}>Aún no hay clases registradas.</div>
         )}
 
         <div>
@@ -1059,18 +1043,16 @@ function PublicProgress({ student, nav, previewMode }) {
           </Card>
         </div>
 
-        <div style={{ textAlign: 'center', fontSize: 11, color: CT.ink4, padding: '8px 0 24px' }}>Enviado con CourtTrack  ·  Coach Diego Marín</div>
+        <div style={{ textAlign: 'center', fontSize: 11, color: CT.ink4, padding: '8px 0 24px' }}>
+          Enviado con CourtTrack{coachName ? ` · ${coachName}` : ''}
+        </div>
       </div>
     </div>
   );
 }
 
 function FeedbackBlock({ kicker, body, tone }) {
-  const palette = {
-    good:   { bg: CT.greenSoft, fg: CT.greenDeep, dot: CT.green },
-    warn:   { bg: '#FDF2E5',    fg: '#A05A1B',    dot: '#D58A3F' },
-    action: { bg: '#F1F1EE',    fg: CT.ink,       dot: CT.ink2 },
-  }[tone];
+  const palette = { good: { bg: CT.greenSoft, fg: CT.greenDeep, dot: CT.green }, warn: { bg: '#FDF2E5', fg: '#A05A1B', dot: '#D58A3F' }, action: { bg: '#F1F1EE', fg: CT.ink, dot: CT.ink2 } }[tone];
   return (
     <div style={{ background: palette.bg, borderRadius: 18, padding: '16px 18px', border: `1px solid ${palette.dot}22` }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1083,44 +1065,19 @@ function FeedbackBlock({ kicker, body, tone }) {
 }
 
 function improvedSentence(arr) {
-  if (!arr || arr.length === 0) return '';
-  const map = {
-    'Timing': 'tu timing con la pelota',
-    'Punto de contacto': 'contactar la pelota antes y más adelante',
-    'Control': 'tu control general',
-    'Juego de pies': 'tu juego de pies entre golpes',
-    'Confianza': 'tu confianza en el peloteo',
-    'Paciencia': 'tu paciencia para construir el punto',
-    'Posicionamiento': 'tu posicionamiento en pista',
-    'Consistencia': 'tu consistencia en peloteos largos',
-    'Recuperación tras golpe': 'tu recuperación después de cada golpe',
-    'Selección de golpe': 'tu selección de golpe bajo presión',
-  };
+  if (!arr || arr.length === 0) return '—';
+  const map = { 'Timing': 'tu timing con la pelota', 'Punto de contacto': 'contactar la pelota antes y más adelante', 'Control': 'tu control general', 'Juego de pies': 'tu juego de pies entre golpes', 'Confianza': 'tu confianza en el peloteo', 'Paciencia': 'tu paciencia para construir el punto', 'Posicionamiento': 'tu posicionamiento en pista', 'Consistencia': 'tu consistencia en peloteos largos', 'Recuperación tras golpe': 'tu recuperación después de cada golpe', 'Selección de golpe': 'tu selección de golpe bajo presión' };
   return 'Mejoraste ' + arr.map(a => map[a] || a.toLowerCase()).join(', ') + '.';
 }
-
 function correctionSentence(c) {
-  const map = {
-    'Demasiado swing': 'Aún haces demasiado swing cuando la bola viene rápida — mantenlo corto y compacto.',
-    'Contacto tardío': 'Sigues contactando la bola un poco tarde. Prepara la pala antes.',
-    'Mala recuperación': 'Recupera hacia el centro justo después de cada golpe.',
-    'Demasiado cerca de la red': 'Da un paso atrás de la red para que los globos no te sorprendan.',
-    'Demasiado atrás': 'Entra tras defender — no te quedes pegado al cristal de fondo.',
-    'Apresurar el punto': 'No te apresures. Espera la bola correcta para atacar.',
-    'Split step deficiente': 'Split step antes de cada golpe — lo cambia todo.',
-    'Preparación de pala baja': 'Mantén la pala arriba y lista antes.',
-    'Mala decisión bajo presión': 'Elige opciones más simples y seguras cuando el punto se acelera.',
-    'Falta de paciencia': 'Construye el punto. La paciencia gana en pádel.',
-  };
+  const map = { 'Demasiado swing': 'Aún haces demasiado swing cuando la bola viene rápida — mantenlo corto y compacto.', 'Contacto tardío': 'Sigues contactando la bola un poco tarde. Prepara la pala antes.', 'Mala recuperación': 'Recupera hacia el centro justo después de cada golpe.', 'Demasiado cerca de la red': 'Da un paso atrás de la red para que los globos no te sorprendan.', 'Demasiado atrás': 'Entra tras defender — no te quedes pegado al cristal de fondo.', 'Apresurar el punto': 'No te apresures. Espera la bola correcta para atacar.', 'Split step deficiente': 'Split step antes de cada golpe — lo cambia todo.', 'Preparación de pala baja': 'Mantén la pala arriba y lista antes.', 'Mala decisión bajo presión': 'Elige opciones más simples y seguras cuando el punto se acelera.', 'Falta de paciencia': 'Construye el punto. La paciencia gana en pádel.' };
   return map[c] || c;
 }
 
-// ─── app shell ───────────────────────────────────────────────────────────────
-
-const { useState, useMemo, useEffect } = React;
+// ─── responsive hook ─────────────────────────────────────────────────────────
 
 function useIsMobile() {
-  const [mobile, setMobile] = React.useState(() => window.innerWidth < 600);
+  const [mobile, setMobile] = useState(() => window.innerWidth < 600);
   useEffect(() => {
     const fn = () => setMobile(window.innerWidth < 600);
     window.addEventListener('resize', fn);
@@ -1129,7 +1086,10 @@ function useIsMobile() {
   return mobile;
 }
 
+// ─── app ─────────────────────────────────────────────────────────────────────
+
 function App() {
+  const [coach, setCoach] = useState(null);
   const [students, setStudents] = useState(INITIAL_STUDENTS);
   const [route, setRoute] = useState({ name: 'dashboard' });
   const isMobile = useIsMobile();
@@ -1138,28 +1098,31 @@ function App() {
   const addStudent = (s) => setStudents(prev => [s, ...prev]);
   const addClass = (sid, c) => setStudents(prev => prev.map(s => s.id === sid ? { ...s, classes: [c, ...s.classes] } : s));
   const updateScores = (sid, scores) => setStudents(prev => prev.map(s => s.id === sid ? { ...s, scores } : s));
+  const logout = () => { setCoach(null); setRoute({ name: 'dashboard' }); };
+
   const student = useMemo(() => students.find(s => s.id === route.studentId), [students, route.studentId]);
 
   let screen;
-  switch (route.name) {
-    case 'dashboard':  screen = <Dashboard students={students} nav={nav} />; break;
-    case 'addStudent': screen = <AddStudent nav={nav} addStudent={addStudent} />; break;
-    case 'pickStudent':screen = <PickStudent students={students} nav={nav} />; break;
-    case 'profile':    screen = student ? <StudentProfile student={student} nav={nav} updateScores={updateScores} /> : <Dashboard students={students} nav={nav} />; break;
-    case 'logClass':   screen = student ? <LogClass student={student} nav={nav} addClass={addClass} /> : <Dashboard students={students} nav={nav} />; break;
-    case 'share':      screen = student ? <ShareScreen student={student} nav={nav} fromLog={route.meta?.fromLog} /> : <Dashboard students={students} nav={nav} />; break;
-    case 'public':     screen = student ? <PublicProgress student={student} nav={nav} /> : <Dashboard students={students} nav={nav} />; break;
-    default:           screen = <Dashboard students={students} nav={nav} />;
+  if (!coach) {
+    screen = <AuthScreen onLogin={(c) => { setCoach(c); setRoute({ name: 'dashboard' }); }} />;
+  } else {
+    const dashFallback = <Dashboard students={students} nav={nav} coach={coach} onLogout={logout} />;
+    switch (route.name) {
+      case 'dashboard':   screen = <Dashboard students={students} nav={nav} coach={coach} onLogout={logout} />; break;
+      case 'addStudent':  screen = <AddStudent nav={nav} addStudent={addStudent} />; break;
+      case 'pickStudent': screen = <PickStudent students={students} nav={nav} />; break;
+      case 'profile':     screen = student ? <StudentProfile student={student} nav={nav} updateScores={updateScores} /> : dashFallback; break;
+      case 'logClass':    screen = student ? <LogClass student={student} nav={nav} addClass={addClass} /> : dashFallback; break;
+      case 'share':       screen = student ? <ShareScreen student={student} nav={nav} fromLog={route.meta?.fromLog} coach={coach} /> : dashFallback; break;
+      case 'public':      screen = student ? <PublicProgress student={student} nav={nav} coachName={coach?.name} /> : dashFallback; break;
+      default:            screen = dashFallback;
+    }
   }
 
-  // Mobile: fullscreen, no phone frame, no brand panel
+  // Mobile: fullscreen, no phone frame
   if (isMobile) {
     return (
-      <div style={{
-        minHeight: '100vh', minHeight: '100dvh',
-        background: route.name === 'public' ? '#0E1311' : '#fff',
-        display: 'flex', flexDirection: 'column',
-      }}>
+      <div style={{ minHeight: '100vh', minHeight: '100dvh', background: route.name === 'public' ? CT.ink : '#fff', display: 'flex', flexDirection: 'column' }}>
         <div className="ct-scroll" style={{ flex: 1, overflow: 'auto', WebkitOverflowScrolling: 'touch' }}>
           {screen}
         </div>
@@ -1167,33 +1130,28 @@ function App() {
     );
   }
 
-  // Desktop: iOS frame + brand panel
+  // Desktop: iOS phone frame + brand panel
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '24px 12px', background: 'radial-gradient(circle at 30% 0%, #FAFAF6, #ECEDE6)',
-    }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 12px', background: 'radial-gradient(circle at 30% 0%, #FAFAF6, #ECEDE6)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 32, flexWrap: 'wrap', justifyContent: 'center' }}>
         {/* Brand panel */}
         <div style={{ maxWidth: 280, padding: '20px 8px', alignSelf: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <div style={{ width: 36, height: 36, borderRadius: 12, background: '#0E1311', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="oklch(0.62 0.14 152)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="9"/>
-                <path d="M3.5 9c4 1 9-1 13.5-3"/>
-                <path d="M20.5 15c-4-1-9 1-13.5 3"/>
+                <circle cx="12" cy="12" r="9"/><path d="M3.5 9c4 1 9-1 13.5-3"/><path d="M20.5 15c-4-1-9 1-13.5 3"/>
               </svg>
             </div>
             <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5 }}>CourtTrack</div>
           </div>
           <div style={{ fontSize: 14, color: '#3A4441', lineHeight: 1.5 }}>
-            Toca, toca, toca, envía. Un reporte de progreso profesional después de cada clase de pádel — en menos de 60 segundos.
+            Registra cada clase en menos de 60 segundos y envía a tus alumnos un resumen claro con progreso, correcciones y tarea semanal.
           </div>
           <div style={{ marginTop: 22, fontSize: 11, fontWeight: 600, color: '#6B746F', textTransform: 'uppercase', letterSpacing: 0.6 }}>Pruébalo</div>
           <ul style={{ fontSize: 13, color: '#3A4441', paddingLeft: 18, lineHeight: 1.7, marginTop: 8 }}>
-            <li>Pulsa <b>Registrar clase</b> en el dashboard</li>
-            <li>Elige un alumno y avanza por el flujo</li>
-            <li>Abre el enlace como alumno</li>
+            <li>Entra como coach demo</li>
+            <li>Registra una clase demo</li>
+            <li>Mira el reporte del alumno</li>
           </ul>
         </div>
 
