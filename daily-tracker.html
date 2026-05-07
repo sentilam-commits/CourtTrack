@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0c0c0c;
+      --surface: #161616;
+      --border: #242424;
+      --text: #e0e0e0;
+      --muted: #555;
+      --green: #27ae60;
+      --green-dim: #1a3d2b;
+      --green-text: #6fcf97;
+      --yellow: #b8860b;
+      --yellow-dim: #2e2510;
+      --yellow-text: #f2c94c;
+      --red: #922b21;
+      --red-dim: #2e1210;
+      --red-text: #eb5757;
+      --blue-text: #5b9bd5;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 36px 16px 80px;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      width: 100%; max-width: 440px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 4px; margin-bottom: 28px; gap: 4px;
+    }
+    .tab {
+      flex: 1; padding: 9px; border: none; border-radius: 9px;
+      background: transparent; color: var(--muted);
+      font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+    }
+    .tab.active { background: #222; color: var(--text); }
+
+    .panel { display: none; width: 100%; align-items: center; flex-direction: column; }
+    .panel.active { display: flex; }
+
+    /* ── Header ── */
+    .header { text-align: center; margin-bottom: 28px; }
+    .header .label { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+    .header .date  { font-size: 1.5rem; font-weight: 700; color: #fff; margin-top: 4px; }
+
+    /* ── Score banner ── */
+    .score-banner {
+      width: 100%; max-width: 440px; border-radius: 16px;
+      padding: 22px 24px; display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .score-banner.progress { background: var(--green-dim); border-color: var(--green); }
+    .score-banner.neutral  { background: var(--yellow-dim); border-color: var(--yellow); }
+    .score-banner.adjust   { background: var(--red-dim); border-color: var(--red); }
+
+    .score-number { font-size: 3.2rem; font-weight: 900; line-height: 1; color: var(--muted); transition: color 0.3s; }
+    .score-banner.progress .score-number { color: var(--green-text); }
+    .score-banner.neutral  .score-number { color: var(--yellow-text); }
+    .score-banner.adjust   .score-number { color: var(--red-text); }
+
+    .score-meta .day-type { font-size: 1rem; font-weight: 700; color: var(--muted); text-align: right; }
+    .score-banner.progress .day-type { color: var(--green-text); }
+    .score-banner.neutral  .day-type { color: var(--yellow-text); }
+    .score-banner.adjust   .day-type { color: var(--red-text); }
+    .score-meta .sub { font-size: 0.78rem; color: var(--muted); margin-top: 4px; text-align: right; }
+
+    /* ── Metric cards ── */
+    .metrics { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 10px; }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px 18px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; transition: border-color 0.2s;
+    }
+    .card[data-val="2"] { border-color: #27ae60; }
+    .card[data-val="1"] { border-color: #6e5b00; }
+    .card[data-val="0"] { border-color: #6a2020; }
+
+    .card-left { flex: 1; min-width: 0; }
+    .card-icon  { font-size: 1rem; }
+    .card-label { font-size: 0.9rem; font-weight: 500; margin-top: 2px; }
+    .card-hint  { font-size: 0.72rem; color: var(--muted); margin-top: 3px; }
+
+    .seg { display: flex; border-radius: 9px; overflow: hidden; border: 1px solid #2a2a2a; flex-shrink: 0; }
+    .seg button {
+      background: #111; color: #444; border: none;
+      width: 38px; height: 36px; font-size: 0.85rem; font-weight: 700;
+      cursor: pointer; border-right: 1px solid #2a2a2a; transition: background 0.15s, color 0.15s;
+    }
+    .seg button:last-child { border-right: none; }
+    .seg button.sel-0 { background: #6a2020; color: #f5a8a8; }
+    .seg button.sel-1 { background: #4a3800; color: #f2c94c; }
+    .seg button.sel-2 { background: #1a3d2b; color: #6fcf97; }
+
+    /* ── Calorie card ── */
+    .cal-card {
+      width: 100%; max-width: 440px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px 18px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; margin-top: 10px;
+      transition: border-color 0.2s;
+    }
+    .cal-card.has-value { border-color: #6e5b00; }
+    .cal-card-left { flex: 1; min-width: 0; }
+    .cal-card-icon  { font-size: 1rem; }
+    .cal-card-label { font-size: 0.9rem; font-weight: 500; margin-top: 2px; }
+    .cal-card-hint  { font-size: 0.72rem; color: var(--muted); margin-top: 3px; }
+    .cal-input-wrap { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .cal-input {
+      width: 88px; height: 36px;
+      background: #111; border: 1px solid #2a2a2a;
+      border-radius: 9px; color: var(--text);
+      font-family: inherit; font-size: 1rem; font-weight: 700;
+      text-align: center; padding: 0 8px; outline: none;
+      transition: border-color 0.15s;
+      -moz-appearance: textfield;
+    }
+    .cal-input::-webkit-inner-spin-button,
+    .cal-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .cal-input:focus { border-color: #555; }
+    .cal-unit { font-size: 0.75rem; color: var(--muted); font-weight: 600; }
+
+    /* ── Adjustment ── */
+    .adjust-wrap { width: 100%; max-width: 440px; margin-top: 10px; }
+    .field-label { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 8px; }
+    textarea {
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; color: var(--text); font-family: inherit;
+      font-size: 0.9rem; padding: 14px 16px; resize: none; height: 72px;
+      outline: none; transition: border-color 0.2s;
+    }
+    textarea::placeholder { color: #3a3a3a; }
+    textarea:focus { border-color: #444; }
+
+    /* ── Buttons ── */
+    .btn { width: 100%; max-width: 440px; padding: 13px; border-radius: 12px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-primary { background: var(--surface); color: var(--muted); border: 1px solid var(--border); margin-top: 12px; }
+    .btn-primary:hover { background: var(--green-dim); color: var(--green-text); border-color: var(--green); }
+    .btn-primary.saved { background: var(--green-dim); color: var(--green-text); border-color: var(--green); }
+    .btn-ghost { background: transparent; color: #333; border: 1px solid #1e1e1e; margin-top: 10px; font-size: 0.82rem; }
+    .btn-ghost:hover { color: var(--muted); border-color: #333; }
+
+    /* ── Section title ── */
+    .section-title {
+      width: 100%; max-width: 440px;
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--muted); margin-top: 32px; margin-bottom: 12px;
+    }
+
+    /* ── Weekly bar ── */
+    .weekly-bar {
+      width: 100%; max-width: 440px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 20px;
+    }
+    .weekly-top { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px; }
+    .weekly-count { font-size: 2rem; font-weight: 800; color: #fff; }
+    .weekly-count span { font-size: 1rem; color: var(--muted); font-weight: 400; }
+    .weekly-verdict { font-size: 0.82rem; font-weight: 600; padding: 4px 10px; border-radius: 6px; }
+    .verdict-excellent { background: var(--green-dim); color: var(--green-text); }
+    .verdict-strong    { background: #1a2e3d; color: var(--blue-text); }
+    .verdict-building  { background: var(--yellow-dim); color: var(--yellow-text); }
+    .verdict-reset     { background: var(--red-dim); color: var(--red-text); }
+
+    .days-row { display: flex; gap: 6px; justify-content: space-between; }
+    .day-pip  { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    .pip-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; }
+    .pip-bar   { width: 100%; height: 40px; border-radius: 5px; background: #1e1e1e; position: relative; overflow: hidden; }
+    .pip-fill  { position: absolute; bottom: 0; left: 0; right: 0; border-radius: 5px; transition: height 0.4s ease; }
+    .pip-fill.progress { background: var(--green); }
+    .pip-fill.neutral  { background: var(--yellow); }
+    .pip-fill.adjust   { background: #922b21; }
+    .pip-score { font-size: 0.7rem; color: var(--muted); font-weight: 600; }
+
+    /* ── Calendar ── */
+    .calendar-wrap {
+      width: 100%; max-width: 440px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 16px;
+    }
+
+    .cal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .cal-month {
+      font-size: 1rem; font-weight: 700; color: #fff;
+    }
+    .cal-nav {
+      background: #111; border: 1px solid var(--border); border-radius: 8px;
+      color: var(--muted); font-size: 1rem; width: 32px; height: 32px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .cal-nav:hover { color: #fff; border-color: #444; }
+
+    .cal-weekdays {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      margin-bottom: 6px;
+    }
+    .cal-wd {
+      text-align: center; font-size: 0.65rem; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--muted); padding: 4px 0;
+    }
+
+    .cal-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+    }
+
+    .cal-cell {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 600;
+      position: relative; cursor: default;
+      background: #111; color: #333;
+      transition: transform 0.1s;
+    }
+    .cal-cell.empty { background: transparent; }
+    .cal-cell.today { outline: 2px solid var(--muted); outline-offset: -2px; }
+    .cal-cell.today.has-data { outline-color: currentColor; }
+
+    .cal-cell.has-data { color: #fff; }
+    .cal-cell.progress { background: var(--green-dim); color: var(--green-text); }
+    .cal-cell.neutral  { background: var(--yellow-dim); color: var(--yellow-text); }
+    .cal-cell.adjust   { background: var(--red-dim); color: var(--red-text); }
+
+    .cal-cell .cal-day  { font-size: 0.7rem; font-weight: 700; line-height: 1; }
+    .cal-cell .cal-score { font-size: 0.65rem; opacity: 0.8; margin-top: 2px; }
+
+    .cal-legend {
+      display: flex; gap: 12px; margin-top: 14px; justify-content: center;
+    }
+    .leg-item { display: flex; align-items: center; gap: 5px; font-size: 0.7rem; color: var(--muted); }
+    .leg-dot  { width: 10px; height: 10px; border-radius: 3px; }
+    .leg-dot.progress { background: var(--green); }
+    .leg-dot.neutral  { background: var(--yellow); }
+    .leg-dot.adjust   { background: var(--red-text); }
+
+    /* ── History list ── */
+    .history-list { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 8px; }
+    .h-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 13px 16px;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .h-date  { font-size: 0.82rem; color: var(--muted); min-width: 60px; }
+    .h-dots  { display: flex; gap: 5px; flex: 1; }
+    .h-dot   {
+      width: 22px; height: 22px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-weight: 700;
+    }
+    .h-dot.v2 { background: var(--green-dim); color: var(--green-text); }
+    .h-dot.v1 { background: var(--yellow-dim); color: var(--yellow-text); }
+    .h-dot.v0 { background: var(--red-dim); color: var(--red-text); }
+    .h-score  { font-size: 0.9rem; font-weight: 700; min-width: 28px; text-align: right; }
+    .h-score.progress { color: var(--green-text); }
+    .h-score.neutral  { color: var(--yellow-text); }
+    .h-score.adjust   { color: var(--red-text); }
+    .h-cal {
+      width: 100%; display: flex; align-items: center; gap: 6px;
+      font-size: 0.72rem; color: var(--muted); padding-top: 6px;
+      border-top: 1px solid var(--border); margin-top: 2px;
+    }
+    .h-cal span { color: var(--yellow-text); font-weight: 600; }
+
+    /* ── Sync panel ── */
+    .sync-box {
+      width: 100%; max-width: 440px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .sync-box h3 { font-size: 0.95rem; font-weight: 700; color: #fff; }
+    .sync-box p  { font-size: 0.82rem; color: var(--muted); line-height: 1.5; }
+    .sync-textarea {
+      width: 100%; height: 90px;
+      background: #111; border: 1px solid #2a2a2a;
+      border-radius: 10px; color: #888;
+      font-family: monospace; font-size: 0.72rem;
+      padding: 12px; resize: none; outline: none;
+    }
+    .sync-btn {
+      padding: 11px 16px; border-radius: 10px;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer;
+      border: 1px solid var(--border); background: #111; color: var(--muted);
+      transition: all 0.15s; width: 100%;
+    }
+    .sync-btn:hover { border-color: #444; color: #fff; }
+    .sync-btn.green { background: var(--green-dim); color: var(--green-text); border-color: var(--green); }
+    .step-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+
+    .no-data { color: #333; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('today', this)">Today</button>
+    <button class="tab" onclick="showTab('history', this)">History</button>
+    <button class="tab" onclick="showTab('sync', this)">Sync</button>
+  </div>
+
+  <!-- TODAY -->
+  <div class="panel active" id="panel-today">
+    <div class="header">
+      <div class="label">Daily Recovery Tracker</div>
+      <div class="date" id="today-date"></div>
+    </div>
+
+    <div class="score-banner" id="score-banner">
+      <div class="score-number" id="score-num">–</div>
+      <div class="score-meta">
+        <div class="day-type" id="day-type">Not started</div>
+        <div class="sub" id="day-sub">Score your day below</div>
+      </div>
+    </div>
+
+    <div class="metrics" id="metrics-container"></div>
+
+    <!-- Calories -->
+    <div class="cal-card" id="cal-card">
+      <div class="cal-card-left">
+        <div class="cal-card-icon">🔥</div>
+        <div class="cal-card-label">Total calories</div>
+        <div class="cal-card-hint" id="cal-hint">Enter total eaten today</div>
+      </div>
+      <div class="cal-input-wrap">
+        <input type="number" class="cal-input" id="calories" placeholder="—" min="0" max="9999" oninput="onCaloriesInput()" />
+        <span class="cal-unit">kcal</span>
+      </div>
+    </div>
+
+    <div class="adjust-wrap" style="margin-top:14px">
+      <label class="field-label">1 adjustment for tomorrow</label>
+      <textarea id="adjustment" placeholder="e.g. Sleep earlier / Don't push portions / Stay lighter at night"></textarea>
+    </div>
+
+    <button class="btn btn-primary" id="save-btn" onclick="saveToday()">Save Today</button>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="panel" id="panel-history">
+
+    <div class="section-title" style="margin-top:0">This Week</div>
+    <div class="weekly-bar">
+      <div class="weekly-top">
+        <div class="weekly-count"><span id="weekly-count-num">0</span><span> / 7 days at 7+</span></div>
+        <div class="weekly-verdict" id="weekly-verdict"></div>
+      </div>
+      <div class="days-row" id="days-row"></div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="section-title">Monthly View</div>
+    <div class="calendar-wrap">
+      <div class="cal-header">
+        <button class="cal-nav" onclick="changeMonth(-1)">&#8249;</button>
+        <div class="cal-month" id="cal-month-label"></div>
+        <button class="cal-nav" onclick="changeMonth(1)">&#8250;</button>
+      </div>
+      <div class="cal-weekdays">
+        <div class="cal-wd">Sun</div><div class="cal-wd">Mon</div><div class="cal-wd">Tue</div>
+        <div class="cal-wd">Wed</div><div class="cal-wd">Thu</div><div class="cal-wd">Fri</div>
+        <div class="cal-wd">Sat</div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-legend">
+        <div class="leg-item"><div class="leg-dot progress"></div>Progress (7+)</div>
+        <div class="leg-item"><div class="leg-dot neutral"></div>Neutral (5–6)</div>
+        <div class="leg-item"><div class="leg-dot adjust"></div>Adjust (&lt;5)</div>
+      </div>
+    </div>
+
+    <div class="section-title">All Days</div>
+    <div class="history-list" id="history-list"></div>
+
+    <button class="btn btn-ghost" onclick="exportJSON()">Export data as JSON</button>
+  </div>
+
+  <!-- SYNC -->
+  <div class="panel" id="panel-sync">
+    <div class="sync-box">
+      <h3>Export to another device</h3>
+      <p>Copy this code and paste it on your other device.</p>
+      <div class="step-label">Your sync code</div>
+      <textarea class="sync-textarea" id="export-code" readonly placeholder="Click generate to create your code"></textarea>
+      <button class="sync-btn" id="copy-btn" onclick="generateAndCopy()">Generate &amp; Copy code</button>
+    </div>
+
+    <div class="section-title">Import from another device</div>
+    <div class="sync-box">
+      <h3>Import from another device</h3>
+      <p>Paste the sync code from your other device. Existing days won't be overwritten.</p>
+      <div class="step-label">Paste sync code here</div>
+      <textarea class="sync-textarea" id="import-code" placeholder="Paste sync code here…"></textarea>
+      <button class="sync-btn" onclick="importCode()">Import</button>
+      <div id="import-status" style="font-size:0.82rem;min-height:18px;text-align:center"></div>
+    </div>
+  </div>
+
+<script>
+  const METRICS = [
+    { id: 'meals',     icon: '🍽️', label: 'Meal consistency',  hints: ['Skipped / chaotic', 'Off timing or size', 'On plan (300–350 cal, every 3–3.5h)'] },
+    { id: 'digestion', icon: '🧘', label: 'Digestion response', hints: ['Discomfort / bloating / stress', 'Slight discomfort', 'Calm, handled meals well'] },
+    { id: 'sleep',     icon: '😴', label: 'Sleep timing',       hints: ['After 12am', '11pm – 12am', 'Before 11pm'] },
+    { id: 'energy',    icon: '⚡', label: 'Energy stability',   hints: ['Crashes / unstable', 'Some dips', 'Stable, even if not amazing'] },
+    { id: 'emotional', icon: '🧠', label: 'Emotional control',  hints: ['Reactive / anxious / overthinking', 'Some control', 'Calm, observing, not reacting'] },
+  ];
+
+  const STORE_KEY = 'recovery-v2';
+  const state = {};
+  let calYear, calMonth;
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); }
+    catch { return {}; }
+  }
+  function save(data) { localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+  function getToday() { return new Date().toISOString().split('T')[0]; }
+
+  function formatDate(d) {
+    const [y, m, day] = d.split('-');
+    return new Date(+y, +m-1, +day).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  function dayLabel(d) {
+    const [y, m, day] = d.split('-');
+    return new Date(+y, +m-1, +day).toLocaleDateString('en-US', { weekday: 'short' });
+  }
+
+  function getScore() { return METRICS.reduce((s, m) => s + (state[m.id] ?? 0), 0); }
+  function classify(score) { return score >= 7 ? 'progress' : score >= 5 ? 'neutral' : 'adjust'; }
+
+  const LABELS = { progress: 'PROGRESS DAY', neutral: 'NEUTRAL DAY', adjust: 'NEEDS ADJUSTMENT' };
+  const SUBS   = { progress: "7+ — you're on track", neutral: '5–6 — steady, keep going', adjust: '<5 — one thing to fix tomorrow' };
+
+  // ── Calories ──
+  function onCaloriesInput() {
+    const val = parseInt(document.getElementById('calories').value);
+    const card = document.getElementById('cal-card');
+    const hint = document.getElementById('cal-hint');
+    if (val > 0) {
+      card.classList.add('has-value');
+      hint.textContent = val >= 2000 ? 'High intake day' : val >= 1400 ? 'Moderate intake' : 'Low intake day';
+    } else {
+      card.classList.remove('has-value');
+      hint.textContent = 'Enter total eaten today';
+    }
+    markUnsaved();
+  }
+
+  // ── Tabs ──
+  function showTab(name, el) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    el.classList.add('active');
+    if (name === 'history') { renderWeekly(); renderCalendar(); renderHistory(); }
+    if (name === 'sync') {
+      document.getElementById('export-code').value = '';
+      document.getElementById('copy-btn').textContent = 'Generate & Copy code';
+      document.getElementById('copy-btn').classList.remove('green');
+    }
+  }
+
+  // ── Today ──
+  function renderMetrics() {
+    document.getElementById('metrics-container').innerHTML = METRICS.map(({ id, icon, label, hints }) => {
+      const val = state[id], has = val !== undefined;
+      return `<div class="card" data-val="${has ? val : ''}">
+        <div class="card-left">
+          <div class="card-icon">${icon}</div>
+          <div class="card-label">${label}</div>
+          <div class="card-hint">${has ? hints[val] : 'tap to score'}</div>
+        </div>
+        <div class="seg">
+          ${[0,1,2].map(v => `<button class="${has && val===v ? `sel-${v}` : ''}" onclick="setVal('${id}',${v})">${v}</button>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function setVal(id, v) {
+    state[id] = (state[id] === v) ? undefined : v;
+    renderMetrics(); updateBanner(); markUnsaved();
+  }
+
+  function updateBanner() {
+    const answered = METRICS.filter(m => state[m.id] !== undefined).length;
+    const score = getScore(), cls = classify(score);
+    document.getElementById('score-banner').className = 'score-banner' + (answered > 0 ? ` ${cls}` : '');
+    document.getElementById('score-num').textContent  = answered > 0 ? score : '–';
+    document.getElementById('day-type').textContent   = answered > 0 ? LABELS[cls] : 'Not started';
+    document.getElementById('day-sub').textContent    = answered > 0 ? SUBS[cls] : 'Score your day below';
+  }
+
+  function markUnsaved() {
+    const btn = document.getElementById('save-btn');
+    btn.classList.remove('saved');
+    btn.textContent = 'Save Today';
+  }
+
+  function saveToday() {
+    if (METRICS.filter(m => state[m.id] !== undefined).length < METRICS.length) {
+      alert('Score all 5 metrics first.'); return;
+    }
+    const cal = parseInt(document.getElementById('calories').value) || null;
+    const data = load();
+    data[getToday()] = {
+      scores: { ...state },
+      total: getScore(),
+      adjustment: document.getElementById('adjustment').value.trim(),
+      calories: cal,
+    };
+    save(data);
+    const btn = document.getElementById('save-btn');
+    btn.textContent = 'Saved ✓'; btn.classList.add('saved');
+  }
+
+  // ── Weekly ──
+  function renderWeekly() {
+    const data = load(), today = new Date(), days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      days.push({ key, label: dayLabel(key), entry: data[key] });
+    }
+    const prog = days.filter(d => d.entry && classify(d.entry.total) === 'progress').length;
+    document.getElementById('weekly-count-num').textContent = prog;
+
+    let verdict = '', cls = '';
+    if (prog >= 6) { verdict = 'Excellent'; cls = 'verdict-excellent'; }
+    else if (prog >= 4) { verdict = 'Strong';    cls = 'verdict-strong'; }
+    else if (prog >= 2) { verdict = 'Building';  cls = 'verdict-building'; }
+    else                { verdict = 'Keep going'; cls = 'verdict-reset'; }
+
+    const vEl = document.getElementById('weekly-verdict');
+    vEl.textContent = verdict; vEl.className = `weekly-verdict ${cls}`;
+
+    document.getElementById('days-row').innerHTML = days.map(({ label, entry }) => {
+      if (!entry) return `<div class="day-pip"><div class="pip-label">${label}</div><div class="pip-bar"></div><div class="pip-score">–</div></div>`;
+      const pct = Math.round((entry.total / 10) * 100);
+      return `<div class="day-pip">
+        <div class="pip-label">${label}</div>
+        <div class="pip-bar"><div class="pip-fill ${classify(entry.total)}" style="height:${pct}%"></div></div>
+        <div class="pip-score">${entry.total}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Calendar ──
+  function renderCalendar() {
+    const data = load();
+    const now = new Date();
+    if (calYear === undefined) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
+
+    const monthName = new Date(calYear, calMonth, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    document.getElementById('cal-month-label').textContent = monthName;
+
+    const firstDay = new Date(calYear, calMonth, 1).getDay();
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const todayStr = getToday();
+
+    let cells = '';
+    for (let i = 0; i < firstDay; i++) cells += `<div class="cal-cell empty"></div>`;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const mm = String(calMonth + 1).padStart(2, '0');
+      const dd = String(d).padStart(2, '0');
+      const key = `${calYear}-${mm}-${dd}`;
+      const entry = data[key];
+      const isToday = key === todayStr;
+
+      if (entry) {
+        const cls = classify(entry.total);
+        cells += `<div class="cal-cell has-data ${cls}${isToday ? ' today' : ''}" title="${formatDate(key)}: ${entry.total}/10${entry.calories ? ' · ' + entry.calories + ' kcal' : ''}">
+          <div class="cal-day">${d}</div>
+          <div class="cal-score">${entry.total}</div>
+        </div>`;
+      } else {
+        cells += `<div class="cal-cell${isToday ? ' today' : ''}" title="${formatDate(key)}">
+          <div class="cal-day">${d}</div>
+        </div>`;
+      }
+    }
+
+    document.getElementById('cal-grid').innerHTML = cells;
+  }
+
+  function changeMonth(dir) {
+    calMonth += dir;
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    if (calMonth < 0)  { calMonth = 11; calYear--; }
+    renderCalendar();
+  }
+
+  // ── History list ──
+  function renderHistory() {
+    const data = load();
+    const keys = Object.keys(data).sort().reverse().slice(0, 30);
+    const c = document.getElementById('history-list');
+    if (!keys.length) { c.innerHTML = `<div class="no-data">No saved days yet.</div>`; return; }
+    c.innerHTML = keys.map(dateStr => {
+      const { scores, total, adjustment, calories } = data[dateStr];
+      const cls = classify(total);
+      const dots = METRICS.map(m => {
+        const v = scores[m.id] ?? '–';
+        return `<div class="h-dot v${v}" title="${m.label}: ${v}">${v}</div>`;
+      }).join('');
+      const calRow = calories
+        ? `<div class="h-cal">🔥 <span>${calories} kcal</span>${adjustment ? ` &nbsp;·&nbsp; 📝 ${adjustment}` : ''}</div>`
+        : (adjustment ? `<div class="h-cal">📝 ${adjustment}</div>` : '');
+      return `<div class="h-item">
+        <div class="h-date">${dateStr === getToday() ? 'Today' : formatDate(dateStr)}</div>
+        <div class="h-dots">${dots}</div>
+        <div class="h-score ${cls}">${total}/10</div>
+        ${calRow}
+      </div>`;
+    }).join('');
+  }
+
+  function exportJSON() {
+    const blob = new Blob([JSON.stringify(load(), null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `recovery-${getToday()}.json`;
+    a.click();
+  }
+
+  // ── Sync ──
+  function generateAndCopy() {
+    const code = btoa(JSON.stringify(load()));
+    document.getElementById('export-code').value = code;
+    navigator.clipboard.writeText(code).catch(() => {
+      document.getElementById('export-code').select();
+      document.execCommand('copy');
+    });
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied ✓'; btn.classList.add('green');
+  }
+
+  function importCode() {
+    const raw = document.getElementById('import-code').value.trim();
+    const statusEl = document.getElementById('import-status');
+    if (!raw) { statusEl.style.color = '#eb5757'; statusEl.textContent = 'Paste a sync code first.'; return; }
+    try {
+      const incoming = JSON.parse(atob(raw));
+      const existing = load();
+      let added = 0;
+      Object.keys(incoming).forEach(k => { if (!existing[k]) { existing[k] = incoming[k]; added++; } });
+      save(existing);
+      statusEl.style.color = '#6fcf97';
+      statusEl.textContent = added > 0 ? `Imported ${added} new day${added !== 1 ? 's' : ''} ✓` : 'Already up to date.';
+      document.getElementById('import-code').value = '';
+    } catch {
+      statusEl.style.color = '#eb5757';
+      statusEl.textContent = 'Invalid code. Make sure you copied the full thing.';
+    }
+  }
+
+  // ── Boot ──
+  document.getElementById('today-date').textContent = formatDate(getToday());
+  const existing = load()[getToday()];
+  if (existing) {
+    METRICS.forEach(m => { state[m.id] = existing.scores[m.id]; });
+    document.getElementById('adjustment').value = existing.adjustment || '';
+    if (existing.calories) {
+      document.getElementById('calories').value = existing.calories;
+      onCaloriesInput();
+    }
+    const btn = document.getElementById('save-btn');
+    btn.textContent = 'Saved ✓'; btn.classList.add('saved');
+  }
+  renderMetrics();
+  updateBanner();
+  document.getElementById('adjustment').addEventListener('input', markUnsaved);
+</script>
+</body>
+</html>
