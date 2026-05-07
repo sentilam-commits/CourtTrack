@@ -1117,11 +1117,22 @@ function correctionSentence(c) {
 
 // ─── app shell ───────────────────────────────────────────────────────────────
 
-const { useState, useMemo } = React;
+const { useState, useMemo, useEffect } = React;
+
+function useIsMobile() {
+  const [mobile, setMobile] = React.useState(() => window.innerWidth < 600);
+  useEffect(() => {
+    const fn = () => setMobile(window.innerWidth < 600);
+    window.addEventListener('resize', fn);
+    return () => window.removeEventListener('resize', fn);
+  }, []);
+  return mobile;
+}
 
 function App() {
   const [students, setStudents] = useState(INITIAL_STUDENTS);
   const [route, setRoute] = useState({ name: 'dashboard' });
+  const isMobile = useIsMobile();
 
   const nav = (name, studentId, meta = {}) => setRoute({ name, studentId, meta });
   const addStudent = (s) => setStudents(prev => [s, ...prev]);
@@ -1141,6 +1152,22 @@ function App() {
     default:           screen = <Dashboard students={students} nav={nav} />;
   }
 
+  // Mobile: fullscreen, no phone frame, no brand panel
+  if (isMobile) {
+    return (
+      <div style={{
+        minHeight: '100vh', minHeight: '100dvh',
+        background: route.name === 'public' ? '#0E1311' : '#fff',
+        display: 'flex', flexDirection: 'column',
+      }}>
+        <div className="ct-scroll" style={{ flex: 1, overflow: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          {screen}
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop: iOS frame + brand panel
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
