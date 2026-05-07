@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CourtTrack — App para entrenadores de pádel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #F2F1EC; font-family: 'Inter', system-ui, sans-serif;
+                color: #0E1311; -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+  button:focus-visible { outline: 2px solid oklch(0.62 0.14 152); outline-offset: 2px; }
+  /* Hide scrollbar in mock */
+  .ct-scroll::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="data.jsx"></script>
+<script type="text/babel" src="ui.jsx"></script>
+<script type="text/babel" src="screens-dashboard.jsx"></script>
+<script type="text/babel" src="screens-profile.jsx"></script>
+<script type="text/babel" src="screens-log.jsx"></script>
+<script type="text/babel" src="screens-share.jsx"></script>
+
+<script type="text/babel">
+const { useState, useMemo } = React;
+
+function App() {
+  const [students, setStudents] = useState(INITIAL_STUDENTS);
+  // route stack: { name, studentId, meta }
+  const [route, setRoute] = useState({ name: 'dashboard' });
+
+  const nav = (name, studentId, meta = {}) => setRoute({ name, studentId, meta });
+
+  const addStudent = (s) => setStudents(prev => [s, ...prev]);
+  const addClass = (sid, c) => setStudents(prev => prev.map(s =>
+    s.id === sid ? { ...s, classes: [c, ...s.classes] } : s
+  ));
+  const updateScores = (sid, scores) => setStudents(prev => prev.map(s =>
+    s.id === sid ? { ...s, scores } : s
+  ));
+
+  const student = useMemo(() => students.find(s => s.id === route.studentId), [students, route.studentId]);
+
+  let screen;
+  switch (route.name) {
+    case 'dashboard':
+      screen = <Dashboard students={students} nav={nav} />; break;
+    case 'addStudent':
+      screen = <AddStudent nav={nav} addStudent={addStudent} />; break;
+    case 'pickStudent':
+      screen = <PickStudent students={students} nav={nav} />; break;
+    case 'profile':
+      screen = student ? <StudentProfile student={student} nav={nav} updateScores={updateScores} />
+                       : <Dashboard students={students} nav={nav} />; break;
+    case 'logClass':
+      screen = student ? <LogClass student={student} nav={nav} addClass={addClass} />
+                       : <Dashboard students={students} nav={nav} />; break;
+    case 'share':
+      screen = student ? <ShareScreen student={student} nav={nav} fromLog={route.meta?.fromLog} />
+                       : <Dashboard students={students} nav={nav} />; break;
+    case 'public':
+      screen = student ? <PublicProgress student={student} nav={nav} />
+                       : <Dashboard students={students} nav={nav} />; break;
+    default:
+      screen = <Dashboard students={students} nav={nav} />;
+  }
+
+  return (
+    <div data-screen-label={`CourtTrack — ${route.name}`} style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '24px 12px', background: 'radial-gradient(circle at 30% 0%, #FAFAF6, #ECEDE6)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 32, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {/* Brand panel */}
+        <div style={{ maxWidth: 280, padding: '20px 8px', alignSelf: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 12, background: '#0E1311',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="oklch(0.62 0.14 152)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M3.5 9c4 1 9-1 13.5-3"/>
+                <path d="M20.5 15c-4-1-9 1-13.5 3"/>
+              </svg>
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5 }}>CourtTrack</div>
+          </div>
+          <div style={{ fontSize: 14, color: '#3A4441', lineHeight: 1.5 }}>
+            Toca, toca, toca, envía. Un reporte de progreso profesional después de cada clase de pádel — en menos de 60 segundos.
+          </div>
+          <div style={{ marginTop: 22, fontSize: 11, fontWeight: 600, color: '#6B746F',
+                        textTransform: 'uppercase', letterSpacing: 0.6 }}>Pruébalo</div>
+          <ul style={{ fontSize: 13, color: '#3A4441', paddingLeft: 18, lineHeight: 1.7, marginTop: 8 }}>
+            <li>Pulsa <b>Registrar clase</b> en el dashboard</li>
+            <li>Elige un alumno y avanza por el flujo</li>
+            <li>Abre el enlace como alumno</li>
+          </ul>
+        </div>
+
+        {/* The phone */}
+        <IOSDevice width={390} height={820}
+          time="9:41"
+          dark={route.name === 'public'}
+        >
+          <div className="ct-scroll" style={{
+            position: 'absolute', inset: 0, top: 50, overflow: 'auto',
+            WebkitOverflowScrolling: 'touch',
+          }}>
+            {screen}
+          </div>
+        </IOSDevice>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
