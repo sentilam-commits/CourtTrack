@@ -1,5 +1,5 @@
-// CourtTrack data/auth service.
-// Fill these for Supabase mode. When empty, the app uses localStorage so the MVP
+const CT_SUPABASE_URL = 'https://svviqpjdorxiyywnblxt.supabase.co';
+const CT_SUPABASE_ANON_KEY = 'sb_publishable_HSl0bc6L62gGl5egjtVfRg_6DfhA35X';
 // still works while the Supabase project is being created.
 const CT_SUPABASE_URL = '';
 const CT_SUPABASE_ANON_KEY = '';
