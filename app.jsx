@@ -9,12 +9,18 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
+  const [profile, setProfile] = useState(null);
 
   const nav = (name, studentId, meta = {}) => {
     if (name === 'public' && studentId) history.replaceState(null, '', `#/p/${studentId}`);
     if (name !== 'public' && location.hash.startsWith('#/p/')) history.replaceState(null, '', location.pathname);
     setRoute({ name, studentId, meta });
   };
+
+  const withTimeout = (promise, ms, fallback) => Promise.race([
+    promise,
+    new Promise(resolve => setTimeout(() => resolve(fallback), ms)),
+  ]);
 
   const showMessage = (text, type = 'success') => {
     setMessage({ text, type });
@@ -31,7 +37,7 @@ function App() {
     (async () => {
       try {
         const publicId = location.hash.startsWith('#/p/') ? location.hash.replace('#/p/', '') : null;
-        const session = await store.getSession();
+        const session = await withTimeout(store.getSession(), 5000, { user: null });
         if (publicId) {
           const publicStudent = session.user
             ? (await store.loadStudents(session.user)).find(s => s.id === publicId)
@@ -41,8 +47,13 @@ function App() {
           setRoute({ name: 'public', studentId: publicId, meta: { publicStudent } });
         } else if (session.user) {
           setUser(session.user);
-          await refreshStudents(session.user);
-          setRoute({ name: 'dashboard' });
+          const [loadedProfile] = await Promise.all([
+            store.loadProfile(session.user),
+            refreshStudents(session.user),
+          ]);
+          setProfile(loadedProfile);
+          const complete = loadedProfile?.firstName && loadedProfile?.lastName && loadedProfile?.displayName;
+          setRoute({ name: complete ? 'dashboard' : 'onboarding' });
         } else {
           setRoute({ name: 'auth' });
         }
@@ -65,11 +76,35 @@ function App() {
     try {
       const result = authMode === 'signup' ? await store.signUp(email, password) : await store.signIn(email, password);
       setUser(result.user);
-      await refreshStudents(result.user);
-      setRoute({ name: 'dashboard' });
-      showMessage(authMode === 'signup' ? 'Cuenta creada.' : 'Sesión iniciada.');
+      const [loadedProfile] = await Promise.all([
+        store.loadProfile(result.user),
+        refreshStudents(result.user),
+      ]);
+      setProfile(loadedProfile);
+      const complete = loadedProfile?.firstName && loadedProfile?.lastName && loadedProfile?.displayName;
+      if (complete) {
+        showMessage(authMode === 'signup' ? 'Cuenta creada.' : 'Sesión iniciada.');
+        nav('dashboard');
+      } else {
+        nav('onboarding');
+      }
     } catch (err) {
-      showMessage(err.message || 'No se pudo autenticar.', 'error');
+      showMessage(authMode === 'login' ? 'Email o contraseña incorrectos.' : (err.message || 'No se pudo crear la cuenta.'), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSaveProfile = async (profileData) => {
+    setBusy(true);
+    try {
+      const currentUser = requireUser();
+      const saved = await store.saveProfile(currentUser, profileData);
+      setProfile(saved);
+      nav('dashboard');
+      showMessage('Perfil guardado.');
+    } catch (err) {
+      showMessage(err.message || 'No se pudo guardar el perfil.', 'error');
     } finally {
       setBusy(false);
     }
@@ -79,6 +114,7 @@ function App() {
     await store.signOut();
     setUser(null);
     setStudents([]);
+    setProfile(null);
     setRoute({ name: 'auth' });
     showMessage('Sesión cerrada.');
   };
@@ -179,29 +215,33 @@ function App() {
   } else {
     switch (route.name) {
       case 'dashboard':
-        screen = <Dashboard students={students} nav={nav} user={user} onLogout={logout} message={message} />; break;
+        screen = <Dashboard students={students} nav={nav} user={user} onLogout={logout} message={message} profile={profile} />; break;
+      case 'onboarding':
+        screen = <CoachProfileScreen isOnboarding onSubmit={handleSaveProfile} loading={busy} />; break;
+      case 'editProfile':
+        screen = <CoachProfileScreen profile={profile} onSubmit={handleSaveProfile} onBack={() => nav('dashboard')} loading={busy} />; break;
       case 'addStudent':
         screen = <AddStudent nav={nav} saveStudent={saveStudent} />; break;
       case 'editStudent':
-        screen = student ? <AddStudent nav={nav} saveStudent={saveStudent} student={student} /> : <Dashboard students={students} nav={nav} user={user} onLogout={logout} />; break;
+        screen = student ? <AddStudent nav={nav} saveStudent={saveStudent} student={student} /> : <Dashboard students={students} nav={nav} user={user} onLogout={logout} profile={profile} />; break;
       case 'pickStudent':
         screen = <PickStudent students={students} nav={nav} />; break;
       case 'profile':
         screen = student ? <StudentProfile student={student} nav={nav} updateScores={saveScores} deleteStudent={deleteStudent} deleteClassLog={deleteClassLog} />
-                         : <Dashboard students={students} nav={nav} user={user} onLogout={logout} />; break;
+                         : <Dashboard students={students} nav={nav} user={user} onLogout={logout} profile={profile} />; break;
       case 'logClass':
         screen = student ? <LogClass student={student} nav={nav} saveClassLog={saveClassLog} />
-                         : <Dashboard students={students} nav={nav} user={user} onLogout={logout} />; break;
+                         : <Dashboard students={students} nav={nav} user={user} onLogout={logout} profile={profile} />; break;
       case 'editClass':
         screen = student && existingLog ? <LogClass student={student} nav={nav} saveClassLog={saveClassLog} existingLog={existingLog} />
-                         : <Dashboard students={students} nav={nav} user={user} onLogout={logout} />; break;
+                         : <Dashboard students={students} nav={nav} user={user} onLogout={logout} profile={profile} />; break;
       case 'share':
         screen = student ? <ShareScreen student={student} nav={nav} fromLog={route.meta?.fromLog} />
-                         : <Dashboard students={students} nav={nav} user={user} onLogout={logout} />; break;
+                         : <Dashboard students={students} nav={nav} user={user} onLogout={logout} profile={profile} />; break;
       case 'public':
         screen = <PublicProgress student={student || route.meta?.publicStudent || null} nav={user ? nav : undefined} />; break;
       default:
-        screen = <Dashboard students={students} nav={nav} user={user} onLogout={logout} message={message} />;
+        screen = <Dashboard students={students} nav={nav} user={user} onLogout={logout} message={message} profile={profile} />;
     }
   }
 
@@ -225,11 +265,21 @@ function App() {
           <div className="ct-kicker">Para entrenadores de pádel</div>
           <h1 className="ct-brand-title">Reportes de progreso en 60 segundos</h1>
           <div className="ct-brand-copy">
-            Registra el foco de la clase, deja una tarea clara y comparte una página de progreso que el alumno entiende al instante.
+            Después de cada clase, registra qué trabajaron, qué debe mejorar el alumno y qué tarea tiene para la semana.
+          </div>
+          <div className="ct-brand-value">
+            Haz que tus alumnos vean progreso y se tomen más en serio sus clases.
+          </div>
+          <div className="ct-how">
+            <div className="ct-how-label">Cómo funciona</div>
+            <div className="ct-how-step"><span>1</span>Registra la clase</div>
+            <div className="ct-how-step"><span>2</span>Añade corrección y tarea</div>
+            <div className="ct-how-step"><span>3</span>Comparte el progreso con el alumno</div>
           </div>
           <div className="ct-brand-metrics">
-            <div className="ct-brand-metric"><strong>{students.length}</strong><span>Alumnos activos</span></div>
-            <div className="ct-brand-metric"><strong>{students.reduce((a,s)=>a+s.classes.length,0)}</strong><span>Clases registradas</span></div>
+            <div className="ct-brand-metric"><span>Seguimiento por alumno</span></div>
+            <div className="ct-brand-metric"><span>Historial de clases guardado</span></div>
+            <div className="ct-brand-metric"><span>Reporte listo para compartir</span></div>
           </div>
         </div>
 

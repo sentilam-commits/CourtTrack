@@ -134,3 +134,30 @@ as $$
 $$;
 
 grant execute on function public.get_public_student(uuid) to anon, authenticated;
+
+-- Coach profiles
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  first_name text,
+  last_name text,
+  display_name text,
+  phone text,
+  club_name text,
+  city text,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+alter table public.profiles enable row level security;
+
+drop policy if exists "Users manage own profile" on public.profiles;
+create policy "Users manage own profile"
+on public.profiles for all
+using (auth.uid() = id)
+with check (auth.uid() = id);
+
+drop trigger if exists set_profiles_updated_at on public.profiles;
+create trigger set_profiles_updated_at
+before update on public.profiles
+for each row execute function public.set_updated_at();

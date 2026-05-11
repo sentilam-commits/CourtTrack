@@ -2,7 +2,9 @@ function AuthScreen({ mode, setMode, onSubmit, loading, message }) {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const isSignup = mode === 'signup';
-  const valid = email.includes('@') && password.length >= 6;
+  const hasFields = email.trim().length > 0 && password.length > 0;
+  const valid = isSignup ? email.includes('@') && password.length >= 6 : hasFields;
+  const loginError = !isSignup && message?.type === 'error' ? 'Email o contraseña incorrectos.' : null;
 
   return (
     <div style={{ background: '#fff', minHeight: '100%', padding: '22px 20px 120px' }}>
@@ -13,7 +15,6 @@ function AuthScreen({ mode, setMode, onSubmit, loading, message }) {
         }}>{Icons.ball}</div>
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, color: CT.ink }}>CourtTrack</div>
-          <div style={{ fontSize: 12, color: CT.ink3, marginTop: 1 }}>MVP para coaches de pádel</div>
         </div>
       </div>
 
@@ -24,8 +25,10 @@ function AuthScreen({ mode, setMode, onSubmit, loading, message }) {
         Tus alumnos, clases y progresos quedan guardados para volver cuando quieras.
       </div>
 
-      {message?.text && (
-        <Notice tone={message.type} style={{ marginTop: 18 }}>{message.text}</Notice>
+      {(isSignup ? message?.text : loginError) && (
+        <Notice tone={message?.type || 'error'} style={{ marginTop: 18 }}>
+          {isSignup ? message.text : loginError}
+        </Notice>
       )}
 
       <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -43,6 +46,11 @@ function AuthScreen({ mode, setMode, onSubmit, loading, message }) {
         <PrimaryButton
           disabled={!valid || loading}
           onClick={() => onSubmit(email.trim(), password)}
+          style={{
+            background: valid && !loading ? '#0E2A1C' : '#D7DCD8',
+            color: valid && !loading ? '#fff' : CT.ink3,
+            borderRadius: 16,
+          }}
         >
           {loading ? 'Guardando...' : isSignup ? 'Crear cuenta' : 'Iniciar sesión'}
         </PrimaryButton>

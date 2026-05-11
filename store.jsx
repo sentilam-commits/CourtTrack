@@ -1,6 +1,8 @@
+// CourtTrack data/auth service.
+// Fill these for Supabase mode. When empty, the app uses localStorage so the MVP
+// still works while the Supabase project is being created.
 const CT_SUPABASE_URL = 'https://svviqpjdorxiyywnblxt.supabase.co';
 const CT_SUPABASE_ANON_KEY = 'sb_publishable_HSl0bc6L62gGl5egjtVfRg_6DfhA35X';
-// still works while the Supabase project is being created.
 
 const SCORE_FIELDS = [
   ['Derecha', 'forehand'],
@@ -81,6 +83,19 @@ function studentFromRow(row, classes = [], scoreRow) {
   };
 }
 
+function profileFromRow(row) {
+  if (!row) return null;
+  return {
+    firstName: row.first_name || '',
+    lastName: row.last_name || '',
+    displayName: row.display_name || '',
+    phone: row.phone || '',
+    clubName: row.club_name || '',
+    city: row.city || '',
+    email: row.email || '',
+  };
+}
+
 function studentToRow(student, coachId) {
   return {
     coach_id: coachId,
@@ -136,6 +151,15 @@ const LocalBackend = {
   },
   writeData(coachId, data) {
     this.write(this.dataKey(coachId), data);
+  },
+  profileKey: (coachId) => `courttrack.profile.${coachId}.v1`,
+  async loadProfile(user) {
+    return this.read(this.profileKey(user.id), null);
+  },
+  async saveProfile(user, profile) {
+    const saved = { ...profile, id: user.id, email: user.email };
+    this.write(this.profileKey(user.id), saved);
+    return saved;
   },
   async loadStudents(user) {
     return this.readData(user.id).students;
@@ -274,6 +298,27 @@ function makeSupabaseBackend() {
         (data.class_logs || []).map(classFromRow),
         data.progress_score
       );
+    },
+    async loadProfile(user) {
+      const { data, error } = await client.from('profiles').select('*').eq('id', user.id).maybeSingle();
+      if (error) throw error;
+      return profileFromRow(data);
+    },
+    async saveProfile(user, profile) {
+      const row = {
+        id: user.id,
+        email: user.email,
+        first_name: profile.firstName,
+        last_name: profile.lastName,
+        display_name: profile.displayName,
+        phone: profile.phone || null,
+        club_name: profile.clubName || null,
+        city: profile.city || null,
+        updated_at: nowIso(),
+      };
+      const { data, error } = await client.from('profiles').upsert(row).select('*').single();
+      if (error) throw error;
+      return profileFromRow(data);
     },
   };
 }
