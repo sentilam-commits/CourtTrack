@@ -2,7 +2,7 @@ const CACHE = 'padel-log-v1';
 
 // Assets cached on install — app won't work offline without these
 const REQUIRED = [
-  './padellog.html',
+  './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',

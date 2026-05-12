@@ -2,7 +2,7 @@
   "name": "Padel Log",
   "short_name": "PadelLog",
   "description": "App de clases para coaches de pádel",
-  "start_url": "./padellog.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
