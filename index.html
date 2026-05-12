@@ -1835,43 +1835,18 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 
 <!-- iOS PWA safe area fix -->
 <script>
-  function applyIOSSafeArea() {
-    const isStandalone = window.navigator.standalone === true ||
-      window.matchMedia('(display-mode: standalone)').matches;
-    if (!isStandalone) return;
-
-    // Get the actual safe area inset top
-    const div = document.createElement('div');
-    div.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);height:1px;width:1px;left:-9999px;';
-    document.body.appendChild(div);
-    const safeTop = div.getBoundingClientRect().top;
-    document.body.removeChild(div);
-
-    if (safeTop <= 0) return;
-
+  // Only apply when launched from home screen (not Safari browser)
+  if (window.navigator.standalone === true) {
     const style = document.createElement('style');
     style.textContent = `
-      .app-header, .dash-header {
-        padding-top: ${safeTop}px !important;
-        height: calc(52px + ${safeTop}px) !important;
+      .app-header, .dash-header, .share-header {
+        padding-top: env(safe-area-inset-top) !important;
+        height: calc(52px + env(safe-area-inset-top)) !important;
         align-items: flex-end !important;
-      }
-      .share-header {
-        padding-top: ${safeTop}px !important;
-        height: calc(52px + ${safeTop}px) !important;
-        align-items: flex-end !important;
-      }
-      .auth-screen {
-        padding-top: max(48px, ${safeTop}px) !important;
+        box-sizing: border-box !important;
       }
     `;
     document.head.appendChild(style);
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyIOSSafeArea);
-  } else {
-    applyIOSSafeArea();
   }
 </script>
 </body>
