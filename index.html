@@ -808,7 +808,7 @@ function OnboardingScreen({ user, onDone }) {
 }
 
 // ── S3 Dashboard ─────────────────────────────────────────────
-function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegisterClass, onSelectStudent }) {
+function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut }) {
   const firstName = (profile?.display_name || 'Coach').split(' ')[0];
   const today = new Date();
   const days   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -820,9 +820,9 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
     <div className="screen">
       <header className="dash-header">
         <Logo />
-        <div className="dash-avatar-wrap">
+        <button className="dash-avatar-wrap" onClick={onSignOut} title="Cerrar sesión">
           <Avatar name={profile?.display_name || 'U'} size={36} />
-        </div>
+        </button>
       </header>
       <div className="screen-content">
         <div className="dash-date">{dateStr}</div>
@@ -961,7 +961,7 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
 
         <div className="log-section">
           <div className="log-section-lbl">¿QUÉ TRABAJARON HOY?</div>
-          <ChipGroup chips={['Volea','Posición','Bandeja','Revés','Smash','Lob']}
+          <ChipGroup chips={['Revés','Volea','Bandeja','Globo','Pared','Smash','Saque','Posicionamiento']}
             addLabel="+ Otro" values={focus} onChange={setFocus} />
         </div>
 
@@ -997,7 +997,10 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
 
 // ── S6 Share ─────────────────────────────────────────────────
 function ShareScreen({ student, savedOffline, onHome }) {
-  const publicUrl = `${location.origin}${location.pathname}#/p/${student.id}`;
+  const base = location.origin.includes('localhost') || location.protocol === 'file:'
+    ? 'https://court-track.vercel.app'
+    : location.origin;
+  const publicUrl = `${base}/#/p/${student.id}`;
   const [copied, setCopied] = useState(false);
 
   function copyLink() {
@@ -1234,7 +1237,8 @@ function App() {
         <DashboardScreen profile={profile} students={students} todayCount={todayCount}
           onAddStudent={() => go('addStudent')}
           onRegisterClass={() => go('pickStudent')}
-          onSelectStudent={s => { setSelectedStudent(s); go('logClass'); }} />
+          onSelectStudent={s => { setSelectedStudent(s); go('logClass'); }}
+          onSignOut={() => sb.auth.signOut()} />
       )}
 
       {route === 'pickStudent' && (
