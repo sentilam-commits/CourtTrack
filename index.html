@@ -132,6 +132,14 @@
       flex-shrink: 0;
     }
 
+    @media (display-mode: standalone) {
+      .app-header {
+        align-items: flex-end;
+        height: calc(52px + env(safe-area-inset-top));
+        padding: env(safe-area-inset-top) 16px 0;
+      }
+    }
+
     .header-back {
       color: white;
       font-size: 1.4rem;
@@ -279,6 +287,12 @@
       align-items: center; justify-content: center;
       padding: 48px 28px; max-width: 480px; margin: 0 auto;
     }
+
+    @media (display-mode: standalone) {
+      .auth-screen {
+        padding: max(48px, env(safe-area-inset-top)) 28px max(48px, env(safe-area-inset-bottom));
+      }
+    }
     .auth-logo { margin-bottom: 48px; }
     .auth-logo .logo-text { color: var(--text-primary); font-size: 1.5rem; }
     .auth-logo .logo-dot  { color: var(--green-mid); font-size: 0.9rem; }
@@ -299,6 +313,14 @@
       display: flex; align-items: center; justify-content: space-between;
       padding: 0 20px; height: 52px;
       background: var(--green-dark); position: sticky; top: 0; z-index: 10; flex-shrink: 0;
+    }
+
+    @media (display-mode: standalone) {
+      .dash-header {
+        align-items: flex-end;
+        height: calc(52px + env(safe-area-inset-top));
+        padding: env(safe-area-inset-top) 20px 0;
+      }
     }
     .dash-avatar-wrap {
       width: 36px; height: 36px; border-radius: 50%; overflow: hidden;
@@ -367,6 +389,14 @@
     .share-header {
       height: 52px; display: flex; align-items: center; justify-content: center;
       background: var(--green-dark); flex-shrink: 0;
+    }
+
+    @media (display-mode: standalone) {
+      .share-header {
+        height: calc(52px + env(safe-area-inset-top));
+        align-items: flex-end;
+        padding-bottom: 0;
+      }
     }
     .share-header-txt { color: var(--green-mid); font-size: 0.92rem; font-weight: 600; }
     .share-body {
