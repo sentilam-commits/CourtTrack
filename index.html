@@ -1,1 +1,1286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Padel Log</title>
 
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#0E2A1C" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Padel Log" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Supabase + React (production builds) + Babel -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+
+  <!--
+  ══════════════════════════════════════════════
+   SQL — Run once in your Supabase SQL Editor
+  ══════════════════════════════════════════════
+
+  -- Update get_public_student to include coach profile:
+  CREATE OR REPLACE FUNCTION public.get_public_student(public_student_id uuid)
+  RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+    SELECT CASE WHEN s.id IS NULL THEN NULL ELSE jsonb_build_object(
+      'student',    to_jsonb(s),
+      'class_logs', COALESCE((
+        SELECT jsonb_agg(to_jsonb(cl) ORDER BY cl.date DESC, cl.created_at DESC)
+        FROM public.class_logs cl WHERE cl.student_id = s.id
+      ), '[]'::jsonb),
+      'coach', (
+        SELECT jsonb_build_object('display_name', p.display_name, 'club_name', p.club_name)
+        FROM public.profiles p WHERE p.id = s.coach_id LIMIT 1
+      )
+    ) END
+    FROM public.students s WHERE s.id = public_student_id LIMIT 1;
+  $$;
+  GRANT EXECUTE ON FUNCTION public.get_public_student(uuid) TO anon, authenticated;
+  -->
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green-dark:     #0E2A1C;
+      --green-mid:      #4F8F5F;
+      --green-soft:     #E8F0EA;
+      --bg:             #ECEEE9;
+      --white:          #FFFFFF;
+      --orange:         #D47A2F;
+      --whatsapp:       #1AAD5E;
+      --text-primary:   #0E1311;
+      --text-secondary: #888888;
+      --text-hint:      #AAAAAA;
+      --border:         #E0E4E1;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      color: var(--text-primary);
+    }
+
+    button, input, textarea, select { font: inherit; }
+    button { -webkit-tap-highlight-color: transparent; cursor: pointer; border: none; background: none; }
+    input, textarea { outline: none; }
+
+    /* ── Offline banner ── */
+    .offline-banner {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 200;
+      background: var(--orange);
+      color: white;
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 7px 16px;
+      transform: translateY(-100%);
+      transition: transform 0.25s ease;
+    }
+    .offline-banner.show { transform: translateY(0); }
+
+    /* ── Screen layout ── */
+    .screen {
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .screen-content {
+      flex: 1;
+      padding: 24px 20px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .screen-bottom {
+      padding: 16px 20px;
+      padding-bottom: max(20px, env(safe-area-inset-bottom));
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── App header ── */
+    .app-header {
+      display: flex;
+      align-items: center;
+      height: 52px;
+      padding: 0 16px;
+      background: var(--green-dark);
+      color: white;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+
+    .header-back {
+      color: white;
+      font-size: 1.4rem;
+      line-height: 1;
+      padding: 8px;
+      margin-left: -8px;
+      min-width: 44px;
+      display: flex;
+      align-items: center;
+    }
+
+    .header-title { flex: 1; text-align: center; font-weight: 600; font-size: 0.95rem; }
+    .header-right { min-width: 44px; text-align: right; font-size: 0.78rem; color: rgba(255,255,255,0.65); }
+    .header-spacer { min-width: 44px; }
+
+    /* ── Logo ── */
+    .logo { display: flex; align-items: center; gap: 5px; }
+    .logo-dot  { color: var(--green-mid); font-size: 0.55rem; line-height: 1; }
+    .logo-text { font-size: 1rem; color: white; letter-spacing: -0.01em; }
+    .logo-text strong { font-weight: 700; }
+
+    /* ── Avatar ── */
+    .avatar {
+      background: var(--green-soft);
+      color: var(--green-dark);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    /* ── Student card ── */
+    .student-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+      text-align: left;
+      width: 100%;
+    }
+    .student-card:active { opacity: 0.85; }
+    .student-card--hl { border-color: var(--green-dark); border-width: 2px; }
+
+    .sc-info { flex: 1; min-width: 0; }
+    .sc-name { font-weight: 600; font-size: 0.95rem; color: var(--text-primary); }
+    .sc-sub  { font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px; }
+    .sc-chev { color: var(--text-hint); font-size: 1.1rem; line-height: 1; }
+
+    .student-list { display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── Chips ── */
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .chip {
+      padding: 8px 14px;
+      border-radius: 100px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      border: 1.5px solid var(--border);
+      background: var(--white);
+      color: var(--text-primary);
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+      white-space: nowrap;
+    }
+    .chip:active { opacity: 0.8; }
+    .chip--on { background: var(--green-dark); border-color: var(--green-dark); color: white; }
+
+    .chip-group { display: flex; flex-direction: column; gap: 10px; }
+
+    .chip-input-row { display: flex; gap: 8px; }
+    .chip-input {
+      flex: 1; height: 44px;
+      border: 1.5px solid var(--border); border-radius: 10px;
+      padding: 0 14px; background: var(--white);
+      color: var(--text-primary); font-size: 0.88rem;
+    }
+    .chip-input:focus { border-color: var(--green-dark); }
+    .chip-input-add {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: var(--green-dark); color: white;
+      font-size: 1.3rem;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      width: 100%; height: 52px; border-radius: 14px;
+      font-size: 0.95rem; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; cursor: pointer; transition: opacity 0.15s; border: none;
+    }
+    .btn:active { opacity: 0.85; }
+    .btn:disabled { opacity: 0.45; pointer-events: none; }
+
+    .btn-primary  { background: var(--green-dark); color: white; }
+    .btn-outline  { background: var(--white); color: var(--text-primary); border: 1.5px solid var(--border); }
+    .btn-whatsapp { background: var(--whatsapp); color: white; }
+    .btn-link {
+      background: none; border: none;
+      color: var(--text-secondary); font-size: 0.9rem;
+      text-align: center; width: 100%; padding: 12px; cursor: pointer;
+    }
+
+    /* ── Forms ── */
+    .form-field { margin-bottom: 16px; }
+    .field-label {
+      display: block; font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-secondary); margin-bottom: 8px;
+    }
+    .field-input {
+      width: 100%; height: 52px;
+      border: 1.5px solid var(--border); border-radius: 12px;
+      padding: 0 16px; background: var(--white);
+      color: var(--text-primary); font-size: 0.95rem;
+    }
+    .field-input:focus { border-color: var(--green-dark); }
+
+    .error-msg {
+      font-size: 0.84rem; color: #c0392b;
+      padding: 10px 14px; background: #fdf0ef;
+      border-radius: 8px; margin-bottom: 12px;
+    }
+
+    .screen-title    { font-size: 1.4rem; font-weight: 800; margin-bottom: 6px; }
+    .screen-subtitle { font-size: 0.88rem; color: var(--text-secondary); }
+
+    .section-label {
+      font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em;
+      color: var(--text-secondary); margin-bottom: 12px;
+    }
+
+    /* ── Auth ── */
+    .auth-screen {
+      min-height: 100svh; background: var(--white);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 48px 28px; max-width: 480px; margin: 0 auto;
+    }
+    .auth-logo { margin-bottom: 48px; }
+    .auth-logo .logo-text { color: var(--text-primary); font-size: 1.5rem; }
+    .auth-logo .logo-dot  { color: var(--green-mid); font-size: 0.9rem; }
+    .auth-form { width: 100%; display: flex; flex-direction: column; }
+    .auth-form .form-field { margin-bottom: 14px; }
+    .auth-form .btn { margin-top: 6px; }
+    .auth-toggle {
+      text-align: center; margin-top: 16px;
+      font-size: 0.88rem; color: var(--text-secondary);
+    }
+    .auth-toggle button {
+      color: var(--green-dark); font-weight: 600;
+      text-decoration: underline; font-size: 0.88rem;
+    }
+
+    /* ── Dashboard ── */
+    .dash-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; height: 52px;
+      background: var(--green-dark); position: sticky; top: 0; z-index: 10; flex-shrink: 0;
+    }
+    .dash-avatar-wrap {
+      width: 36px; height: 36px; border-radius: 50%; overflow: hidden;
+      background: rgba(255,255,255,0.15);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .dash-avatar-wrap .avatar {
+      width: 36px !important; height: 36px !important;
+      border-radius: 50% !important; background: white !important;
+      color: var(--green-dark) !important; font-size: 0.8rem !important;
+    }
+    .dash-date     { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 4px; }
+    .dash-greeting { font-size: 1.8rem; font-weight: 800; margin-bottom: 24px; }
+
+    .stat-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 28px; }
+    .stat-card  { border-radius: 14px; padding: 20px 18px; }
+    .stat-card--light { background: var(--white); }
+    .stat-card--dark  { background: var(--green-dark); color: white; }
+    .stat-num { font-size: 2.6rem; font-weight: 800; line-height: 1; }
+    .stat-lbl { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; color: var(--text-secondary); margin-top: 6px; }
+    .stat-card--dark .stat-lbl { color: rgba(255,255,255,0.55); }
+
+    .bottom-bar {
+      display: flex; gap: 12px; padding: 16px 20px;
+      padding-bottom: max(20px, env(safe-area-inset-bottom));
+      background: var(--bg); border-top: 1px solid var(--border);
+      position: sticky; bottom: 0; flex-shrink: 0;
+    }
+    .bottom-bar .btn { flex: 1; }
+
+    /* ── Log Class ── */
+    .log-content { padding-bottom: 24px; }
+
+    .student-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--green-dark); color: white;
+      border-radius: 100px; padding: 8px 14px 8px 10px;
+      font-size: 0.88rem; font-weight: 600; margin-bottom: 28px;
+    }
+    .student-pill-sq {
+      width: 20px; height: 20px; border-radius: 5px;
+      background: var(--green-mid); flex-shrink: 0;
+    }
+
+    .log-section { margin-bottom: 28px; }
+    .log-section-lbl {
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
+      color: var(--text-primary); margin-bottom: 12px;
+    }
+    .log-section-lbl--green  { color: var(--green-mid); }
+    .log-section-lbl--orange { color: var(--orange); }
+
+    .log-textarea {
+      width: 100%; border: 1.5px solid var(--border); border-radius: 12px;
+      padding: 14px 16px; background: var(--white);
+      color: var(--text-primary); font-size: 0.92rem; resize: none; min-height: 80px;
+    }
+    .log-textarea:focus { border-color: var(--green-dark); }
+
+    /* ── Share ── */
+    .share-screen {
+      background: var(--white); min-height: 100svh;
+      max-width: 480px; margin: 0 auto;
+      display: flex; flex-direction: column;
+    }
+    .share-header {
+      height: 52px; display: flex; align-items: center; justify-content: center;
+      background: var(--green-dark); flex-shrink: 0;
+    }
+    .share-header-txt { color: var(--green-mid); font-size: 0.92rem; font-weight: 600; }
+    .share-body {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; padding: 56px 28px 40px; gap: 14px;
+    }
+    .share-check {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: var(--green-soft); color: var(--green-mid);
+      font-size: 1.8rem;
+      display: flex; align-items: center; justify-content: center; margin-bottom: 8px;
+    }
+    .share-title { font-size: 1.6rem; font-weight: 800; text-align: center; }
+    .share-sub   { color: var(--text-secondary); font-size: 0.9rem; text-align: center; }
+    .share-link-card { width: 100%; background: var(--bg); border-radius: 14px; padding: 16px 18px; margin: 4px 0; }
+    .share-link-lbl  { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; color: var(--text-secondary); margin-bottom: 6px; }
+    .share-link-url  { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); word-break: break-all; }
+    .share-link-note { font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px; }
+    .share-offline-note {
+      font-size: 0.8rem; color: var(--orange); text-align: center;
+      padding: 8px 16px; background: #fff8f3; border-radius: 10px; width: 100%;
+    }
+
+    /* ── Public report ── */
+    .pub-screen { min-height: 100svh; background: var(--bg); max-width: 480px; margin: 0 auto; }
+    .pub-header { background: var(--green-dark); padding: 20px 20px 24px; }
+    .pub-coach-block { background: rgba(255,255,255,0.08); border-radius: 10px; padding: 12px 16px; margin-top: 14px; }
+    .pub-coach-tag  { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; color: var(--green-mid); margin-bottom: 4px; }
+    .pub-coach-name { font-size: 1rem; font-weight: 700; color: white; }
+    .pub-coach-club { font-size: 0.82rem; color: rgba(255,255,255,0.55); margin-top: 2px; }
+    .pub-body { padding: 24px 20px; }
+    .pub-report-for { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 4px; }
+    .pub-student-name { font-size: 1.5rem; font-weight: 800; margin-bottom: 4px; }
+    .pub-date { font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 24px; }
+
+    .pub-section { border-bottom: 1px solid var(--border); padding: 16px 0; }
+    .pub-section:first-of-type { border-top: 1px solid var(--border); }
+
+    .pub-sec-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot--green  { background: var(--green-mid); }
+    .dot--orange { background: var(--orange); }
+    .dot--dark   { background: var(--text-primary); }
+
+    .pub-sec-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; }
+    .pub-sec-title--green  { color: var(--green-mid); }
+    .pub-sec-title--orange { color: var(--orange); }
+    .pub-sec-body { font-size: 0.95rem; color: var(--text-primary); line-height: 1.55; }
+
+    .pub-hist-lbl { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; color: var(--text-secondary); margin: 24px 0 12px; }
+
+    .hist-list { display: flex; flex-direction: column; gap: 10px; }
+    .hist-card {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .hist-date  { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 4px; }
+    .hist-title { font-size: 0.9rem; font-weight: 600; }
+    .hist-tag   { font-size: 0.75rem; font-weight: 600; color: var(--green-mid); background: var(--green-soft); border-radius: 100px; padding: 4px 10px; white-space: nowrap; }
+
+    /* ── Loading / empty ── */
+    .loading { min-height: 100svh; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 0.9rem; }
+    .empty-state { text-align: center; padding: 32px 0; color: var(--text-secondary); font-size: 0.88rem; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ── Supabase ─────────────────────────────────────────────────
+const SUPABASE_URL      = 'https://svviqpjdorxiyywnblxt.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_HSl0bc6L62gGl5egjtVfRg_6DfhA35X';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── LocalStorage cache + offline queue ───────────────────────
+const LS = {
+  _k: k => 'pl:' + k,
+  get(k)    { try { return JSON.parse(localStorage.getItem(this._k(k))); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(this._k(k), JSON.stringify(v)); } catch(e) { console.warn('LS write:', e); } },
+  queue: {
+    get()    { return LS.get('q') || []; },
+    push(op) { LS.set('q', [...LS.queue.get(), { ...op, _ts: Date.now() }]); },
+    set(q)   { LS.set('q', q); },
+  },
+};
+
+// Attempt to push any queued offline writes to Supabase
+async function flushQueue(uid) {
+  if (!navigator.onLine) return;
+  const q = LS.queue.get();
+  if (!q.length) return;
+  const failed = [];
+  for (const op of q) {
+    try {
+      if (op.type === 'student') {
+        const { data } = await sb.from('students').insert(op.data).select().single();
+        if (data) {
+          // replace the tmp entry in cache with the real one
+          const studs = (LS.get(`s:${uid}`) || []).map(s => s._tmp === op._ts ? data : s);
+          LS.set(`s:${uid}`, studs);
+        }
+      } else if (op.type === 'log') {
+        const { data } = await sb.from('class_logs').insert(op.data).select().single();
+        if (data) {
+          const logs = (LS.get(`l:${uid}`) || []).map(l => l._tmp === op._ts ? data : l);
+          LS.set(`l:${uid}`, logs);
+        }
+      }
+    } catch (e) { failed.push(op); }
+  }
+  LS.queue.set(failed);
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+const initials = name =>
+  (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+
+const todayISO = () => new Date().toISOString().split('T')[0];
+
+function relativeDate(dateStr) {
+  if (!dateStr) return '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr + 'T00:00:00');
+  const diff = Math.round((today - d) / 86400000);
+  if (diff === 0) return 'hoy';
+  if (diff === 1) return 'ayer';
+  return `hace ${diff} días`;
+}
+
+function formatDateEs(dateStr) {
+  const d = new Date((dateStr || todayISO()) + 'T00:00:00');
+  const days   = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const months = ['enero','febrero','marzo','abril','mayo','junio',
+                  'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`;
+}
+
+function formatFullDateEs(dateStr) {
+  const d = new Date((dateStr || todayISO()) + 'T00:00:00');
+  const days   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const months = ['enero','febrero','marzo','abril','mayo','junio',
+                  'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  return `${days[d.getDay()]}, ${d.getDate()} de ${months[d.getMonth()]}`;
+}
+
+function shortDateEs(dateStr) {
+  const d = new Date((dateStr || todayISO()) + 'T00:00:00');
+  const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return `${d.getDate()} ${months[d.getMonth()]}`;
+}
+
+const fromArr = arr => arr.join(', ');
+const toArr = str => {
+  if (!str) return [];
+  if (Array.isArray(str)) return str;
+  return str.split(',').map(s => s.trim()).filter(Boolean);
+};
+
+// ── Data access (network → localStorage fallback) ─────────────
+async function fetchProfile(uid) {
+  try {
+    const { data, error } = await sb.from('profiles').select('*').eq('id', uid).single();
+    if (!error && data) { LS.set(`p:${uid}`, data); return data; }
+  } catch(e) {}
+  return LS.get(`p:${uid}`);
+}
+
+async function fetchStudentsAndLogs(uid) {
+  try {
+    const [sr, lr] = await Promise.all([
+      sb.from('students').select('*').eq('coach_id', uid).order('name'),
+      sb.from('class_logs').select('*').eq('coach_id', uid).order('date', { ascending: false }),
+    ]);
+    if (!sr.error && sr.data) LS.set(`s:${uid}`, sr.data);
+    if (!lr.error && lr.data) LS.set(`l:${uid}`, lr.data);
+    return {
+      studs: sr.data  || LS.get(`s:${uid}`) || [],
+      logs:  lr.data  || LS.get(`l:${uid}`) || [],
+    };
+  } catch(e) {}
+  return { studs: LS.get(`s:${uid}`) || [], logs: LS.get(`l:${uid}`) || [] };
+}
+
+async function insertStudent({ coachId, name, level }) {
+  const payload = { coach_id: coachId, name, level: level || null };
+  try {
+    const { data, error } = await sb.from('students').insert(payload).select().single();
+    if (!error && data) {
+      const studs = [...(LS.get(`s:${coachId}`) || []), data]
+        .sort((a, b) => a.name.localeCompare(b.name));
+      LS.set(`s:${coachId}`, studs);
+      return { data, offline: false };
+    }
+  } catch(e) {}
+  // Offline: save locally and queue
+  const ts = Date.now();
+  const tmp = { ...payload, id: `tmp_${ts}`, created_at: new Date().toISOString(), _tmp: ts };
+  const studs = [...(LS.get(`s:${coachId}`) || []), tmp]
+    .sort((a, b) => a.name.localeCompare(b.name));
+  LS.set(`s:${coachId}`, studs);
+  LS.queue.push({ type: 'student', data: payload, _ts: ts });
+  return { data: tmp, offline: true };
+}
+
+async function insertLog(payload) {
+  const { coach_id } = payload;
+  try {
+    const { data, error } = await sb.from('class_logs').insert(payload).select().single();
+    if (!error && data) {
+      const logs = [data, ...(LS.get(`l:${coach_id}`) || [])];
+      LS.set(`l:${coach_id}`, logs);
+      return { data, offline: false };
+    }
+  } catch(e) {}
+  // Offline: save locally and queue
+  const ts = Date.now();
+  const tmp = { ...payload, id: `tmp_${ts}`, created_at: new Date().toISOString(), _tmp: ts };
+  const logs = [tmp, ...(LS.get(`l:${coach_id}`) || [])];
+  LS.set(`l:${coach_id}`, logs);
+  LS.queue.push({ type: 'log', data: payload, _ts: ts });
+  return { data: tmp, offline: true };
+}
+
+// ── Logo ─────────────────────────────────────────────────────
+function Logo() {
+  return (
+    <div className="logo">
+      <span className="logo-dot">●</span>
+      <span className="logo-text"><strong>Padel</strong> Log</span>
+    </div>
+  );
+}
+
+// ── Header ───────────────────────────────────────────────────
+function Header({ title, onBack, right }) {
+  return (
+    <header className="app-header">
+      {onBack
+        ? <button className="header-back" onClick={onBack}>←</button>
+        : <div className="header-spacer" />}
+      <div className="header-title">{title}</div>
+      <div className="header-right">{right}</div>
+    </header>
+  );
+}
+
+// ── Avatar ───────────────────────────────────────────────────
+function Avatar({ name, size = 44 }) {
+  return (
+    <div className="avatar" style={{ width: size, height: size, fontSize: size * 0.34, borderRadius: 10 }}>
+      {initials(name)}
+    </div>
+  );
+}
+
+// ── StudentCard ──────────────────────────────────────────────
+function StudentCard({ student, lastLog, onClick, highlighted }) {
+  const focusParts = lastLog ? toArr(lastLog.today_focus) : [];
+  const parts = [
+    student.level,
+    focusParts[0] || null,
+    lastLog ? relativeDate(lastLog.date) : 'Sin clases aún',
+  ].filter(Boolean);
+
+  return (
+    <button className={`student-card${highlighted ? ' student-card--hl' : ''}`} onClick={onClick}>
+      <Avatar name={student.name} size={44} />
+      <div className="sc-info">
+        <div className="sc-name">{student.name}</div>
+        <div className="sc-sub">{parts.join(' · ')}</div>
+      </div>
+      <span className="sc-chev">›</span>
+    </button>
+  );
+}
+
+// ── Chip ─────────────────────────────────────────────────────
+function Chip({ label, on, onClick }) {
+  return (
+    <button className={`chip${on ? ' chip--on' : ''}`} onClick={onClick}>
+      {on && label !== '+ Otro' && label !== '+ Escribir' ? `${label} ✓` : label}
+    </button>
+  );
+}
+
+// ── ChipGroup ────────────────────────────────────────────────
+function ChipGroup({ chips, addLabel, values, onChange }) {
+  const [showInput, setShowInput] = useState(false);
+  const [inputVal, setInputVal] = useState('');
+  const inputRef = useRef();
+
+  function toggle(chip) {
+    onChange(values.includes(chip) ? values.filter(v => v !== chip) : [...values, chip]);
+  }
+
+  function addCustom() {
+    const v = inputVal.trim();
+    if (v && !values.includes(v)) onChange([...values, v]);
+    setInputVal(''); setShowInput(false);
+  }
+
+  const customValues = values.filter(v => !chips.includes(v));
+
+  return (
+    <div className="chip-group">
+      <div className="chips">
+        {chips.map(c => (
+          <Chip key={c} label={c} on={values.includes(c)} onClick={() => toggle(c)} />
+        ))}
+        {addLabel && (
+          <Chip label={addLabel} on={showInput} onClick={() => {
+            setShowInput(s => !s);
+            if (!showInput) setTimeout(() => inputRef.current?.focus(), 50);
+          }} />
+        )}
+      </div>
+      {showInput && (
+        <div className="chip-input-row">
+          <input ref={inputRef} className="chip-input" value={inputVal}
+            onChange={e => setInputVal(e.target.value)}
+            placeholder="Escribe aquí..."
+            onKeyDown={e => e.key === 'Enter' && addCustom()} />
+          <button className="chip-input-add" onClick={addCustom}>+</button>
+        </div>
+      )}
+      {customValues.length > 0 && (
+        <div className="chips">
+          {customValues.map(v => <Chip key={v} label={v} on onClick={() => toggle(v)} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── S1 Auth ──────────────────────────────────────────────────
+function AuthScreen() {
+  const [isSignup, setIsSignup] = useState(false);
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+
+  async function submit() {
+    if (!email.trim() || !password) return;
+    setLoading(true); setError('');
+    try {
+      const fn = isSignup
+        ? sb.auth.signUp({ email: email.trim(), password })
+        : sb.auth.signInWithPassword({ email: email.trim(), password });
+      const { error } = await fn;
+      if (error) throw error;
+    } catch (e) {
+      setError(e.message);
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <div className="auth-screen">
+      <div className="auth-logo"><Logo /></div>
+      <div className="auth-form">
+        {error && <div className="error-msg">{error}</div>}
+        <div className="form-field">
+          <label className="field-label">Email</label>
+          <input className="field-input" type="email" value={email}
+            onChange={e => setEmail(e.target.value)} placeholder="tu@email.com" />
+        </div>
+        <div className="form-field">
+          <label className="field-label">Contraseña</label>
+          <input className="field-input" type="password" value={password}
+            onChange={e => setPassword(e.target.value)} placeholder="••••••••"
+            onKeyDown={e => e.key === 'Enter' && submit()} />
+        </div>
+        <button className="btn btn-primary" onClick={submit}
+          disabled={loading || !email || !password}>
+          {loading ? 'Cargando...' : (isSignup ? 'Crear cuenta' : 'Iniciar sesión')}
+        </button>
+        <div className="auth-toggle">
+          {isSignup ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}{' '}
+          <button onClick={() => { setIsSignup(s => !s); setError(''); }}>
+            {isSignup ? 'Iniciar sesión' : 'Crear una cuenta nueva'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── S2 Onboarding ────────────────────────────────────────────
+function OnboardingScreen({ user, onDone }) {
+  const [displayName, setDisplayName] = useState('');
+  const [clubName, setClubName]       = useState('');
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState('');
+
+  async function save() {
+    if (!displayName.trim()) { setError('El nombre es obligatorio.'); return; }
+    setLoading(true); setError('');
+    const prof = { display_name: displayName.trim(), club_name: clubName.trim() || null };
+    try {
+      const { error } = await sb.from('profiles').upsert({ id: user.id, ...prof });
+      if (error) throw error;
+    } catch(e) { setError(e.message); setLoading(false); return; }
+    LS.set(`p:${user.id}`, { id: user.id, ...prof });
+    onDone(prof);
+  }
+
+  return (
+    <div className="screen">
+      <Header title="Mi perfil" />
+      <div className="screen-content">
+        <h1 className="screen-title" style={{marginTop: 8}}>Cuéntanos sobre ti</h1>
+        <p className="screen-subtitle" style={{marginBottom: 28}}>Solo tarda un momento.</p>
+        {error && <div className="error-msg">{error}</div>}
+        <div className="form-field">
+          <label className="field-label">Nombre del coach</label>
+          <input className="field-input" value={displayName}
+            onChange={e => setDisplayName(e.target.value)} placeholder="Coach Benji" />
+        </div>
+        <div className="form-field">
+          <label className="field-label">
+            Club o academia{' '}
+            <span style={{color:'var(--text-hint)',fontWeight:400,textTransform:'none',letterSpacing:0}}>· opcional</span>
+          </label>
+          <input className="field-input" value={clubName}
+            onChange={e => setClubName(e.target.value)} placeholder="Padel Arena BCN" />
+        </div>
+      </div>
+      <div className="screen-bottom">
+        <button className="btn btn-primary" onClick={save}
+          disabled={loading || !displayName.trim()}>
+          {loading ? 'Guardando...' : 'Guardar y continuar'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── S3 Dashboard ─────────────────────────────────────────────
+function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegisterClass, onSelectStudent }) {
+  const firstName = (profile?.display_name || 'Coach').split(' ')[0];
+  const today = new Date();
+  const days   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const months = ['enero','febrero','marzo','abril','mayo','junio',
+                  'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const dateStr = `${days[today.getDay()]}, ${today.getDate()} ${months[today.getMonth()]}`;
+
+  return (
+    <div className="screen">
+      <header className="dash-header">
+        <Logo />
+        <div className="dash-avatar-wrap">
+          <Avatar name={profile?.display_name || 'U'} size={36} />
+        </div>
+      </header>
+      <div className="screen-content">
+        <div className="dash-date">{dateStr}</div>
+        <h1 className="dash-greeting">Hola, {firstName}</h1>
+        <div className="stat-cards">
+          <div className="stat-card stat-card--light">
+            <div className="stat-num">{students.length}</div>
+            <div className="stat-lbl">ALUMNOS</div>
+          </div>
+          <div className="stat-card stat-card--dark">
+            <div className="stat-num">{todayCount}</div>
+            <div className="stat-lbl">CLASE HOY</div>
+          </div>
+        </div>
+        <div className="section-label">ALUMNOS</div>
+        <div className="student-list">
+          {students.length === 0
+            ? <div className="empty-state">Sin alumnos aún. Añade uno.</div>
+            : students.map(s => (
+                <StudentCard key={s.id} student={s} lastLog={s.lastLog}
+                  onClick={() => onSelectStudent(s)} />
+              ))}
+        </div>
+        <div style={{height: 16}} />
+      </div>
+      <div className="bottom-bar">
+        <button className="btn btn-outline" onClick={onAddStudent}>+ Alumno</button>
+        <button className="btn btn-primary" onClick={onRegisterClass}>Registrar clase</button>
+      </div>
+    </div>
+  );
+}
+
+// ── S4 Pick Student ──────────────────────────────────────────
+function PickStudentScreen({ students, onBack, onSelect }) {
+  return (
+    <div className="screen">
+      <Header title="Registrar clase" onBack={onBack} />
+      <div className="screen-content">
+        <h1 className="screen-title" style={{marginTop: 8}}>¿Con quién fue la clase?</h1>
+        <p className="screen-subtitle" style={{marginBottom: 24}}>Toca al alumno para continuar.</p>
+        <div className="student-list">
+          {students.map((s, i) => (
+            <StudentCard key={s.id} student={s} lastLog={s.lastLog}
+              onClick={() => onSelect(s)} highlighted={i === 0} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── S8 Add Student ────────────────────────────────────────────
+function AddStudentScreen({ coachId, onBack, onDone }) {
+  const [name, setName]     = useState('');
+  const [level, setLevel]   = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState('');
+  const levels = ['Principiante', 'Intermedio', 'Avanzado'];
+
+  async function save() {
+    if (!name.trim()) { setError('El nombre es obligatorio.'); return; }
+    setLoading(true); setError('');
+    const { data, offline } = await insertStudent({ coachId, name: name.trim(), level });
+    setLoading(false);
+    if (!data) { setError('Error al guardar. Intenta de nuevo.'); return; }
+    onDone(data);
+  }
+
+  return (
+    <div className="screen">
+      <Header title="Nuevo alumno" onBack={onBack} />
+      <div className="screen-content">
+        <h1 className="screen-title" style={{marginTop: 8}}>Añadir alumno</h1>
+        <p className="screen-subtitle" style={{marginBottom: 28}}>Registra los datos del alumno para empezar.</p>
+        {error && <div className="error-msg">{error}</div>}
+        <div className="form-field">
+          <label className="field-label">Nombre completo</label>
+          <input className="field-input" value={name}
+            onChange={e => setName(e.target.value)} placeholder="María Álvarez"
+            onKeyDown={e => e.key === 'Enter' && save()} />
+        </div>
+        <div className="form-field">
+          <label className="field-label">Nivel</label>
+          <div className="chips" style={{marginTop: 8}}>
+            {levels.map(l => (
+              <Chip key={l} label={l} on={level === l}
+                onClick={() => setLevel(level === l ? '' : l)} />
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="screen-bottom">
+        <button className="btn btn-primary" onClick={save} disabled={loading || !name.trim()}>
+          {loading ? 'Guardando...' : 'Añadir alumno'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── S5 Log Class ─────────────────────────────────────────────
+function LogClassScreen({ student, coachId, onBack, onSaved }) {
+  const [focus, setFocus]       = useState([]);
+  const [improved, setImproved] = useState([]);
+  const [correction, setCorrection] = useState('');
+  const [homework, setHomework] = useState([]);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+
+  const date = todayISO();
+
+  async function save() {
+    setLoading(true); setError('');
+    const { data, offline } = await insertLog({
+      student_id:     student.id,
+      coach_id:       coachId,
+      date,
+      today_focus:    fromArr(focus),
+      what_improved:  fromArr(improved),
+      main_correction: correction.trim() || null,
+      homework:       fromArr(homework),
+    });
+    if (!data) { setError('Error al guardar. Intenta de nuevo.'); setLoading(false); return; }
+    onSaved(offline);
+  }
+
+  return (
+    <div className="screen">
+      <Header title="Registrar clase" onBack={onBack} right={formatDateEs(date)} />
+      <div className="screen-content log-content">
+        <div className="student-pill">
+          <div className="student-pill-sq" />
+          {student.name}
+        </div>
+
+        <div className="log-section">
+          <div className="log-section-lbl">¿QUÉ TRABAJARON HOY?</div>
+          <ChipGroup chips={['Volea','Posición','Bandeja','Revés','Smash','Lob']}
+            addLabel="+ Otro" values={focus} onChange={setFocus} />
+        </div>
+
+        <div className="log-section">
+          <div className="log-section-lbl log-section-lbl--green">LO QUE MEJORÓ</div>
+          <ChipGroup chips={['Volea','Reacción','Confianza','Consistencia']}
+            addLabel="+ Escribir" values={improved} onChange={setImproved} />
+        </div>
+
+        <div className="log-section">
+          <div className="log-section-lbl log-section-lbl--orange">QUÉ NECESITA CORREGIR</div>
+          <textarea className="log-textarea" value={correction}
+            onChange={e => setCorrection(e.target.value)}
+            placeholder="Describe qué debe mejorar..." rows={3} />
+        </div>
+
+        <div className="log-section">
+          <div className="log-section-lbl">TAREA PARA CASA</div>
+          <ChipGroup chips={['Practicar bandeja','Ver video','Ejercicio físico']}
+            addLabel="+ Escribir" values={homework} onChange={setHomework} />
+        </div>
+
+        {error && <div className="error-msg">{error}</div>}
+      </div>
+      <div className="screen-bottom">
+        <button className="btn btn-primary" onClick={save} disabled={loading}>
+          {loading ? 'Guardando...' : 'Guardar y compartir →'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── S6 Share ─────────────────────────────────────────────────
+function ShareScreen({ student, savedOffline, onHome }) {
+  const publicUrl = `${location.origin}${location.pathname}#/p/${student.id}`;
+  const [copied, setCopied] = useState(false);
+
+  function copyLink() {
+    navigator.clipboard.writeText(publicUrl)
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2500); })
+      .catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = publicUrl; document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+        setCopied(true); setTimeout(() => setCopied(false), 2500);
+      });
+  }
+
+  function sendWhatsApp() {
+    const firstName = student.name.split(' ')[0];
+    const msg = encodeURIComponent(
+      `Hola ${firstName}, aquí tienes el reporte de tu clase de hoy 🎾\n${publicUrl}`
+    );
+    window.open(`https://wa.me/?text=${msg}`, '_blank');
+  }
+
+  return (
+    <div className="share-screen">
+      <div className="share-header">
+        <span className="share-header-txt">✓ Clase guardada</span>
+      </div>
+      <div className="share-body">
+        <div className="share-check">✓</div>
+        <h1 className="share-title">¡Clase registrada!</h1>
+        <p className="share-sub">Comparte el reporte con {student.name.split(' ')[0]}.</p>
+        {savedOffline && (
+          <div className="share-offline-note">
+            Guardado sin conexión — se sincronizará automáticamente cuando vuelva internet.
+          </div>
+        )}
+        <div className="share-link-card">
+          <div className="share-link-lbl">LINK DEL ALUMNO</div>
+          <div className="share-link-url">{publicUrl.replace(/^https?:\/\//, '')}</div>
+          <div className="share-link-note">Un link para siempre. Siempre actualizado.</div>
+        </div>
+        <button className="btn btn-primary" onClick={copyLink} style={{width:'100%'}}>
+          {copied ? 'Copiado ✓' : 'Copiar link'}
+        </button>
+        <button className="btn btn-whatsapp" onClick={sendWhatsApp} style={{width:'100%'}}>
+          Enviar por WhatsApp
+        </button>
+        <button className="btn-link" onClick={onHome}>Volver al inicio</button>
+      </div>
+    </div>
+  );
+}
+
+// ── S7 Public Report ─────────────────────────────────────────
+function PublicReportScreen({ studentId }) {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState('');
+
+  useEffect(() => {
+    sb.rpc('get_public_student', { public_student_id: studentId })
+      .then(({ data, error }) => {
+        if (error || !data) { setError('No se pudo cargar el reporte.'); }
+        else setData(data);
+        setLoading(false);
+      });
+  }, [studentId]);
+
+  if (loading) return <div className="loading">Cargando reporte…</div>;
+  if (error || !data) return <div className="loading">{error || 'Reporte no encontrado.'}</div>;
+
+  const { student, class_logs: logs, coach } = data;
+  const latest  = logs?.[0];
+  const history = logs?.slice(1, 11) || [];
+
+  const improvedArr = toArr(latest?.what_improved);
+  const homeworkArr = toArr(latest?.homework);
+  const correction  = latest?.main_correction || '';
+
+  return (
+    <div className="pub-screen">
+      <div className="pub-header">
+        <Logo />
+        <div className="pub-coach-block">
+          <div className="pub-coach-tag">REPORTE DE CLASE</div>
+          <div className="pub-coach-name">{coach?.display_name || 'Tu coach'}</div>
+          {coach?.club_name && <div className="pub-coach-club">{coach.club_name}</div>}
+        </div>
+      </div>
+      <div className="pub-body">
+        <div className="pub-report-for">Reporte para</div>
+        <div className="pub-student-name">{student.name}</div>
+        {latest && <div className="pub-date">{formatFullDateEs(latest.date)}</div>}
+
+        {improvedArr.length > 0 && (
+          <div className="pub-section">
+            <div className="pub-sec-hdr">
+              <span className="dot dot--green" />
+              <span className="pub-sec-title pub-sec-title--green">LO QUE MEJORÓ</span>
+            </div>
+            <p className="pub-sec-body">{improvedArr.join(', ')}.</p>
+          </div>
+        )}
+
+        {correction && (
+          <div className="pub-section">
+            <div className="pub-sec-hdr">
+              <span className="dot dot--orange" />
+              <span className="pub-sec-title pub-sec-title--orange">QUÉ CORREGIR</span>
+            </div>
+            <p className="pub-sec-body">{correction}</p>
+          </div>
+        )}
+
+        {homeworkArr.length > 0 && (
+          <div className="pub-section">
+            <div className="pub-sec-hdr">
+              <span className="dot dot--dark" />
+              <span className="pub-sec-title">TAREA PARA CASA</span>
+            </div>
+            <p className="pub-sec-body">{homeworkArr.join(', ')}.</p>
+          </div>
+        )}
+
+        {history.length > 0 && (
+          <>
+            <div className="pub-hist-lbl">HISTORIAL</div>
+            <div className="hist-list">
+              {history.map(log => {
+                const fArr = toArr(log.today_focus);
+                return (
+                  <div key={log.id} className="hist-card">
+                    <div>
+                      <div className="hist-date">{shortDateEs(log.date)}</div>
+                      <div className="hist-title">{fArr.join(' y ') || 'Clase'}</div>
+                    </div>
+                    {fArr[0] && <div className="hist-tag">✓ {fArr[0]}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────
+function App() {
+  const [route, setRoute]                   = useState('loading');
+  const [user, setUser]                     = useState(null);
+  const [profile, setProfile]               = useState(null);
+  const [students, setStudents]             = useState([]);
+  const [todayCount, setTodayCount]         = useState(0);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [savedOffline, setSavedOffline]     = useState(false);
+  const [isOffline, setIsOffline]           = useState(!navigator.onLine);
+
+  const go = r => setRoute(r);
+
+  const publicMatch = () => {
+    const m = location.hash.match(/^#\/p\/([0-9a-f-]{36})$/i);
+    return m ? m[1] : null;
+  };
+
+  // Online/offline detection + queue flush
+  useEffect(() => {
+    const onOnline  = () => { setIsOffline(false); if (user) flushQueue(user.id); };
+    const onOffline = () => setIsOffline(true);
+    window.addEventListener('online',  onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => { window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline); };
+  }, [user]);
+
+  useEffect(() => {
+    const publicId = publicMatch();
+    if (publicId) { go({ name: 'public', id: publicId }); return; }
+
+    // Try Supabase session; fall through to cached auth state
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        loadEverything(session.user.id);
+      } else {
+        go('auth');
+      }
+    }).catch(() => go('auth'));
+
+    const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) { setUser(session.user); loadEverything(session.user.id); }
+      else { setUser(null); setProfile(null); go('auth'); }
+    });
+
+    const handleHash = () => { const pid = publicMatch(); if (pid) go({ name: 'public', id: pid }); };
+    window.addEventListener('hashchange', handleHash);
+    return () => { subscription.unsubscribe(); window.removeEventListener('hashchange', handleHash); };
+  }, []);
+
+  async function loadEverything(uid) {
+    const prof = await fetchProfile(uid);
+    if (!prof?.display_name) { go('onboarding'); return; }
+    setProfile(prof);
+    await refreshStudents(uid);
+    go('dashboard');
+    flushQueue(uid); // sync any queued offline writes
+  }
+
+  async function refreshStudents(uid) {
+    const { studs, logs } = await fetchStudentsAndLogs(uid);
+    const today = todayISO();
+    setTodayCount(logs.filter(l => l.date === today).length);
+    setStudents(studs.map(s => ({ ...s, lastLog: logs.find(l => l.student_id === s.id) || null })));
+  }
+
+  // ── Render ──
+  if (route?.name === 'public') return <PublicReportScreen studentId={route.id} />;
+  if (route === 'loading') return <div className="loading">Cargando…</div>;
+
+  return (
+    <>
+      <div className={`offline-banner${isOffline ? ' show' : ''}`}>
+        Sin conexión — los cambios se guardan localmente
+      </div>
+
+      {route === 'auth' && <AuthScreen />}
+
+      {route === 'onboarding' && (
+        <OnboardingScreen user={user}
+          onDone={prof => { setProfile(prof); refreshStudents(user.id); go('dashboard'); }} />
+      )}
+
+      {route === 'dashboard' && (
+        <DashboardScreen profile={profile} students={students} todayCount={todayCount}
+          onAddStudent={() => go('addStudent')}
+          onRegisterClass={() => go('pickStudent')}
+          onSelectStudent={s => { setSelectedStudent(s); go('logClass'); }} />
+      )}
+
+      {route === 'pickStudent' && (
+        <PickStudentScreen students={students} onBack={() => go('dashboard')}
+          onSelect={s => { setSelectedStudent(s); go('logClass'); }} />
+      )}
+
+      {route === 'addStudent' && (
+        <AddStudentScreen coachId={user.id} onBack={() => go('dashboard')}
+          onDone={s => {
+            setStudents(prev =>
+              [...prev, { ...s, lastLog: null }].sort((a, b) => a.name.localeCompare(b.name))
+            );
+            go('dashboard');
+          }} />
+      )}
+
+      {route === 'logClass' && (
+        <LogClassScreen student={selectedStudent} coachId={user.id}
+          onBack={() => go('pickStudent')}
+          onSaved={offline => {
+            setSavedOffline(offline);
+            refreshStudents(user.id);
+            go('share');
+          }} />
+      )}
+
+      {route === 'share' && (
+        <ShareScreen student={selectedStudent} savedOffline={savedOffline}
+          onHome={() => { setSelectedStudent(null); setSavedOffline(false); go('dashboard'); }} />
+      )}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+<!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .catch(e => console.log('SW registration skipped:', e.message));
+    });
+  }
+</script>
+</body>
+</html>
