@@ -131,16 +131,6 @@
       z-index: 10;
       flex-shrink: 0;
     }
-
-    @supports (padding-top: env(safe-area-inset-top)) {
-      @media (display-mode: standalone) {
-        .app-header {
-          padding-top: env(safe-area-inset-top);
-          height: calc(52px + env(safe-area-inset-top));
-          align-items: flex-end;
-          padding-bottom: 0;
-        }
-      }
     }
 
     .header-back {
@@ -290,14 +280,6 @@
       align-items: center; justify-content: center;
       padding: 48px 28px; max-width: 480px; margin: 0 auto;
     }
-
-    @supports (padding-top: env(safe-area-inset-top)) {
-      @media (display-mode: standalone) {
-        .auth-screen {
-          padding-top: max(48px, env(safe-area-inset-top));
-          padding-bottom: max(48px, env(safe-area-inset-bottom));
-        }
-      }
     }
     .auth-logo { margin-bottom: 48px; }
     .auth-logo .logo-text { color: var(--text-primary); font-size: 1.5rem; }
@@ -320,16 +302,6 @@
       padding: 0 20px; height: 52px;
       background: var(--green-dark); position: sticky; top: 0; z-index: 10; flex-shrink: 0;
     }
-
-    @supports (padding-top: env(safe-area-inset-top)) {
-      @media (display-mode: standalone) {
-        .dash-header {
-          padding-top: env(safe-area-inset-top);
-          height: calc(52px + env(safe-area-inset-top));
-          align-items: flex-end;
-          padding-bottom: 0;
-        }
-      }
     }
     .dash-avatar-wrap {
       width: 36px; height: 36px; border-radius: 50%; overflow: hidden;
@@ -399,15 +371,6 @@
       height: 52px; display: flex; align-items: center; justify-content: center;
       background: var(--green-dark); flex-shrink: 0;
     }
-
-    @supports (padding-top: env(safe-area-inset-top)) {
-      @media (display-mode: standalone) {
-        .share-header {
-          padding-top: env(safe-area-inset-top);
-          height: calc(52px + env(safe-area-inset-top));
-          align-items: flex-end;
-        }
-      }
     }
     .share-header-txt { color: var(--green-mid); font-size: 0.92rem; font-weight: 600; }
     .share-body {
@@ -1867,6 +1830,48 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
       navigator.serviceWorker.register('./sw.js')
         .catch(e => console.log('SW registration skipped:', e.message));
     });
+  }
+</script>
+
+<!-- iOS PWA safe area fix -->
+<script>
+  function applyIOSSafeArea() {
+    const isStandalone = window.navigator.standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches;
+    if (!isStandalone) return;
+
+    // Get the actual safe area inset top
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);height:1px;width:1px;left:-9999px;';
+    document.body.appendChild(div);
+    const safeTop = div.getBoundingClientRect().top;
+    document.body.removeChild(div);
+
+    if (safeTop <= 0) return;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      .app-header, .dash-header {
+        padding-top: ${safeTop}px !important;
+        height: calc(52px + ${safeTop}px) !important;
+        align-items: flex-end !important;
+      }
+      .share-header {
+        padding-top: ${safeTop}px !important;
+        height: calc(52px + ${safeTop}px) !important;
+        align-items: flex-end !important;
+      }
+      .auth-screen {
+        padding-top: max(48px, ${safeTop}px) !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyIOSSafeArea);
+  } else {
+    applyIOSSafeArea();
   }
 </script>
 </body>
