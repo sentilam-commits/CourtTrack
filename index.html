@@ -809,6 +809,7 @@ function OnboardingScreen({ user, onDone }) {
 
 // ── S3 Dashboard ─────────────────────────────────────────────
 function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut }) {
+  const [showMenu, setShowMenu] = useState(false);
   const firstName = (profile?.display_name || 'Coach').split(' ')[0];
   const today = new Date();
   const days   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -820,9 +821,23 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
     <div className="screen">
       <header className="dash-header">
         <Logo />
-        <button className="dash-avatar-wrap" onClick={onSignOut} title="Cerrar sesión">
-          <Avatar name={profile?.display_name || 'U'} size={36} />
-        </button>
+        <div style={{position:'relative'}}>
+          <button className="dash-avatar-wrap" onClick={() => setShowMenu(s => !s)}>
+            <Avatar name={profile?.display_name || 'U'} size={36} />
+          </button>
+          {showMenu && (
+            <div style={{
+              position:'absolute', top:44, right:0, background:'white',
+              borderRadius:12, boxShadow:'0 4px 20px rgba(0,0,0,0.15)',
+              padding:'8px', zIndex:100, minWidth:160
+            }}>
+              <button onClick={() => { setShowMenu(false); onSignOut(); }} style={{
+                width:'100%', padding:'10px 14px', borderRadius:8, textAlign:'left',
+                fontSize:'0.9rem', fontWeight:600, color:'#c0392b', background:'none', border:'none', cursor:'pointer'
+              }}>Cerrar sesión</button>
+            </div>
+          )}
+        </div>
       </header>
       <div className="screen-content">
         <div className="dash-date">{dateStr}</div>
