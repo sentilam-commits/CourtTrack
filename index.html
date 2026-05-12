@@ -1311,11 +1311,13 @@ function EditProfileScreen({ user, profile, onBack, onSaved, onDeleted }) {
 
 
 // ── S10 Edit Student ─────────────────────────────────────────
-function EditStudentScreen({ student, onBack, onSaved }) {
+function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
   const [name, setName]     = useState(student.name || '');
   const [level, setLevel]   = useState(student.level || '');
-  const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting]     = useState(false);
   const levels = ['Principiante', 'Intermedio', 'Avanzado'];
 
   async function save() {
@@ -1329,6 +1331,15 @@ function EditStudentScreen({ student, onBack, onSaved }) {
       if (error) throw error;
       onSaved(data);
     } catch(e) { setError(e.message); setLoading(false); }
+  }
+
+  async function deleteStudent() {
+    setDeleting(true); setError('');
+    try {
+      await sb.from('class_logs').delete().eq('student_id', student.id);
+      await sb.from('students').delete().eq('id', student.id);
+      onDeleted(student.id);
+    } catch(e) { setError('Error al eliminar. Intenta de nuevo.'); setDeleting(false); }
   }
 
   return (
@@ -1352,6 +1363,33 @@ function EditStudentScreen({ student, onBack, onSaved }) {
                 onClick={() => setLevel(level === l ? '' : l)} />
             ))}
           </div>
+        </div>
+
+        {/* Delete student section */}
+        <div style={{marginTop:32, paddingTop:24, borderTop:'1px solid var(--border)'}}>
+          {!confirmDelete ? (
+            <button onClick={() => setConfirmDelete(true)} style={{
+              background:'none', border:'none', color:'#c0392b',
+              fontSize:'0.88rem', fontWeight:600, cursor:'pointer', padding:0
+            }}>Eliminar alumno</button>
+          ) : (
+            <div style={{background:'#fdf0ef', borderRadius:12, padding:16}}>
+              <p style={{fontSize:'0.88rem', fontWeight:600, color:'#c0392b', marginBottom:8}}>¿Eliminar a {student.name}?</p>
+              <p style={{fontSize:'0.82rem', color:'var(--text-secondary)', marginBottom:16, lineHeight:1.5}}>
+                Se eliminarán el alumno y todas sus clases registradas. Esta acción no se puede deshacer.
+              </p>
+              <div style={{display:'flex', gap:8}}>
+                <button onClick={() => setConfirmDelete(false)} style={{
+                  flex:1, height:44, borderRadius:10, border:'1.5px solid var(--border)',
+                  background:'var(--white)', fontSize:'0.88rem', fontWeight:600, cursor:'pointer'
+                }}>Cancelar</button>
+                <button onClick={deleteStudent} disabled={deleting} style={{
+                  flex:1, height:44, borderRadius:10, border:'none',
+                  background:'#c0392b', color:'white', fontSize:'0.88rem', fontWeight:600, cursor:'pointer'
+                }}>{deleting ? 'Eliminando...' : 'Sí, eliminar'}</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <div className="screen-bottom">
@@ -1466,6 +1504,104 @@ function ManageStudentsScreen({ students, onBack, onEditStudent }) {
   );
 }
 
+
+// ── S13 Student Profile ──────────────────────────────────────
+function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClass }) {
+  const [logs, setLogs]       = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    sb.from('class_logs')
+      .select('*')
+      .eq('student_id', student.id)
+      .order('date', { ascending: false })
+      .then(({ data }) => { setLogs(data || []); setLoading(false); });
+  }, [student.id]);
+
+  return (
+    <div className="screen">
+      <Header title={student.name} onBack={onBack} />
+      <div className="screen-content">
+
+        {/* Student info card */}
+        <div style={{
+          background:'var(--white)', border:'1.5px solid var(--border)',
+          borderRadius:16, padding:'20px', marginBottom:24, marginTop:8
+        }}>
+          <div style={{display:'flex', alignItems:'center', gap:14}}>
+            <Avatar name={student.name} size={52} />
+            <div>
+              <div style={{fontWeight:700, fontSize:'1.1rem'}}>{student.name}</div>
+              {student.level && <div style={{fontSize:'0.82rem', color:'var(--text-secondary)', marginTop:2}}>{student.level}</div>}
+              <div style={{fontSize:'0.82rem', color:'var(--text-secondary)', marginTop:2}}>{logs.length} clase{logs.length !== 1 ? 's' : ''} registrada{logs.length !== 1 ? 's' : ''}</div>
+            </div>
+          </div>
+          <div style={{display:'flex', gap:8, marginTop:16}}>
+            <button onClick={onRegisterClass} className="btn btn-primary" style={{flex:1, height:40, fontSize:'0.85rem'}}>
+              + Registrar clase
+            </button>
+            <button onClick={onEdit} className="btn btn-outline" style={{flex:1, height:40, fontSize:'0.85rem'}}>
+              Editar alumno
+            </button>
+          </div>
+        </div>
+
+        {/* Class history */}
+        <div className="section-label">HISTORIAL DE CLASES</div>
+        {loading && <div className="empty-state">Cargando...</div>}
+        {!loading && logs.length === 0 && (
+          <div className="empty-state">Sin clases registradas aún.</div>
+        )}
+        {!loading && logs.length > 0 && (
+          <div style={{display:'flex', flexDirection:'column', gap:10}}>
+            {logs.map(log => {
+              const focusArr = toArr(log.today_focus);
+              const improvedArr = toArr(log.what_improved);
+              const homeworkArr = toArr(log.homework);
+              return (
+                <div key={log.id} style={{
+                  background:'var(--white)', border:'1px solid var(--border)',
+                  borderRadius:14, padding:16
+                }}>
+                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
+                    <div style={{fontSize:'0.82rem', color:'var(--text-secondary)'}}>{formatFullDateEs(log.date)}</div>
+                    {focusArr[0] && <div className="hist-tag">✓ {focusArr[0]}</div>}
+                  </div>
+                  {focusArr.length > 0 && (
+                    <div style={{marginBottom:8}}>
+                      <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--text-secondary)', marginBottom:4}}>TRABAJARON</div>
+                      <div style={{fontSize:'0.88rem'}}>{focusArr.join(', ')}</div>
+                    </div>
+                  )}
+                  {improvedArr.length > 0 && (
+                    <div style={{marginBottom:8}}>
+                      <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--green-mid)', marginBottom:4}}>MEJORÓ</div>
+                      <div style={{fontSize:'0.88rem'}}>{improvedArr.join(', ')}</div>
+                    </div>
+                  )}
+                  {log.main_correction && (
+                    <div style={{marginBottom:8}}>
+                      <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--orange)', marginBottom:4}}>CORREGIR</div>
+                      <div style={{fontSize:'0.88rem'}}>{log.main_correction}</div>
+                    </div>
+                  )}
+                  {homeworkArr.length > 0 && (
+                    <div>
+                      <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--text-secondary)', marginBottom:4}}>TAREA</div>
+                      <div style={{fontSize:'0.88rem'}}>{homeworkArr.join(', ')}</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div style={{height:16}} />
+      </div>
+    </div>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────
 function App() {
   const [route, setRoute]                   = useState('loading');
@@ -1538,7 +1674,7 @@ function App() {
       const routeName = typeof lastRoute === 'object' ? lastRoute.name : lastRoute;
 
       // Routes that need a student restored
-      if (['logClass', 'editStudent', 'editLog', 'share'].includes(routeName)) {
+      if (['logClass', 'editStudent', 'editLog', 'share', 'studentProfile'].includes(routeName)) {
         const studentId = typeof lastRoute === 'object' ? lastRoute.studentId : null;
         const restoredStudent = studentId ? mappedStudents.find(s => s.id === studentId) : null;
         if (restoredStudent) {
@@ -1593,12 +1729,26 @@ function App() {
         <DashboardScreen profile={profile} students={students} todayCount={todayCount}
           onAddStudent={() => go('addStudent')}
           onRegisterClass={() => go('pickStudent')}
-          onSelectStudent={s => { setSelectedStudent(s); go({ name: 'logClass', from: 'dashboard', studentId: s.id }); }}
+          onSelectStudent={s => { setSelectedStudent(s); go({ name: 'studentProfile', studentId: s.id }); }}
           onSignOut={() => { LS.set('lastRoute', null); sb.auth.signOut(); }}
           onEditProfile={() => go('editProfile')}
           onEditStudent={s => { setSelectedStudent(s); go('editStudent'); }}
           onEditLog={(s, log) => { setSelectedStudent(s); setSelectedLog(log); go('editLog'); }}
           onManageStudents={() => go('manageStudents')} />
+      )}
+
+      {route?.name === 'studentProfile' && (
+        (() => {
+          const s = selectedStudent || students.find(st => st.id === route.studentId);
+          return s ? (
+            <StudentProfileScreen
+              student={s}
+              coachId={user.id}
+              onBack={() => go('dashboard')}
+              onEdit={() => { setSelectedStudent(s); go('editStudent'); }}
+              onRegisterClass={() => { setSelectedStudent(s); go({ name: 'logClass', from: 'studentProfile', studentId: s.id }); }} />
+          ) : null;
+        })()
       )}
 
       {route === 'pickStudent' && (
@@ -1618,7 +1768,7 @@ function App() {
 
       {route?.name === 'logClass' && (
         <LogClassScreen student={selectedStudent} coachId={user.id}
-          onBack={() => go(route.from === 'dashboard' ? 'dashboard' : 'pickStudent')}
+          onBack={() => go(route.from === 'dashboard' || route.from === 'studentProfile' ? (route.from === 'studentProfile' ? { name: 'studentProfile', studentId: selectedStudent.id } : 'dashboard') : 'pickStudent')}
           onSaved={offline => {
             setSavedOffline(offline);
             refreshStudents(user.id);
@@ -1635,6 +1785,11 @@ function App() {
         <EditStudentScreen student={selectedStudent} onBack={() => go('dashboard')}
           onSaved={updated => {
             setStudents(prev => prev.map(s => s.id === updated.id ? { ...s, ...updated } : s));
+            go('dashboard');
+          }}
+          onDeleted={id => {
+            setStudents(prev => prev.filter(s => s.id !== id));
+            setSelectedStudent(null);
             go('dashboard');
           }} />
       )}
