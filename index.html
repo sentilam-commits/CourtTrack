@@ -808,8 +808,9 @@ function OnboardingScreen({ user, onDone }) {
 }
 
 // ── S3 Dashboard ─────────────────────────────────────────────
-function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut }) {
-  const [showMenu, setShowMenu] = useState(false);
+function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents }) {
+  const [showMenu, setShowMenu]         = useState(false);
+  const [managingStudents, setManaging] = useState(false);
   const firstName = (profile?.display_name || 'Coach').split(' ')[0];
   const today = new Date();
   const days   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -831,6 +832,10 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
               borderRadius:12, boxShadow:'0 4px 20px rgba(0,0,0,0.15)',
               padding:'8px', zIndex:100, minWidth:160
             }}>
+              <button onClick={() => { setShowMenu(false); onEditProfile(); }} style={{
+                width:'100%', padding:'10px 14px', borderRadius:8, textAlign:'left',
+                fontSize:'0.9rem', fontWeight:600, color:'var(--text-primary)', background:'none', border:'none', cursor:'pointer'
+              }}>Mi perfil</button>
               <button onClick={() => { setShowMenu(false); onSignOut(); }} style={{
                 width:'100%', padding:'10px 14px', borderRadius:8, textAlign:'left',
                 fontSize:'0.9rem', fontWeight:600, color:'#c0392b', background:'none', border:'none', cursor:'pointer'
@@ -843,22 +848,47 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
         <div className="dash-date">{dateStr}</div>
         <h1 className="dash-greeting">Hola, {firstName}</h1>
         <div className="stat-cards">
-          <div className="stat-card stat-card--light">
+          <button
+            className={`stat-card ${managingStudents ? 'stat-card--dark' : 'stat-card--light'}`}
+            onClick={() => setManaging(s => !s)}
+            style={{textAlign:'left', cursor:'pointer', border:'none'}}>
             <div className="stat-num">{students.length}</div>
             <div className="stat-lbl">ALUMNOS</div>
-          </div>
-          <div className="stat-card stat-card--dark">
+          </button>
+          <button
+            className={`stat-card ${managingStudents ? 'stat-card--light' : 'stat-card--dark'}`}
+            onClick={() => setManaging(false)}
+            style={{textAlign:'left', cursor:'pointer', border:'none'}}>
             <div className="stat-num">{todayCount}</div>
             <div className="stat-lbl">CLASE HOY</div>
-          </div>
+          </button>
         </div>
-        <div className="section-label">ALUMNOS</div>
+        <div className="section-label">{managingStudents ? 'EDITAR ALUMNO' : 'ALUMNOS'}</div>
         <div className="student-list">
           {students.length === 0
             ? <div className="empty-state">Sin alumnos aún. Añade uno.</div>
             : students.map(s => (
-                <StudentCard key={s.id} student={s} lastLog={s.lastLog}
-                  onClick={() => onSelectStudent(s)} />
+                <div key={s.id} style={{display:'flex', alignItems:'center', gap: managingStudents ? 10 : 0}}>
+                  <div style={{flex:1, position:'relative'}}>
+                    <StudentCard student={s} lastLog={s.lastLog}
+                      onClick={() => !managingStudents && onSelectStudent(s)} />
+                    {!managingStudents && s.lastLog && (
+                      <button onClick={e => { e.stopPropagation(); onEditLog(s, s.lastLog); }} style={{
+                        position:'absolute', bottom:12, right:36,
+                        background:'none', border:'none', color:'var(--green-mid)',
+                        fontSize:'0.75rem', fontWeight:600, cursor:'pointer', padding:'4px 8px'
+                      }}>Editar clase</button>
+                    )}
+                  </div>
+                  {managingStudents && (
+                    <button onClick={() => onEditStudent(s)} style={{
+                      flexShrink:0, height:52, padding:'0 16px',
+                      borderRadius:14, border:'1.5px solid var(--border)',
+                      background:'var(--white)', color:'var(--text-primary)',
+                      fontSize:'0.85rem', fontWeight:600, cursor:'pointer', whiteSpace:'nowrap'
+                    }}>Editar</button>
+                  )}
+                </div>
               ))}
         </div>
         <div style={{height: 16}} />
@@ -941,14 +971,22 @@ function AddStudentScreen({ coachId, onBack, onDone }) {
 
 // ── S5 Log Class ─────────────────────────────────────────────
 function LogClassScreen({ student, coachId, onBack, onSaved }) {
-  const [focus, setFocus]       = useState([]);
-  const [improved, setImproved] = useState([]);
-  const [correction, setCorrection] = useState('');
-  const [homework, setHomework] = useState([]);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
+  const draftKey = `draft:${student.id}`;
+  const draft = LS.get(draftKey) || {};
+
+  const [focus, setFocus]           = useState(draft.focus || []);
+  const [improved, setImproved]     = useState(draft.improved || []);
+  const [correction, setCorrection] = useState(draft.correction || '');
+  const [homework, setHomework]     = useState(draft.homework || []);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
 
   const date = todayISO();
+
+  // Save draft to localStorage on every change
+  useEffect(() => {
+    LS.set(draftKey, { focus, improved, correction, homework });
+  }, [focus, improved, correction, homework]);
 
   async function save() {
     setLoading(true); setError('');
@@ -962,6 +1000,7 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
       homework:       fromArr(homework),
     });
     if (!data) { setError('Error al guardar. Intenta de nuevo.'); setLoading(false); return; }
+    LS.set(draftKey, null); // clear draft on save
     onSaved(offline);
   }
 
@@ -1164,6 +1203,222 @@ function PublicReportScreen({ studentId }) {
   );
 }
 
+
+// ── S9 Edit Profile ──────────────────────────────────────────
+function EditProfileScreen({ user, profile, onBack, onSaved }) {
+  const [displayName, setDisplayName] = useState(profile?.display_name || '');
+  const [clubName, setClubName]       = useState(profile?.club_name || '');
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState('');
+  const [saved, setSaved]             = useState(false);
+
+  async function save() {
+    if (!displayName.trim()) { setError('El nombre es obligatorio.'); return; }
+    setLoading(true); setError('');
+    const prof = { display_name: displayName.trim(), club_name: clubName.trim() || null };
+    try {
+      const { error } = await sb.from('profiles').upsert({ id: user.id, ...prof });
+      if (error) throw error;
+    } catch(e) { setError(e.message); setLoading(false); return; }
+    LS.set(`p:${user.id}`, { id: user.id, ...prof });
+    setSaved(true);
+    setTimeout(() => { onSaved(prof); }, 800);
+  }
+
+  return (
+    <div className="screen">
+      <Header title="Mi perfil" onBack={onBack} />
+      <div className="screen-content">
+        <h1 className="screen-title" style={{marginTop: 8}}>Editar perfil</h1>
+        <p className="screen-subtitle" style={{marginBottom: 28}}>Actualiza tu información de coach.</p>
+        {error && <div className="error-msg">{error}</div>}
+        {saved && <div style={{fontSize:'0.84rem',color:'var(--green-mid)',padding:'10px 14px',background:'var(--green-soft)',borderRadius:8,marginBottom:12}}>¡Guardado correctamente!</div>}
+        <div className="form-field">
+          <label className="field-label">Correo electrónico</label>
+          <div className="field-input" style={{display:'flex',alignItems:'center',color:'var(--text-secondary)',background:'var(--bg)'}}>
+            {user?.email}
+          </div>
+        </div>
+        <div className="form-field">
+          <label className="field-label">Nombre del coach</label>
+          <input className="field-input" value={displayName}
+            onChange={e => setDisplayName(e.target.value)} placeholder="Coach Benji" />
+        </div>
+        <div className="form-field">
+          <label className="field-label">
+            Club o academia{' '}
+            <span style={{color:'var(--text-hint)',fontWeight:400,textTransform:'none',letterSpacing:0}}>· opcional</span>
+          </label>
+          <input className="field-input" value={clubName}
+            onChange={e => setClubName(e.target.value)} placeholder="Padel Arena BCN" />
+        </div>
+      </div>
+      <div className="screen-bottom">
+        <button className="btn btn-primary" onClick={save} disabled={loading || !displayName.trim()}>
+          {loading ? 'Guardando...' : saved ? '¡Guardado! ✓' : 'Guardar cambios'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+// ── S10 Edit Student ─────────────────────────────────────────
+function EditStudentScreen({ student, onBack, onSaved }) {
+  const [name, setName]     = useState(student.name || '');
+  const [level, setLevel]   = useState(student.level || '');
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState('');
+  const levels = ['Principiante', 'Intermedio', 'Avanzado'];
+
+  async function save() {
+    if (!name.trim()) { setError('El nombre es obligatorio.'); return; }
+    setLoading(true); setError('');
+    try {
+      const { data, error } = await sb.from('students')
+        .update({ name: name.trim(), level: level || null })
+        .eq('id', student.id)
+        .select().single();
+      if (error) throw error;
+      onSaved(data);
+    } catch(e) { setError(e.message); setLoading(false); }
+  }
+
+  return (
+    <div className="screen">
+      <Header title="Editar alumno" onBack={onBack} />
+      <div className="screen-content">
+        <h1 className="screen-title" style={{marginTop: 8}}>Editar alumno</h1>
+        <p className="screen-subtitle" style={{marginBottom: 28}}>Modifica los datos del alumno.</p>
+        {error && <div className="error-msg">{error}</div>}
+        <div className="form-field">
+          <label className="field-label">Nombre completo</label>
+          <input className="field-input" value={name}
+            onChange={e => setName(e.target.value)} placeholder="María Álvarez"
+            onKeyDown={e => e.key === 'Enter' && save()} />
+        </div>
+        <div className="form-field">
+          <label className="field-label">Nivel</label>
+          <div className="chips" style={{marginTop: 8}}>
+            {levels.map(l => (
+              <Chip key={l} label={l} on={level === l}
+                onClick={() => setLevel(level === l ? '' : l)} />
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="screen-bottom">
+        <button className="btn btn-primary" onClick={save} disabled={loading || !name.trim()}>
+          {loading ? 'Guardando...' : 'Guardar cambios'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── S11 Edit Log ─────────────────────────────────────────────
+function EditLogScreen({ log, student, onBack, onSaved }) {
+  const [focus, setFocus]       = useState(toArr(log.today_focus));
+  const [improved, setImproved] = useState(toArr(log.what_improved));
+  const [correction, setCorrection] = useState(log.main_correction || '');
+  const [homework, setHomework] = useState(toArr(log.homework));
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+
+  async function save() {
+    setLoading(true); setError('');
+    try {
+      const { data, error } = await sb.from('class_logs')
+        .update({
+          today_focus:     fromArr(focus),
+          what_improved:   fromArr(improved),
+          main_correction: correction.trim() || null,
+          homework:        fromArr(homework),
+        })
+        .eq('id', log.id)
+        .select().single();
+      if (error) throw error;
+      onSaved(data);
+    } catch(e) { setError(e.message); setLoading(false); }
+  }
+
+  return (
+    <div className="screen">
+      <Header title="Editar clase" onBack={onBack} right={formatDateEs(log.date)} />
+      <div className="screen-content log-content">
+        <div className="student-pill">
+          <div className="student-pill-sq" />
+          {student.name}
+        </div>
+
+        <div className="log-section">
+          <div className="log-section-lbl">¿QUÉ TRABAJARON HOY?</div>
+          <ChipGroup chips={['Revés','Volea','Bandeja','Globo','Pared','Smash','Saque','Posicionamiento']}
+            addLabel="+ Otro" values={focus} onChange={setFocus} />
+        </div>
+
+        <div className="log-section">
+          <div className="log-section-lbl log-section-lbl--green">LO QUE MEJORÓ</div>
+          <ChipGroup chips={['Volea','Reacción','Confianza','Consistencia']}
+            addLabel="+ Escribir" values={improved} onChange={setImproved} />
+        </div>
+
+        <div className="log-section">
+          <div className="log-section-lbl log-section-lbl--orange">QUÉ NECESITA CORREGIR</div>
+          <textarea className="log-textarea" value={correction}
+            onChange={e => setCorrection(e.target.value)}
+            placeholder="Describe qué debe mejorar..." rows={3} />
+        </div>
+
+        <div className="log-section">
+          <div className="log-section-lbl">TAREA PARA CASA</div>
+          <ChipGroup chips={['Practicar bandeja','Ver video','Ejercicio físico']}
+            addLabel="+ Escribir" values={homework} onChange={setHomework} />
+        </div>
+
+        {error && <div className="error-msg">{error}</div>}
+      </div>
+      <div className="screen-bottom">
+        <button className="btn btn-primary" onClick={save} disabled={loading}>
+          {loading ? 'Guardando...' : 'Guardar cambios'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+// ── S12 Manage Students ──────────────────────────────────────
+function ManageStudentsScreen({ students, onBack, onEditStudent }) {
+  return (
+    <div className="screen">
+      <Header title="Alumnos" onBack={onBack} />
+      <div className="screen-content">
+        <h1 className="screen-title" style={{marginTop: 8}}>Mis alumnos</h1>
+        <p className="screen-subtitle" style={{marginBottom: 24}}>Toca "Editar" para modificar un alumno.</p>
+        <div className="student-list">
+          {students.length === 0
+            ? <div className="empty-state">Sin alumnos aún.</div>
+            : students.map(s => (
+                <div key={s.id} style={{display:'flex', alignItems:'center', gap:10}}>
+                  <div style={{flex:1}}>
+                    <StudentCard student={s} lastLog={s.lastLog} onClick={() => {}} />
+                  </div>
+                  <button onClick={() => onEditStudent(s)} style={{
+                    flexShrink:0, height:52, padding:'0 16px',
+                    borderRadius:14, border:'1.5px solid var(--border)',
+                    background:'var(--white)', color:'var(--text-primary)',
+                    fontSize:'0.85rem', fontWeight:600, cursor:'pointer', whiteSpace:'nowrap'
+                  }}>Editar</button>
+                </div>
+              ))
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────
 function App() {
   const [route, setRoute]                   = useState('loading');
@@ -1173,9 +1428,15 @@ function App() {
   const [todayCount, setTodayCount]         = useState(0);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [savedOffline, setSavedOffline]     = useState(false);
+  const [selectedLog, setSelectedLog]         = useState(null);
   const [isOffline, setIsOffline]           = useState(!navigator.onLine);
 
-  const go = r => setRoute(r);
+  const go = r => {
+    setRoute(r);
+    if (r && r !== 'loading' && r !== 'auth') {
+      LS.set('lastRoute', r);
+    }
+  };
 
   const publicMatch = () => {
     const m = location.hash.match(/^#\/p\/([0-9a-f-]{36})$/i);
@@ -1195,7 +1456,6 @@ function App() {
     const publicId = publicMatch();
     if (publicId) { go({ name: 'public', id: publicId }); return; }
 
-    // Try Supabase session; fall through to cached auth state
     sb.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setUser(session.user);
@@ -1219,9 +1479,43 @@ function App() {
     const prof = await fetchProfile(uid);
     if (!prof?.display_name) { go('onboarding'); return; }
     setProfile(prof);
-    await refreshStudents(uid);
+    const { studs, logs } = await fetchStudentsAndLogs(uid);
+    const today = todayISO();
+    setTodayCount(logs.filter(l => l.date === today).length);
+    const mappedStudents = studs.map(s => ({ ...s, lastLog: logs.find(l => l.student_id === s.id) || null }));
+    setStudents(mappedStudents);
+
+    // Restore last route
+    const lastRoute = LS.get('lastRoute');
+    if (lastRoute && lastRoute !== 'dashboard' && lastRoute !== 'auth' && lastRoute !== 'loading') {
+      const routeName = typeof lastRoute === 'object' ? lastRoute.name : lastRoute;
+
+      // Routes that need a student restored
+      if (['logClass', 'editStudent', 'editLog', 'share'].includes(routeName)) {
+        const studentId = typeof lastRoute === 'object' ? lastRoute.studentId : null;
+        const restoredStudent = studentId ? mappedStudents.find(s => s.id === studentId) : null;
+        if (restoredStudent) {
+          setSelectedStudent(restoredStudent);
+          if (routeName === 'editLog') {
+            const restoredLog = logs.find(l => l.student_id === restoredStudent.id);
+            if (restoredLog) setSelectedLog(restoredLog);
+          }
+          setRoute(lastRoute);
+          flushQueue(uid);
+          return;
+        }
+      }
+
+      // Simple routes that just need to be restored
+      if (['pickStudent', 'addStudent', 'editProfile', 'manageStudents'].includes(routeName)) {
+        setRoute(lastRoute);
+        flushQueue(uid);
+        return;
+      }
+    }
+
     go('dashboard');
-    flushQueue(uid); // sync any queued offline writes
+    flushQueue(uid);
   }
 
   async function refreshStudents(uid) {
@@ -1252,13 +1546,17 @@ function App() {
         <DashboardScreen profile={profile} students={students} todayCount={todayCount}
           onAddStudent={() => go('addStudent')}
           onRegisterClass={() => go('pickStudent')}
-          onSelectStudent={s => { setSelectedStudent(s); go('logClass'); }}
-          onSignOut={() => sb.auth.signOut()} />
+          onSelectStudent={s => { setSelectedStudent(s); go({ name: 'logClass', from: 'dashboard', studentId: s.id }); }}
+          onSignOut={() => { LS.set('lastRoute', null); sb.auth.signOut(); }}
+          onEditProfile={() => go('editProfile')}
+          onEditStudent={s => { setSelectedStudent(s); go('editStudent'); }}
+          onEditLog={(s, log) => { setSelectedStudent(s); setSelectedLog(log); go('editLog'); }}
+          onManageStudents={() => go('manageStudents')} />
       )}
 
       {route === 'pickStudent' && (
         <PickStudentScreen students={students} onBack={() => go('dashboard')}
-          onSelect={s => { setSelectedStudent(s); go('logClass'); }} />
+          onSelect={s => { setSelectedStudent(s); go({ name: 'logClass', from: 'pickStudent', studentId: s.id }); }} />
       )}
 
       {route === 'addStudent' && (
@@ -1271,14 +1569,40 @@ function App() {
           }} />
       )}
 
-      {route === 'logClass' && (
+      {route?.name === 'logClass' && (
         <LogClassScreen student={selectedStudent} coachId={user.id}
-          onBack={() => go('pickStudent')}
+          onBack={() => go(route.from === 'dashboard' ? 'dashboard' : 'pickStudent')}
           onSaved={offline => {
             setSavedOffline(offline);
             refreshStudents(user.id);
             go('share');
           }} />
+      )}
+
+      {route === 'manageStudents' && (
+        <ManageStudentsScreen students={students} onBack={() => go('dashboard')}
+          onEditStudent={s => { setSelectedStudent(s); go('editStudent'); }} />
+      )}
+
+      {route === 'editStudent' && selectedStudent && (
+        <EditStudentScreen student={selectedStudent} onBack={() => go('dashboard')}
+          onSaved={updated => {
+            setStudents(prev => prev.map(s => s.id === updated.id ? { ...s, ...updated } : s));
+            go('dashboard');
+          }} />
+      )}
+
+      {route === 'editLog' && selectedLog && selectedStudent && (
+        <EditLogScreen log={selectedLog} student={selectedStudent} onBack={() => go('dashboard')}
+          onSaved={updated => {
+            refreshStudents(user.id);
+            go('dashboard');
+          }} />
+      )}
+
+      {route === 'editProfile' && (
+        <EditProfileScreen user={user} profile={profile} onBack={() => go('dashboard')}
+          onSaved={prof => { setProfile(prof); go('dashboard'); }} />
       )}
 
       {route === 'share' && (
