@@ -1013,7 +1013,7 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
 // ── S6 Share ─────────────────────────────────────────────────
 function ShareScreen({ student, savedOffline, onHome }) {
   const base = location.origin.includes('localhost') || location.protocol === 'file:'
-    ? 'https://court-track.vercel.app'
+    ? 'https://padel-log.vercel.app'
     : location.origin;
   const publicUrl = `${base}/#/p/${student.id}`;
   const [copied, setCopied] = useState(false);
