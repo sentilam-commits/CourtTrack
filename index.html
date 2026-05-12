@@ -1205,12 +1205,14 @@ function PublicReportScreen({ studentId }) {
 
 
 // ── S9 Edit Profile ──────────────────────────────────────────
-function EditProfileScreen({ user, profile, onBack, onSaved }) {
+function EditProfileScreen({ user, profile, onBack, onSaved, onDeleted }) {
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
   const [clubName, setClubName]       = useState(profile?.club_name || '');
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState('');
   const [saved, setSaved]             = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting]           = useState(false);
 
   async function save() {
     if (!displayName.trim()) { setError('El nombre es obligatorio.'); return; }
@@ -1223,6 +1225,24 @@ function EditProfileScreen({ user, profile, onBack, onSaved }) {
     LS.set(`p:${user.id}`, { id: user.id, ...prof });
     setSaved(true);
     setTimeout(() => { onSaved(prof); }, 800);
+  }
+
+  async function deleteAccount() {
+    setDeleting(true); setError('');
+    try {
+      // Delete class logs, students, profile then user
+      await sb.from('class_logs').delete().eq('coach_id', user.id);
+      await sb.from('students').delete().eq('coach_id', user.id);
+      await sb.from('profiles').delete().eq('id', user.id);
+      await sb.auth.admin?.deleteUser(user.id);
+      // Clear local storage
+      localStorage.clear();
+      await sb.auth.signOut();
+      onDeleted();
+    } catch(e) {
+      setError('Error al eliminar. Contacta soporte.');
+      setDeleting(false);
+    }
   }
 
   return (
@@ -1251,6 +1271,33 @@ function EditProfileScreen({ user, profile, onBack, onSaved }) {
           </label>
           <input className="field-input" value={clubName}
             onChange={e => setClubName(e.target.value)} placeholder="Padel Arena BCN" />
+        </div>
+
+        {/* Delete account section */}
+        <div style={{marginTop:32, paddingTop:24, borderTop:'1px solid var(--border)'}}>
+          {!confirmDelete ? (
+            <button onClick={() => setConfirmDelete(true)} style={{
+              background:'none', border:'none', color:'#c0392b',
+              fontSize:'0.88rem', fontWeight:600, cursor:'pointer', padding:0
+            }}>Eliminar cuenta</button>
+          ) : (
+            <div style={{background:'#fdf0ef', borderRadius:12, padding:16}}>
+              <p style={{fontSize:'0.88rem', fontWeight:600, color:'#c0392b', marginBottom:8}}>¿Estás seguro?</p>
+              <p style={{fontSize:'0.82rem', color:'var(--text-secondary)', marginBottom:16, lineHeight:1.5}}>
+                Se eliminarán tu cuenta, todos tus alumnos y todas las clases registradas. Esta acción no se puede deshacer.
+              </p>
+              <div style={{display:'flex', gap:8}}>
+                <button onClick={() => setConfirmDelete(false)} style={{
+                  flex:1, height:44, borderRadius:10, border:'1.5px solid var(--border)',
+                  background:'var(--white)', fontSize:'0.88rem', fontWeight:600, cursor:'pointer'
+                }}>Cancelar</button>
+                <button onClick={deleteAccount} disabled={deleting} style={{
+                  flex:1, height:44, borderRadius:10, border:'none',
+                  background:'#c0392b', color:'white', fontSize:'0.88rem', fontWeight:600, cursor:'pointer'
+                }}>{deleting ? 'Eliminando...' : 'Sí, eliminar'}</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <div className="screen-bottom">
@@ -1602,7 +1649,8 @@ function App() {
 
       {route === 'editProfile' && (
         <EditProfileScreen user={user} profile={profile} onBack={() => go('dashboard')}
-          onSaved={prof => { setProfile(prof); go('dashboard'); }} />
+          onSaved={prof => { setProfile(prof); go('dashboard'); }}
+          onDeleted={() => { setUser(null); setProfile(null); go('auth'); }} />
       )}
 
       {route === 'share' && (
