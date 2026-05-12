@@ -132,11 +132,14 @@
       flex-shrink: 0;
     }
 
-    @media (display-mode: standalone) {
-      .app-header {
-        align-items: flex-end;
-        height: calc(52px + env(safe-area-inset-top));
-        padding: env(safe-area-inset-top) 16px 0;
+    @supports (padding-top: env(safe-area-inset-top)) {
+      @media (display-mode: standalone) {
+        .app-header {
+          padding-top: env(safe-area-inset-top);
+          height: calc(52px + env(safe-area-inset-top));
+          align-items: flex-end;
+          padding-bottom: 0;
+        }
       }
     }
 
@@ -288,9 +291,12 @@
       padding: 48px 28px; max-width: 480px; margin: 0 auto;
     }
 
-    @media (display-mode: standalone) {
-      .auth-screen {
-        padding: max(48px, env(safe-area-inset-top)) 28px max(48px, env(safe-area-inset-bottom));
+    @supports (padding-top: env(safe-area-inset-top)) {
+      @media (display-mode: standalone) {
+        .auth-screen {
+          padding-top: max(48px, env(safe-area-inset-top));
+          padding-bottom: max(48px, env(safe-area-inset-bottom));
+        }
       }
     }
     .auth-logo { margin-bottom: 48px; }
@@ -315,11 +321,14 @@
       background: var(--green-dark); position: sticky; top: 0; z-index: 10; flex-shrink: 0;
     }
 
-    @media (display-mode: standalone) {
-      .dash-header {
-        align-items: flex-end;
-        height: calc(52px + env(safe-area-inset-top));
-        padding: env(safe-area-inset-top) 20px 0;
+    @supports (padding-top: env(safe-area-inset-top)) {
+      @media (display-mode: standalone) {
+        .dash-header {
+          padding-top: env(safe-area-inset-top);
+          height: calc(52px + env(safe-area-inset-top));
+          align-items: flex-end;
+          padding-bottom: 0;
+        }
       }
     }
     .dash-avatar-wrap {
@@ -391,11 +400,13 @@
       background: var(--green-dark); flex-shrink: 0;
     }
 
-    @media (display-mode: standalone) {
-      .share-header {
-        height: calc(52px + env(safe-area-inset-top));
-        align-items: flex-end;
-        padding-bottom: 0;
+    @supports (padding-top: env(safe-area-inset-top)) {
+      @media (display-mode: standalone) {
+        .share-header {
+          padding-top: env(safe-area-inset-top);
+          height: calc(52px + env(safe-area-inset-top));
+          align-items: flex-end;
+        }
       }
     }
     .share-header-txt { color: var(--green-mid); font-size: 0.92rem; font-weight: 600; }
