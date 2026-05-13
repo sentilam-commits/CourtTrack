@@ -4757,10 +4757,19 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
             <div className="stat-num">{students.length}</div>
             <div className="stat-lbl">ALUMNOS</div>
             <div style={{
-              position:'absolute', top:10, right:12,
-              fontSize:'0.65rem', fontWeight:600, letterSpacing:'0.04em',
-              color: managingStudents ? 'rgba(255,255,255,0.5)' : 'var(--text-hint)',
-            }}>✏ gestionar</div>
+              position:'absolute', top:10, right:10,
+              color: managingStudents ? 'rgba(255,255,255,0.45)' : 'var(--text-hint)',
+              lineHeight:0
+            }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="6" x2="20" y2="6"/>
+                <line x1="4" y1="12" x2="14" y2="12"/>
+                <line x1="4" y1="18" x2="18" y2="18"/>
+                <circle cx="18" cy="6" r="2" fill="currentColor" stroke="none"/>
+                <circle cx="17" cy="12" r="2" fill="currentColor" stroke="none"/>
+                <circle cx="21" cy="18" r="2" fill="currentColor" stroke="none"/>
+              </svg>
+            </div>
           </button>
           <button
             className={`stat-card ${managingStudents ? 'stat-card--light' : 'stat-card--dark'}`}
@@ -5659,8 +5668,33 @@ function ManageStudentsScreen({ students, onBack, onEditStudent }) {
 
 // ── S13 Student Profile ──────────────────────────────────────
 function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClass }) {
-  const [logs, setLogs]       = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [logs, setLogs]           = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [shareCopied, setShareCopied]     = useState(false);
+
+  const shareBase = location.origin.includes('localhost') || location.protocol === 'file:'
+    ? 'https://padel-log-app.vercel.app'
+    : location.origin;
+  const shareUrl = `${shareBase}/#/p/${student.id}`;
+
+  function shareStudent() {
+    const msg = `Hola ${student.name.split(' ')[0]}, aquí tienes tu reporte de clases 🎾
+${shareUrl}`;
+    if (navigator.share) {
+      navigator.share({ title: 'Padel Log', text: msg, url: shareUrl }).catch(() => {});
+    } else {
+      try {
+        navigator.clipboard.writeText(shareUrl);
+      } catch(e) {
+        const ta = document.createElement('textarea');
+        ta.value = shareUrl; document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+      }
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    }
+  }
 
   useEffect(() => {
     sb.from('class_logs')
@@ -5670,6 +5704,12 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
       .then(({ data }) => { setLogs(data || []); setLoading(false); });
   }, [student.id]);
 
+  async function deleteLog(logId) {
+    await sb.from('class_logs').delete().eq('id', logId);
+    setLogs(prev => prev.filter(l => l.id !== logId));
+    setConfirmDelete(null);
+  }
+
   return (
     <div className="screen">
       <Header title={student.name} onBack={onBack} />
@@ -5678,9 +5718,25 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
         {/* Student info card */}
         <div style={{
           background:'var(--white)', border:'1.5px solid var(--border)',
-          borderRadius:16, padding:'20px', marginBottom:24, marginTop:8
+          borderRadius:16, padding:'20px', marginBottom:24, marginTop:8,
+          position:'relative'
         }}>
-          <div style={{display:'flex', alignItems:'center', gap:14}}>
+          {/* Share button — top right */}
+          <button onClick={shareStudent} title="Compartir reporte" style={{
+            position:'absolute', top:14, right:14,
+            width:34, height:34, borderRadius:10,
+            border:'1.5px solid var(--border)', background:'var(--bg)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            cursor:'pointer', color: shareCopied ? 'var(--green-mid)' : 'var(--text-secondary)',
+            transition:'color 0.2s'
+          }}>
+            {shareCopied
+              ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            }
+          </button>
+
+          <div style={{display:'flex', alignItems:'center', gap:14, paddingRight:28}}>
             <Avatar name={student.name} size={52} />
             <div>
               <div style={{fontWeight:700, fontSize:'1.1rem'}}>{student.name}</div>
@@ -5717,7 +5773,33 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
                 }}>
                   <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
                     <div style={{fontSize:'0.82rem', color:'var(--text-secondary)'}}>{formatFullDateEs(log.date)}</div>
-                    {focusArr[0] && <div className="hist-tag">✓ {focusArr[0]}</div>}
+                    <div style={{display:'flex', alignItems:'center', gap:8}}>
+                      {focusArr[0] && <div className="hist-tag">✓ {focusArr[0]}</div>}
+                      {confirmDelete === log.id ? (
+                        <div style={{display:'flex', alignItems:'center', gap:6}}>
+                          <span style={{fontSize:'0.72rem', color:'var(--text-secondary)'}}>¿Borrar?</span>
+                          <button onClick={() => deleteLog(log.id)} style={{
+                            fontSize:'0.72rem', fontWeight:700, color:'white',
+                            background:'#c0392b', border:'none', borderRadius:6,
+                            padding:'3px 8px', cursor:'pointer'
+                          }}>Sí</button>
+                          <button onClick={() => setConfirmDelete(null)} style={{
+                            fontSize:'0.72rem', fontWeight:700, color:'var(--text-secondary)',
+                            background:'var(--border)', border:'none', borderRadius:6,
+                            padding:'3px 8px', cursor:'pointer'
+                          }}>No</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setConfirmDelete(log.id)} style={{
+                          background:'none', border:'none', cursor:'pointer',
+                          color:'var(--text-hint)', padding:4, lineHeight:0
+                        }} title="Borrar clase">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {focusArr.length > 0 && (
                     <div style={{marginBottom:8}}>
@@ -5738,9 +5820,35 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
                     </div>
                   )}
                   {homeworkArr.length > 0 && (
-                    <div>
+                    <div style={{marginBottom: (log.media_url || log.visual_what) ? 8 : 0}}>
                       <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--text-secondary)', marginBottom:4}}>TAREA</div>
                       <div style={{fontSize:'0.88rem'}}>{homeworkArr.join(', ')}</div>
+                    </div>
+                  )}
+                  {(log.media_url || log.visual_what) && (
+                    <div style={{
+                      marginTop:10, borderTop:'1px solid var(--border)', paddingTop:10
+                    }}>
+                      <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--green-mid)', marginBottom:8, display:'flex', alignItems:'center', gap:5}}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>
+                        </svg>
+                        REFERENCIA VISUAL
+                      </div>
+                      {log.media_url && (
+                        <div style={{borderRadius:10, overflow:'hidden', background:'#000', marginBottom: log.visual_what ? 8 : 0, lineHeight:0}}>
+                          {log.media_type === 'video'
+                            ? <video src={log.media_url} controls playsInline style={{width:'100%', maxHeight:200, display:'block'}} />
+                            : <a href={log.media_url} target="_blank" rel="noopener noreferrer">
+                                <img src={log.media_url} alt="Referencia visual" loading="lazy"
+                                  style={{width:'100%', maxHeight:200, objectFit:'cover', display:'block', cursor:'zoom-in'}} />
+                              </a>
+                          }
+                        </div>
+                      )}
+                      {log.visual_what && (
+                        <div style={{fontSize:'0.85rem', color:'var(--text-primary)', lineHeight:1.5}}>{log.visual_what}</div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -5928,7 +6036,7 @@ function App() {
           onSaved={offline => {
             setSavedOffline(offline);
             refreshStudents(user.id);
-            go('share');
+            go({ name: 'share', studentId: selectedStudent.id });
           }} />
       )}
 
@@ -5964,9 +6072,9 @@ function App() {
           onDeleted={() => { setUser(null); setProfile(null); go('auth'); }} />
       )}
 
-      {route === 'share' && (
+      {(route === 'share' || route?.name === 'share') && (
         <ShareScreen student={selectedStudent} savedOffline={savedOffline}
-          onHome={() => { setSelectedStudent(null); setSavedOffline(false); go('dashboard'); }} />
+          onHome={() => { setSelectedStudent(null); setSavedOffline(false); LS.set('lastRoute', null); go('dashboard'); }} />
       )}
     </>
   );
