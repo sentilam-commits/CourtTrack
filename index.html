@@ -208,19 +208,22 @@
       background: var(--white);
       border: 1.5px solid var(--border);
       border-radius: 14px;
-      padding: 14px 16px;
+      padding: 0 16px;
+      height: 72px;
       cursor: pointer;
       transition: border-color 0.15s;
       text-align: left;
       width: 100%;
+      box-sizing: border-box;
+      flex-shrink: 0;
     }
     .student-card:active { opacity: 0.85; }
     .student-card--hl { border-color: var(--green-dark); border-width: 2px; }
 
-    .sc-info { flex: 1; min-width: 0; }
-    .sc-name { font-weight: 600; font-size: 0.95rem; color: var(--text-primary); }
-    .sc-sub  { font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px; }
-    .sc-chev { color: var(--text-hint); font-size: 1.1rem; line-height: 1; }
+    .sc-info { flex: 1; min-width: 0; overflow: hidden; }
+    .sc-name { font-weight: 600; font-size: 0.95rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sc-sub  { font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sc-chev { color: var(--text-hint); font-size: 1.1rem; line-height: 1; flex-shrink: 0; }
 
     .student-list { display: flex; flex-direction: column; gap: 10px; }
 
@@ -2618,7 +2621,7 @@ function PublicReportScreen(_ref14) {
   var improvedArr = toArr(latest === null || latest === void 0 ? void 0 : latest.what_improved);
   var homeworkArr = toArr(latest === null || latest === void 0 ? void 0 : latest.homework);
   var correction = (latest === null || latest === void 0 ? void 0 : latest.main_correction) || '';
-  var hasVisual = (latest === null || latest === void 0 ? void 0 : latest.media_url) || (latest === null || latest === void 0 ? void 0 : latest.visual_what) || (latest === null || latest === void 0 ? void 0 : latest.visual_correction) || (latest === null || latest === void 0 ? void 0 : latest.visual_task);
+  var hasVisual = (latest === null || latest === void 0 ? void 0 : latest.media_url) || (latest === null || latest === void 0 ? void 0 : latest.visual_what);
   return /*#__PURE__*/React.createElement("div", {
     className: "pub-screen"
   }, /*#__PURE__*/React.createElement("div", {
@@ -4326,7 +4329,7 @@ async function uploadMedia(file, coachId, studentId) {
 
 // ── VisualReferenceSection ────────────────────────────────────
 function VisualReferenceSection({ coachId, studentId, mediaUrl, mediaType, localPreview, uploading, uploadError,
-  visualWhat, visualCorrection, visualTask,
+  visualWhat,
   onMediaChange, onFieldChange }) {
 
   const fileRef = useRef();
@@ -4422,26 +4425,18 @@ function VisualReferenceSection({ coachId, studentId, mediaUrl, mediaType, local
 
       <input ref={fileRef} type="file" accept="image/*,video/*" style={{display:'none'}} onChange={handleFile} />
 
-      {/* 3 text fields — only show after media is uploaded or skip media */}
-      <div style={{display:'flex', flexDirection:'column', gap:10, marginTop: hasMedia ? 0 : 10}}>
-        {[
-          { key:'visualWhat',        label:'QUÉ MIRAR',   placeholder:'ej: La posición del codo en el revés', value: visualWhat },
-          { key:'visualCorrection',  label:'CORRECCIÓN',  placeholder:'ej: Mantener el brazo extendido al impactar', value: visualCorrection },
-          { key:'visualTask',        label:'TAREA',       placeholder:'ej: Repetir 10 veces con pared baja', value: visualTask },
-        ].map(f => (
-          <div key={f.key}>
-            <div style={{fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--text-secondary)', marginBottom:5}}>
-              {f.label}
-            </div>
-            <input
-              className="field-input"
-              style={{height:44, fontSize:'0.88rem'}}
-              value={f.value}
-              onChange={e => onFieldChange(f.key, e.target.value)}
-              placeholder={f.placeholder}
-            />
-          </div>
-        ))}
+      {/* Single note field */}
+      <div style={{marginTop: hasMedia ? 0 : 10}}>
+        <div style={{fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--text-secondary)', marginBottom:5}}>
+          NOTA PARA EL ALUMNO
+        </div>
+        <input
+          className="field-input"
+          style={{height:44, fontSize:'0.88rem'}}
+          value={visualWhat}
+          onChange={e => onFieldChange('visualWhat', e.target.value)}
+          placeholder="ej: Fíjate en la posición del codo al impactar"
+        />
       </div>
     </div>
   );
@@ -4714,9 +4709,10 @@ function OnboardingScreen({ user, onDone }) {
 }
 
 // ── S3 Dashboard ─────────────────────────────────────────────
-function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog }) {
+function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog, managing, onManagingChange }) {
   const [showMenu, setShowMenu]         = useState(false);
-  const [managingStudents, setManaging] = useState(false);
+  const managingStudents = managing;
+  const setManaging = onManagingChange;
   const firstName = (profile?.display_name || 'Coach').split(' ')[0];
   const today = new Date();
   const days   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -4783,7 +4779,7 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
                   <div style={{display:'flex', alignItems:'center', gap:8}}>
                     <div style={{flex:1}}>
                       <StudentCard student={s} lastLog={s.lastLog}
-                        onClick={() => !managingStudents && onSelectStudent(s)} />
+                        onClick={() => managingStudents ? onEditStudent(s) : onSelectStudent(s)} />
                     </div>
                     {!managingStudents && (
                       <button
@@ -4798,24 +4794,22 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
                           cursor:'pointer', lineHeight:1
                         }}>+</button>
                     )}
-                    {managingStudents && (
-                      <div style={{display:'flex', gap:6, flexShrink:0}}>
-                        <button onClick={e => { e.stopPropagation(); onEditLog(s, s.lastLog); }}
-                          disabled={!s.lastLog}
-                          style={{
-                            height:48, padding:'0 12px',
-                            borderRadius:12, border:'1.5px solid var(--border)',
-                            background:'var(--white)', color: s.lastLog ? 'var(--green-mid)' : 'var(--text-hint)',
-                            fontSize:'0.78rem', fontWeight:600, cursor: s.lastLog ? 'pointer' : 'default',
-                            whiteSpace:'nowrap'
-                          }}>Editar clase</button>
-                        <button onClick={() => onEditStudent(s)} style={{
-                          height:48, padding:'0 12px',
+                    {managingStudents && s.lastLog && (
+                      <button
+                        onClick={e => { e.stopPropagation(); onEditLog(s, s.lastLog); }}
+                        title="Editar última clase"
+                        style={{
+                          flexShrink:0, width:44, height:44,
                           borderRadius:12, border:'1.5px solid var(--border)',
-                          background:'var(--white)', color:'var(--text-primary)',
-                          fontSize:'0.78rem', fontWeight:600, cursor:'pointer', whiteSpace:'nowrap'
-                        }}>Editar</button>
-                      </div>
+                          background:'var(--white)', color:'var(--green-mid)',
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          cursor:'pointer'
+                        }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -4925,9 +4919,7 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
   const [localPreview, setLocalPreview]   = useState('');
   const [mediaUploading, setMediaUploading] = useState(false);
   const [uploadError, setUploadError]     = useState('');
-  const [visualWhat, setVisualWhat]       = useState('');
-  const [visualCorrection, setVisualCorrection] = useState('');
-  const [visualTask, setVisualTask]       = useState('');
+  const [visualWhat, setVisualWhat] = useState('');
 
   function handleMediaChange(patch) {
     if ('mediaUrl'     in patch) setMediaUrl(patch.mediaUrl || '');
@@ -4937,9 +4929,7 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
     if ('uploadError'  in patch) setUploadError(patch.uploadError || '');
   }
   function handleVisualField(key, val) {
-    if (key === 'visualWhat')       setVisualWhat(val);
-    if (key === 'visualCorrection') setVisualCorrection(val);
-    if (key === 'visualTask')       setVisualTask(val);
+    if (key === 'visualWhat') setVisualWhat(val);
   }
 
   const date = todayISO();
@@ -4975,8 +4965,8 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
       media_url:         mediaUrl || null,
       media_type:        mediaType || null,
       visual_what:       visualWhat.trim() || null,
-      visual_correction: visualCorrection.trim() || null,
-      visual_task:       visualTask.trim() || null,
+      visual_correction: null,
+      visual_task:       null,
     });
     if (!data) { setError('Error al guardar. Intenta de nuevo.'); setLoading(false); return; }
     LS.set(draftKey, null);
@@ -5080,7 +5070,7 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
           coachId={coachId} studentId={student.id}
           mediaUrl={mediaUrl} mediaType={mediaType} localPreview={localPreview}
           uploading={mediaUploading} uploadError={uploadError}
-          visualWhat={visualWhat} visualCorrection={visualCorrection} visualTask={visualTask}
+          visualWhat={visualWhat}
           onMediaChange={handleMediaChange} onFieldChange={handleVisualField}
         />
 
@@ -5253,29 +5243,39 @@ function PublicReportScreen({ studentId }) {
 
             {/* Media */}
             {latest.media_url && (
-              <div style={{background:'#000'}}>
+              <div style={{background:'#000', lineHeight:0, overflow:'hidden'}}>
                 {latest.media_type === 'video'
-                  ? <video src={latest.media_url} controls playsInline style={{width:'100%', maxHeight:240, display:'block'}} />
-                  : <img src={latest.media_url} alt="Referencia visual" style={{width:'100%', maxHeight:240, objectFit:'cover', display:'block'}} />
+                  ? <div>
+                      <video src={latest.media_url} controls playsInline style={{width:'100%', maxHeight:300, display:'block'}} />
+                      <a href={latest.media_url} target="_blank" rel="noopener noreferrer" style={{
+                        display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+                        padding:'10px 16px', background:'#111', textDecoration:'none',
+                        fontSize:'0.75rem', fontWeight:700, color:'rgba(255,255,255,0.75)',
+                        letterSpacing:'0.05em'
+                      }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+                          <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+                        </svg>
+                        VER A PANTALLA COMPLETA
+                      </a>
+                    </div>
+                  : <a href={latest.media_url} target="_blank" rel="noopener noreferrer">
+                      <img src={latest.media_url} alt="Referencia visual" style={{width:'100%', maxHeight:300, objectFit:'cover', display:'block', cursor:'zoom-in'}} />
+                    </a>
                 }
               </div>
             )}
 
-            {/* Fields */}
-            <div style={{padding:'14px 16px', display:'flex', flexDirection:'column', gap:12}}>
-              {[
-                { label:'QUÉ MIRAR',   value: latest.visual_what,       color:'var(--green-mid)' },
-                { label:'CORRECCIÓN',  value: latest.visual_correction,  color:'var(--orange)' },
-                { label:'TAREA',       value: latest.visual_task,        color:'var(--text-secondary)' },
-              ].filter(f => f.value).map(f => (
-                <div key={f.label}>
-                  <div style={{fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.08em', color: f.color, marginBottom:3}}>
-                    {f.label}
-                  </div>
-                  <div style={{fontSize:'0.92rem', color:'var(--text-primary)', lineHeight:1.5}}>{linkify(f.value)}</div>
+            {/* Note */}
+            {latest.visual_what && (
+              <div style={{padding:'14px 16px'}}>
+                <div style={{fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--green-mid)', marginBottom:5}}>
+                  NOTA DEL COACH
                 </div>
-              ))}
-            </div>
+                <div style={{fontSize:'0.92rem', color:'var(--text-primary)', lineHeight:1.5}}>{linkify(latest.visual_what)}</div>
+              </div>
+            )}
           </div>
         )}
 
@@ -5503,22 +5503,51 @@ function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
 
 // ── S11 Edit Log ─────────────────────────────────────────────
 function EditLogScreen({ log, student, onBack, onSaved }) {
-  const [focus, setFocus]       = useState(toArr(log.today_focus));
-  const [improved, setImproved] = useState(toArr(log.what_improved));
+  const [focus, setFocus]           = useState(toArr(log.today_focus));
+  const [improved, setImproved]     = useState(toArr(log.what_improved));
   const [correction, setCorrection] = useState(log.main_correction || '');
-  const [homework, setHomework] = useState(toArr(log.homework));
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
+  const [homework, setHomework]     = useState(toArr(log.homework));
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
+
+  // Visual reference state (pre-fill from existing log)
+  const [mediaUrl, setMediaUrl]           = useState(log.media_url || '');
+  const [mediaType, setMediaType]         = useState(log.media_type || '');
+  const [localPreview, setLocalPreview]   = useState('');
+  const [mediaUploading, setMediaUploading] = useState(false);
+  const [uploadError, setUploadError]     = useState('');
+  const [visualWhat, setVisualWhat]       = useState(log.visual_what || '');
+  const [visualCorrection, setVisualCorrection] = useState(log.visual_correction || '');
+  const [visualTask, setVisualTask]       = useState(log.visual_task || '');
+
+  function handleMediaChange(patch) {
+    if ('mediaUrl'     in patch) setMediaUrl(patch.mediaUrl || '');
+    if ('mediaType'    in patch) setMediaType(patch.mediaType || '');
+    if ('localPreview' in patch) setLocalPreview(patch.localPreview || '');
+    if ('uploading'    in patch) setMediaUploading(patch.uploading);
+    if ('uploadError'  in patch) setUploadError(patch.uploadError || '');
+  }
+  function handleVisualField(key, val) {
+    if (key === 'visualWhat')       setVisualWhat(val);
+    if (key === 'visualCorrection') setVisualCorrection(val);
+    if (key === 'visualTask')       setVisualTask(val);
+  }
 
   async function save() {
+    if (mediaUploading) { setError('Espera a que termine de subir el archivo.'); return; }
     setLoading(true); setError('');
     try {
       const { data, error } = await sb.from('class_logs')
         .update({
-          today_focus:     fromArr(focus),
-          what_improved:   fromArr(improved),
-          main_correction: correction.trim() || null,
-          homework:        fromArr(homework),
+          today_focus:       fromArr(focus),
+          what_improved:     fromArr(improved),
+          main_correction:   correction.trim() || null,
+          homework:          fromArr(homework),
+          media_url:         mediaUrl || null,
+          media_type:        mediaType || null,
+          visual_what:       visualWhat.trim() || null,
+          visual_correction: null,
+          visual_task:       null,
         })
         .eq('id', log.id)
         .select().single();
@@ -5537,35 +5566,58 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
         </div>
 
         <div className="log-section">
-          <div className="log-section-lbl">¿QUÉ TRABAJARON HOY?</div>
+          <div className="log-section-lbl">
+            ¿QUÉ TRABAJARON HOY?
+            {focus.length > 0 && <span style={{color:'var(--green-mid)', marginLeft:6}}>✓</span>}
+          </div>
           <ChipGroup chips={['Revés','Volea','Bandeja','Globo','Pared','Smash','Saque','Posicionamiento']}
             addLabel="+ Otro" values={focus} onChange={setFocus} />
         </div>
 
         <div className="log-section">
-          <div className="log-section-lbl log-section-lbl--green">LO QUE MEJORÓ</div>
-          <ChipGroup chips={['Volea','Reacción','Confianza','Consistencia']}
+          <div className="log-section-lbl log-section-lbl--green">
+            LO QUE MEJORÓ
+            {improved.length > 0 && <span style={{marginLeft:6}}>✓</span>}
+          </div>
+          <ChipGroup chips={['Volea','Reacción','Confianza','Consistencia','Técnica','Actitud','Potencia','Puntería','Juego en red']}
             addLabel="+ Escribir" values={improved} onChange={setImproved} />
         </div>
 
         <div className="log-section">
-          <div className="log-section-lbl log-section-lbl--orange">QUÉ NECESITA CORREGIR</div>
+          <div style={{display:'flex', alignItems:'baseline', gap:8, marginBottom:12}}>
+            <div className="log-section-lbl log-section-lbl--orange" style={{marginBottom:0}}>
+              QUÉ NECESITA CORREGIR
+              {correction.trim() && <span style={{marginLeft:6}}>✓</span>}
+            </div>
+            <span style={{fontSize:'0.68rem', color:'var(--text-hint)', fontWeight:500}}>opcional</span>
+          </div>
           <textarea className="log-textarea" value={correction}
             onChange={e => setCorrection(e.target.value)}
-            placeholder="Describe qué debe mejorar..." rows={3} />
+            placeholder="ej: Mejorar el agarre en el revés, bajar más en la volea..." rows={3} />
         </div>
 
         <div className="log-section">
-          <div className="log-section-lbl">TAREA PARA CASA</div>
-          <ChipGroup chips={['Practicar bandeja','Ver video','Ejercicio físico']}
+          <div className="log-section-lbl">
+            TAREA PARA CASA
+            {homework.length > 0 && <span style={{color:'var(--text-secondary)', marginLeft:6}}>✓</span>}
+          </div>
+          <ChipGroup chips={['Practicar bandeja','Ver video','Ejercicio físico','Practicar saque','Ver partido','Fortalecer muñeca']}
             addLabel="+ Escribir" values={homework} onChange={setHomework} />
         </div>
+
+        <VisualReferenceSection
+          coachId={student.coach_id} studentId={student.id}
+          mediaUrl={mediaUrl} mediaType={mediaType} localPreview={localPreview}
+          uploading={mediaUploading} uploadError={uploadError}
+          visualWhat={visualWhat}
+          onMediaChange={handleMediaChange} onFieldChange={handleVisualField}
+        />
 
         {error && <div className="error-msg">{error}</div>}
       </div>
       <div className="screen-bottom">
-        <button className="btn btn-primary" onClick={save} disabled={loading}>
-          {loading ? 'Guardando...' : 'Guardar cambios'}
+        <button className="btn btn-primary" onClick={save} disabled={loading || mediaUploading}>
+          {loading ? 'Guardando...' : mediaUploading ? 'Subiendo archivo…' : 'Guardar cambios'}
         </button>
       </div>
     </div>
@@ -5713,6 +5765,7 @@ function App() {
   const [savedOffline, setSavedOffline]     = useState(false);
   const [selectedLog, setSelectedLog]         = useState(null);
   const [isOffline, setIsOffline]           = useState(!navigator.onLine);
+  const [isManaging, setIsManaging]         = useState(false);
 
   const go = r => {
     setRoute(r);
@@ -5835,7 +5888,9 @@ function App() {
           onEditStudent={s => { setSelectedStudent(s); go('editStudent'); }}
           onEditLog={(s, log) => { setSelectedStudent(s); setSelectedLog(log); go('editLog'); }}
           onManageStudents={() => go('manageStudents')}
-          onQuickLog={s => { setSelectedStudent(s); go({ name: 'logClass', from: 'dashboard', studentId: s.id }); }} />
+          onQuickLog={s => { setSelectedStudent(s); go({ name: 'logClass', from: 'dashboard', studentId: s.id }); }}
+          managing={isManaging}
+          onManagingChange={setIsManaging} />
       )}
 
       {route?.name === 'studentProfile' && (
