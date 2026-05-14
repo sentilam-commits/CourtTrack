@@ -209,7 +209,7 @@
       border: 1.5px solid var(--border);
       border-radius: 14px;
       padding: 0 16px;
-      height: 72px;
+      height: 64px;
       cursor: pointer;
       transition: border-color 0.15s;
       text-align: left;
@@ -4803,7 +4803,7 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
             ? <div className="empty-state">Sin alumnos aún. Añade uno.</div>
             : students.map(s => (
                 <div key={s.id} style={{display:'flex', flexDirection:'column', gap:6}}>
-                  <div style={{display:'flex', alignItems:'stretch', gap:8, height:72}}>
+                  <div style={{display:'flex', alignItems:'stretch', gap:8, height:64}}>
                     <div style={{flex:1, minWidth:0, overflow:'hidden'}}>
                       <StudentCard student={s} lastLog={s.lastLog}
                         onClick={() => managingStudents ? onEditStudent(s) : onSelectStudent(s)} />
@@ -4813,7 +4813,7 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
                         onClick={e => { e.stopPropagation(); onQuickLog(s); }}
                         title="Registrar clase"
                         style={{
-                          flexShrink:0, width:48,
+                          flexShrink:0, width:64,
                           borderRadius:14, border:'none',
                           background:'var(--green-dark)', color:'white',
                           fontSize:'1.4rem', fontWeight:300,
@@ -4826,7 +4826,7 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
                         onClick={e => { e.stopPropagation(); onEditLog(s, s.lastLog); }}
                         title="Editar última clase"
                         style={{
-                          flexShrink:0, width:44,
+                          flexShrink:0, width:64,
                           borderRadius:14, border:'1.5px solid var(--border)',
                           background:'var(--white)', color:'var(--green-mid)',
                           display:'flex', alignItems:'center', justifyContent:'center',
