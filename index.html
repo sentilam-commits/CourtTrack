@@ -459,8 +459,26 @@
     .hist-card {
       background: var(--white); border: 1px solid var(--border);
       border-radius: 14px; padding: 16px;
+    }
+    .hist-card-header {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
     }
+    .hist-card-body {
+      margin-top: 14px; border-top: 1px solid var(--border); padding-top: 14px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .hist-field-lbl {
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; color: var(--text-secondary); margin-bottom: 3px;
+    }
+    .hist-field-val {
+      font-size: 0.88rem; color: var(--text-primary); line-height: 1.5;
+    }
+    .hist-ver-mas {
+      background: none; border: none; cursor: pointer;
+      font-size: 0.78rem; font-weight: 600; color: var(--green-mid);
+      padding: 0; margin-top: 10px; display: flex; align-items: center; gap: 4px;
+    }
+    .hist-media { width: 100%; border-radius: 10px; margin-top: 6px; max-height: 240px; object-fit: cover; }
     .hist-date  { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 4px; }
     .hist-title { font-size: 0.9rem; font-weight: 600; }
     .hist-tag   { font-size: 0.75rem; font-weight: 600; color: var(--green-mid); background: var(--green-soft); border-radius: 100px; padding: 4px 10px; white-space: nowrap; }
@@ -4785,7 +4803,7 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
             ? <div className="empty-state">Sin alumnos aún. Añade uno.</div>
             : students.map(s => (
                 <div key={s.id} style={{display:'flex', flexDirection:'column', gap:6}}>
-                  <div style={{display:'flex', alignItems:'center', gap:8}}>
+                  <div style={{display:'flex', alignItems:'stretch', gap:8}}>
                     <div style={{flex:1}}>
                       <StudentCard student={s} lastLog={s.lastLog}
                         onClick={() => managingStudents ? onEditStudent(s) : onSelectStudent(s)} />
@@ -4795,7 +4813,7 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
                         onClick={e => { e.stopPropagation(); onQuickLog(s); }}
                         title="Registrar clase"
                         style={{
-                          flexShrink:0, width:48, height:48,
+                          flexShrink:0, width:48,
                           borderRadius:14, border:'none',
                           background:'var(--green-dark)', color:'white',
                           fontSize:'1.4rem', fontWeight:300,
@@ -4808,8 +4826,8 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
                         onClick={e => { e.stopPropagation(); onEditLog(s, s.lastLog); }}
                         title="Editar última clase"
                         style={{
-                          flexShrink:0, width:44, height:44,
-                          borderRadius:12, border:'1.5px solid var(--border)',
+                          flexShrink:0, width:44,
+                          borderRadius:14, border:'1.5px solid var(--border)',
                           background:'var(--white)', color:'var(--green-mid)',
                           display:'flex', alignItems:'center', justifyContent:'center',
                           cursor:'pointer'
@@ -5160,6 +5178,78 @@ function ShareScreen({ student, savedOffline, onHome }) {
 }
 
 // ── S7 Public Report ─────────────────────────────────────────
+function HistCard({ log }) {
+  const [expanded, setExpanded] = useState(false);
+  const fArr = toArr(log.today_focus);
+  const hasExtra = log.what_worked || log.what_improved || log.to_correct || log.homework || log.visual_what || log.media_url;
+  return (
+    <div className="hist-card">
+      <div className="hist-card-header">
+        <div>
+          <div className="hist-date">{shortDateEs(log.date)}</div>
+          <div className="hist-title">{fArr.join(' y ') || 'Clase'}</div>
+        </div>
+        {fArr[0] && <div className="hist-tag">✓ {fArr[0]}</div>}
+      </div>
+      {hasExtra && (
+        <button className="hist-ver-mas" onClick={() => setExpanded(e => !e)}>
+          {expanded
+            ? <><span>▲</span> Ver menos</>
+            : <><span>▼</span> Ver más</>}
+        </button>
+      )}
+      {expanded && (
+        <div className="hist-card-body">
+          {log.what_worked && (
+            <div>
+              <div className="hist-field-lbl">TRABAJARON</div>
+              <div className="hist-field-val">{log.what_worked}</div>
+            </div>
+          )}
+          {log.what_improved && (
+            <div>
+              <div className="hist-field-lbl">MEJORÓ</div>
+              <div className="hist-field-val">{log.what_improved}</div>
+            </div>
+          )}
+          {log.to_correct && (
+            <div>
+              <div className="hist-field-lbl">CORREGIR</div>
+              <div className="hist-field-val">{log.to_correct}</div>
+            </div>
+          )}
+          {log.homework && (
+            <div>
+              <div className="hist-field-lbl">TAREA</div>
+              <div className="hist-field-val">{log.homework}</div>
+            </div>
+          )}
+          {(log.visual_what || log.media_url) && (
+            <div>
+              <div className="hist-field-lbl">REFERENCIA VISUAL</div>
+              {log.media_url && log.media_type === 'video' && (
+                <video
+                  src={log.media_url}
+                  className="hist-media"
+                  controls
+                  playsInline
+                  style={{display:'block'}}
+                />
+              )}
+              {log.media_url && log.media_type !== 'video' && (
+                <img src={log.media_url} className="hist-media" alt="referencia visual" />
+              )}
+              {log.visual_what && (
+                <div className="hist-field-val" style={{marginTop: log.media_url ? 8 : 0}}>{log.visual_what}</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PublicReportScreen({ studentId }) {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
@@ -5292,18 +5382,7 @@ function PublicReportScreen({ studentId }) {
           <>
             <div className="pub-hist-lbl">HISTORIAL</div>
             <div className="hist-list">
-              {history.map(log => {
-                const fArr = toArr(log.today_focus);
-                return (
-                  <div key={log.id} className="hist-card">
-                    <div>
-                      <div className="hist-date">{shortDateEs(log.date)}</div>
-                      <div className="hist-title">{fArr.join(' y ') || 'Clase'}</div>
-                    </div>
-                    {fArr[0] && <div className="hist-tag">✓ {fArr[0]}</div>}
-                  </div>
-                );
-              })}
+              {history.map(log => <HistCard key={log.id} log={log} />)}
             </div>
           </>
         )}
@@ -5773,7 +5852,7 @@ ${shareUrl}`;
                 }}>
                   <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
                     <div style={{fontSize:'0.82rem', color:'var(--text-secondary)'}}>{formatFullDateEs(log.date)}</div>
-                    <div style={{display:'flex', alignItems:'center', gap:8}}>
+                    <div style={{display:'flex', alignItems:'stretch', gap:8}}>
                       {focusArr[0] && <div className="hist-tag">✓ {focusArr[0]}</div>}
                       {confirmDelete === log.id ? (
                         <div style={{display:'flex', alignItems:'center', gap:6}}>
