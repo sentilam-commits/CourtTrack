@@ -183,7 +183,11 @@
 
     /* ── Logo ── */
     .logo { display: flex; align-items: center; gap: 5px; }
-    .logo-dot  { color: var(--green-mid); font-size: 0.55rem; line-height: 1; }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.25; }
+    }
+    .logo-dot  { color: var(--green-mid); font-size: 0.55rem; line-height: 1; animation: pulse-dot 2.8s ease-in-out infinite; }
     .logo-text { font-size: 1rem; color: white; letter-spacing: -0.01em; }
     .logo-text strong { font-weight: 700; }
 
@@ -240,6 +244,9 @@
       color: var(--text-primary);
       transition: background 0.12s, border-color 0.12s, color 0.12s;
       white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .chip:active { opacity: 0.8; }
     .chip--on { background: var(--green-dark); border-color: var(--green-dark); color: white; }
@@ -430,6 +437,7 @@
     /* ── Public report ── */
     .pub-screen { min-height: 100svh; background: var(--bg); max-width: 480px; margin: 0 auto; }
     .pub-header { background: var(--green-dark); padding: 20px 20px 24px; }
+    .pub-header .logo-dot { color: rgba(255,255,255,0.85); }
     .pub-coach-block { background: rgba(255,255,255,0.08); border-radius: 10px; padding: 12px 16px; margin-top: 14px; }
     .pub-coach-tag  { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; color: var(--green-mid); margin-bottom: 4px; }
     .pub-coach-name { font-size: 1rem; font-weight: 700; color: white; }
@@ -479,6 +487,14 @@
       padding: 0; margin-top: 10px; display: flex; align-items: center; gap: 4px;
     }
     .hist-media { width: 100%; border-radius: 10px; margin-top: 6px; max-height: 240px; object-fit: cover; }
+    .dl-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      width: 100%; margin-top: 8px; padding: 9px 14px;
+      background: var(--green-dark); color: white;
+      border: none; border-radius: 10px; cursor: pointer;
+      font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em;
+    }
+    .dl-btn:active { opacity: 0.8; }
     .hist-date  { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 4px; }
     .hist-title { font-size: 0.9rem; font-weight: 600; }
     .hist-tag   { font-size: 0.75rem; font-weight: 600; color: var(--green-mid); background: var(--green-soft); border-radius: 100px; padding: 4px 10px; white-space: nowrap; }
@@ -5178,6 +5194,20 @@ function ShareScreen({ student, savedOffline, onHome }) {
 }
 
 // ── S7 Public Report ─────────────────────────────────────────
+function downloadMedia(url, type) {
+  fetch(url)
+    .then(r => r.blob())
+    .then(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = type === 'video' ? 'video-padel.mp4' : 'foto-padel.jpg';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+    })
+    .catch(() => window.open(url, '_blank'));
+}
+
 function HistCard({ log }) {
   const [expanded, setExpanded] = useState(false);
   const fArr = toArr(log.today_focus);
@@ -5228,16 +5258,33 @@ function HistCard({ log }) {
             <div>
               <div className="hist-field-lbl">REFERENCIA VISUAL</div>
               {log.media_url && log.media_type === 'video' && (
-                <video
-                  src={log.media_url}
-                  className="hist-media"
-                  controls
-                  playsInline
-                  style={{display:'block'}}
-                />
+                <div>
+                  <video
+                    src={log.media_url}
+                    className="hist-media"
+                    controls
+                    playsInline
+                    loop
+                    style={{display:'block'}}
+                  />
+                  <button className="dl-btn" onClick={() => downloadMedia(log.media_url, 'video')}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Guardar video
+                  </button>
+                </div>
               )}
               {log.media_url && log.media_type !== 'video' && (
-                <img src={log.media_url} className="hist-media" alt="referencia visual" />
+                <div>
+                  <img src={log.media_url} className="hist-media" alt="referencia visual" />
+                  <button className="dl-btn" onClick={() => downloadMedia(log.media_url, 'image')}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Guardar foto
+                  </button>
+                </div>
               )}
               {log.visual_what && (
                 <div className="hist-field-val" style={{marginTop: log.media_url ? 8 : 0}}>{log.visual_what}</div>
@@ -5345,23 +5392,25 @@ function PublicReportScreen({ studentId }) {
               <div style={{background:'#000', lineHeight:0, overflow:'hidden'}}>
                 {latest.media_type === 'video'
                   ? <div>
-                      <video src={latest.media_url} controls playsInline style={{width:'100%', maxHeight:300, display:'block'}} />
-                      <a href={latest.media_url} target="_blank" rel="noopener noreferrer" style={{
-                        display:'flex', alignItems:'center', justifyContent:'center', gap:6,
-                        padding:'10px 16px', background:'#111', textDecoration:'none',
-                        fontSize:'0.75rem', fontWeight:700, color:'rgba(255,255,255,0.75)',
-                        letterSpacing:'0.05em'
-                      }}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
-                          <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+                      <video src={latest.media_url} controls playsInline loop style={{width:'100%', maxHeight:300, display:'block'}} />
+                      <button className="dl-btn" style={{borderRadius:0, marginTop:0, padding:'11px 16px'}}
+                        onClick={() => downloadMedia(latest.media_url, 'video')}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                         </svg>
-                        VER A PANTALLA COMPLETA
-                      </a>
+                        Guardar video
+                      </button>
                     </div>
-                  : <a href={latest.media_url} target="_blank" rel="noopener noreferrer">
-                      <img src={latest.media_url} alt="Referencia visual" style={{width:'100%', maxHeight:300, objectFit:'cover', display:'block', cursor:'zoom-in'}} />
-                    </a>
+                  : <div>
+                      <img src={latest.media_url} alt="Referencia visual" style={{width:'100%', maxHeight:300, objectFit:'cover', display:'block'}} />
+                      <button className="dl-btn" style={{borderRadius:0, marginTop:0, padding:'11px 16px'}}
+                        onClick={() => downloadMedia(latest.media_url, 'image')}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Guardar foto
+                      </button>
+                    </div>
                 }
               </div>
             )}
@@ -5758,10 +5807,8 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
   const shareUrl = `${shareBase}/#/p/${student.id}`;
 
   function shareStudent() {
-    const msg = `Hola ${student.name.split(' ')[0]}, aquí tienes tu reporte de clases 🎾
-${shareUrl}`;
     if (navigator.share) {
-      navigator.share({ title: 'Padel Log', text: msg, url: shareUrl }).catch(() => {});
+      navigator.share({ title: 'Padel Log', url: shareUrl }).catch(() => {});
     } else {
       try {
         navigator.clipboard.writeText(shareUrl);
