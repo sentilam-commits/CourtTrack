@@ -337,6 +337,18 @@
       color: var(--green-dark); font-weight: 600;
       text-decoration: underline; font-size: 0.88rem;
     }
+    .auth-forgot {
+      text-align: right; margin-top: -4px; margin-bottom: 16px;
+    }
+    .auth-forgot button {
+      font-size: 0.82rem; color: var(--text-secondary);
+      text-decoration: none; background: none; border: none; cursor: pointer;
+    }
+    .auth-forgot button:hover { color: var(--green-dark); }
+    .auth-success-box {
+      width: 100%; background: #f0faf4; border: 1.5px solid var(--green-mid);
+      border-radius: 16px; padding: 28px 24px; text-align: center;
+    }
 
     /* ── Dashboard ── */
     .dash-header {
@@ -4636,12 +4648,19 @@ function translateError(msg) {
 
 // ── S1 Auth ──────────────────────────────────────────────────
 function AuthScreen() {
-  const [isSignup, setIsSignup]     = useState(false);
-  const [email, setEmail]           = useState('');
-  const [password, setPassword]     = useState('');
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState('');
-  const [signupDone, setSignupDone] = useState(false);
+  const [isSignup, setIsSignup]       = useState(false);
+  const [email, setEmail]             = useState(() => localStorage.getItem('saved_email') || '');
+  const [password, setPassword]       = useState('');
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState('');
+  const [signupDone, setSignupDone]   = useState(false);
+  const [forgotMode, setForgotMode]   = useState(false);
+  const [resetSent, setResetSent]     = useState(false);
+
+  function handleEmailChange(val) {
+    setEmail(val);
+    localStorage.setItem('saved_email', val);
+  }
 
   async function submit() {
     if (!email.trim() || !password) return;
@@ -4653,38 +4672,97 @@ function AuthScreen() {
       const { error } = await fn;
       if (error) throw error;
       if (isSignup) setSignupDone(true);
+      else localStorage.setItem('saved_email', email.trim());
     } catch (e) {
       setError(translateError(e.message));
     } finally { setLoading(false); }
   }
 
-  if (signupDone) {
-    return (
-      <div className="auth-screen">
-        <div className="auth-logo"><Logo /></div>
-        <div style={{
-          width: '100%', background: '#f0faf4', border: '1.5px solid var(--green-mid)',
-          borderRadius: 16, padding: '28px 24px', textAlign: 'center'
-        }}>
-          <div style={{fontSize: '2.2rem', marginBottom: 12}}>✉️</div>
-          <div style={{fontWeight: 800, fontSize: '1.2rem', color: 'var(--green-dark)', marginBottom: 8}}>
-            ¡Cuenta creada!
-          </div>
-          <div style={{fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6}}>
-            Te enviamos un email a <strong style={{color:'var(--text-primary)'}}>{email}</strong>.<br/>
-            Verifica tu correo para activar tu cuenta y poder iniciar sesión.
-          </div>
-        </div>
-        <div className="auth-toggle" style={{marginTop: 24}}>
-          ¿Ya verificaste?{' '}
-          <button onClick={() => { setSignupDone(false); setIsSignup(false); setPassword(''); }}>
-            Iniciar sesión
-          </button>
-        </div>
-      </div>
-    );
+  async function sendReset() {
+    if (!email.trim()) { setError('Ingresá tu email primero.'); return; }
+    setLoading(true); setError('');
+    try {
+      const { error } = await sb.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: location.origin + location.pathname
+      });
+      if (error) throw error;
+      setResetSent(true);
+    } catch(e) {
+      setError(translateError(e.message));
+    } finally { setLoading(false); }
   }
 
+  // ── Signup success ───────────────────────────────────────────
+  if (signupDone) return (
+    <div className="auth-screen">
+      <div className="auth-logo"><Logo /></div>
+      <div className="auth-success-box">
+        <div style={{fontSize:'2.2rem', marginBottom:12}}>✉️</div>
+        <div style={{fontWeight:800, fontSize:'1.2rem', color:'var(--green-dark)', marginBottom:8}}>¡Cuenta creada!</div>
+        <div style={{fontSize:'0.9rem', color:'var(--text-secondary)', lineHeight:1.6}}>
+          Te enviamos un email a <strong style={{color:'var(--text-primary)'}}>{email}</strong>.<br/>
+          Verifica tu correo para activar tu cuenta e iniciar sesión.
+        </div>
+      </div>
+      <div className="auth-toggle" style={{marginTop:24}}>
+        ¿Ya verificaste?{' '}
+        <button onClick={() => { setSignupDone(false); setIsSignup(false); setPassword(''); }}>Iniciar sesión</button>
+      </div>
+    </div>
+  );
+
+  // ── Reset password success ───────────────────────────────────
+  if (resetSent) return (
+    <div className="auth-screen">
+      <div className="auth-logo"><Logo /></div>
+      <div className="auth-success-box">
+        <div style={{fontSize:'2.2rem', marginBottom:12}}>✉️</div>
+        <div style={{fontWeight:800, fontSize:'1.2rem', color:'var(--green-dark)', marginBottom:8}}>Email enviado</div>
+        <div style={{fontSize:'0.9rem', color:'var(--text-secondary)', lineHeight:1.6}}>
+          Revisá tu bandeja de entrada en <strong style={{color:'var(--text-primary)'}}>{email}</strong>.<br/>
+          Tocá el enlace del email para restablecer tu contraseña.
+        </div>
+      </div>
+      <div className="auth-toggle" style={{marginTop:24}}>
+        <button onClick={() => { setResetSent(false); setForgotMode(false); setError(''); }}>
+          ← Volver al inicio de sesión
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── Forgot password ──────────────────────────────────────────
+  if (forgotMode) return (
+    <div className="auth-screen">
+      <div className="auth-logo"><Logo /></div>
+      <div className="auth-form">
+        <div style={{marginBottom:24}}>
+          <div style={{fontWeight:700, fontSize:'1.1rem', color:'var(--text-primary)', marginBottom:6}}>
+            Restablecer contraseña
+          </div>
+          <div style={{fontSize:'0.88rem', color:'var(--text-secondary)', lineHeight:1.5}}>
+            Te enviaremos un enlace a tu email para crear una nueva contraseña.
+          </div>
+        </div>
+        {error && <div className="error-msg">{error}</div>}
+        <div className="form-field">
+          <label className="field-label">Email</label>
+          <input className="field-input" type="email" value={email}
+            onChange={e => handleEmailChange(e.target.value)}
+            placeholder="tu@email.com"
+            onKeyDown={e => e.key === 'Enter' && sendReset()} />
+        </div>
+        <button className="btn btn-primary" onClick={sendReset} disabled={loading || !email.trim()}>
+          {loading ? 'Enviando...' : 'Enviar enlace'}
+        </button>
+        <div className="auth-toggle">
+          <button onClick={() => { setForgotMode(false); setError(''); }}>← Volver al inicio de sesión</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── Login / Signup ───────────────────────────────────────────
   return (
     <div className="auth-screen">
       <div className="auth-logo"><Logo /></div>
@@ -4693,21 +4771,31 @@ function AuthScreen() {
         <div className="form-field">
           <label className="field-label">Email</label>
           <input className="field-input" type="email" value={email}
-            onChange={e => setEmail(e.target.value)} placeholder="tu@email.com" />
+            onChange={e => handleEmailChange(e.target.value)}
+            placeholder="tu@email.com"
+            autoComplete="email" />
         </div>
         <div className="form-field">
           <label className="field-label">Contraseña</label>
           <input className="field-input" type="password" value={password}
             onChange={e => setPassword(e.target.value)} placeholder="••••••••"
+            autoComplete={isSignup ? 'new-password' : 'current-password'}
             onKeyDown={e => e.key === 'Enter' && submit()} />
         </div>
+        {!isSignup && (
+          <div className="auth-forgot">
+            <button onClick={() => { setForgotMode(true); setError(''); }}>
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
+        )}
         <button className="btn btn-primary" onClick={submit}
           disabled={loading || !email || !password}>
           {loading ? 'Cargando...' : (isSignup ? 'Crear cuenta' : 'Iniciar sesión')}
         </button>
         <div className="auth-toggle">
           {isSignup ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}{' '}
-          <button onClick={() => { setIsSignup(s => !s); setError(''); }}>
+          <button onClick={() => { setIsSignup(s => !s); setError(''); setPassword(''); }}>
             {isSignup ? 'Iniciar sesión' : 'Crear una cuenta nueva'}
           </button>
         </div>
