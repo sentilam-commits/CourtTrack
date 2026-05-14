@@ -504,6 +504,30 @@
     .empty-state { text-align: center; padding: 32px 0; color: var(--text-secondary); font-size: 0.88rem; }
 
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── PWA standalone safe area (Add to Home Screen) ── */
+    @media (display-mode: standalone) {
+      .app-header {
+        padding-top: env(safe-area-inset-top);
+        height: calc(52px + env(safe-area-inset-top));
+        align-items: flex-end;
+        box-sizing: border-box;
+      }
+      .dash-header {
+        padding-top: env(safe-area-inset-top);
+        height: calc(52px + env(safe-area-inset-top));
+        align-items: flex-end;
+        box-sizing: border-box;
+      }
+      .share-header {
+        padding-top: env(safe-area-inset-top);
+        box-sizing: border-box;
+      }
+      .pub-header {
+        padding-top: calc(env(safe-area-inset-top) + 20px);
+        box-sizing: border-box;
+      }
+    }
   </style>
 <script>"use strict";
 
