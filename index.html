@@ -359,9 +359,9 @@
 
     .stat-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 28px; }
     .stat-card  { border-radius: 14px; padding: 20px 18px; }
-    .stat-card--light { background: var(--white); }
+    .stat-card--light { background: var(--white); color: var(--text-primary); }
     .stat-card--dark  { background: var(--green-dark); color: white; }
-    .stat-num { font-size: 2.6rem; font-weight: 800; line-height: 1; }
+    .stat-num { font-size: 2.6rem; font-weight: 800; line-height: 1; color: inherit; -webkit-text-fill-color: inherit; }
     .stat-lbl { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; color: var(--text-secondary); margin-top: 6px; }
     .stat-card--dark .stat-lbl { color: rgba(255,255,255,0.55); }
 
@@ -4284,7 +4284,7 @@ async function fetchProfile(uid) {
 async function fetchStudentsAndLogs(uid) {
   try {
     const [sr, lr] = await Promise.all([
-      sb.from('students').select('*').eq('coach_id', uid).order('name'),
+      sb.from('students').select('*').eq('coach_id', uid).is('deleted_at', null).order('name'),
       sb.from('class_logs').select('*').eq('coach_id', uid).order('date', { ascending: false }),
     ]);
     if (!sr.error && sr.data) LS.set(`s:${uid}`, sr.data);
@@ -4790,9 +4790,9 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
             style={{textAlign:'left', cursor:'pointer', border:'none', position:'relative'}}>
             <div className="stat-num">{students.length}</div>
             <div className="stat-lbl">ALUMNOS</div>
-            <div style={{
+            {!managingStudents && <div style={{
               position:'absolute', top:10, right:10,
-              color: managingStudents ? 'rgba(255,255,255,0.45)' : 'var(--text-hint)',
+              color: 'var(--text-hint)',
               lineHeight:0
             }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -4803,14 +4803,28 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
                 <circle cx="17" cy="12" r="2" fill="currentColor" stroke="none"/>
                 <circle cx="21" cy="18" r="2" fill="currentColor" stroke="none"/>
               </svg>
-            </div>
+            </div>}
           </button>
           <button
             className={`stat-card ${managingStudents ? 'stat-card--light' : 'stat-card--dark'}`}
             onClick={() => setManaging(false)}
-            style={{textAlign:'left', cursor:'pointer', border:'none'}}>
+            style={{textAlign:'left', cursor:'pointer', border:'none', position:'relative'}}>
             <div className="stat-num">{todayCount}</div>
             <div className="stat-lbl">CLASE HOY</div>
+            {managingStudents && <div style={{
+              position:'absolute', top:10, right:10,
+              color: 'var(--text-hint)',
+              lineHeight:0
+            }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="6" x2="20" y2="6"/>
+                <line x1="4" y1="12" x2="14" y2="12"/>
+                <line x1="4" y1="18" x2="18" y2="18"/>
+                <circle cx="18" cy="6" r="2" fill="currentColor" stroke="none"/>
+                <circle cx="17" cy="12" r="2" fill="currentColor" stroke="none"/>
+                <circle cx="21" cy="18" r="2" fill="currentColor" stroke="none"/>
+              </svg>
+            </div>}
           </button>
         </div>
         <div className="section-label">{managingStudents ? 'GESTIONAR ALUMNOS' : 'ALUMNOS'}</div>
@@ -5194,18 +5208,25 @@ function ShareScreen({ student, savedOffline, onHome }) {
 }
 
 // ── S7 Public Report ─────────────────────────────────────────
-function downloadMedia(url, type) {
-  fetch(url)
-    .then(r => r.blob())
-    .then(blob => {
+async function downloadMedia(url, type) {
+  const fileName = type === 'video' ? 'video-padel.mp4' : 'foto-padel.jpg';
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const file = new File([blob], fileName, { type: blob.type });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Padel Log' });
+    } else {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = type === 'video' ? 'video-padel.mp4' : 'foto-padel.jpg';
+      a.download = fileName;
       document.body.appendChild(a); a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(a.href);
-    })
-    .catch(() => window.open(url, '_blank'));
+    }
+  } catch(e) {
+    window.open(url, '_blank');
+  }
 }
 
 function HistCard({ log }) {
@@ -5526,7 +5547,8 @@ function EditProfileScreen({ user, profile, onBack, onSaved, onDeleted }) {
               <div style={{display:'flex', gap:8}}>
                 <button onClick={() => setConfirmDelete(false)} style={{
                   flex:1, height:44, borderRadius:10, border:'1.5px solid var(--border)',
-                  background:'var(--white)', fontSize:'0.88rem', fontWeight:600, cursor:'pointer'
+                  background:'var(--white)', fontSize:'0.88rem', fontWeight:600, cursor:'pointer',
+                  color:'var(--text-primary)'
                 }}>Cancelar</button>
                 <button onClick={deleteAccount} disabled={deleting} style={{
                   flex:1, height:44, borderRadius:10, border:'none',
@@ -5573,8 +5595,7 @@ function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
   async function deleteStudent() {
     setDeleting(true); setError('');
     try {
-      await sb.from('class_logs').delete().eq('student_id', student.id);
-      await sb.from('students').delete().eq('id', student.id);
+      await sb.from('students').update({ deleted_at: new Date().toISOString() }).eq('id', student.id);
       onDeleted(student.id);
     } catch(e) { setError('Error al eliminar. Intenta de nuevo.'); setDeleting(false); }
   }
@@ -5618,7 +5639,8 @@ function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
               <div style={{display:'flex', gap:8}}>
                 <button onClick={() => setConfirmDelete(false)} style={{
                   flex:1, height:44, borderRadius:10, border:'1.5px solid var(--border)',
-                  background:'var(--white)', fontSize:'0.88rem', fontWeight:600, cursor:'pointer'
+                  background:'var(--white)', fontSize:'0.88rem', fontWeight:600, cursor:'pointer',
+                  color:'var(--text-primary)'
                 }}>Cancelar</button>
                 <button onClick={deleteStudent} disabled={deleting} style={{
                   flex:1, height:44, borderRadius:10, border:'none',
@@ -6005,6 +6027,7 @@ function App() {
     setRoute(r);
     if (r && r !== 'loading' && r !== 'auth') {
       LS.set('lastRoute', r);
+      LS.set('lastRouteTs', Date.now());
     }
   };
 
@@ -6055,35 +6078,29 @@ function App() {
     const mappedStudents = studs.map(s => ({ ...s, lastLog: logs.find(l => l.student_id === s.id) || null }));
     setStudents(mappedStudents);
 
-    // Restore last route
-    const lastRoute = LS.get('lastRoute');
-    if (lastRoute && lastRoute !== 'dashboard' && lastRoute !== 'auth' && lastRoute !== 'loading') {
-      const routeName = typeof lastRoute === 'object' ? lastRoute.name : lastRoute;
-
-      // Routes that need a student restored
-      if (['logClass', 'editStudent', 'editLog', 'share', 'studentProfile'].includes(routeName)) {
-        const studentId = typeof lastRoute === 'object' ? lastRoute.studentId : null;
-        const restoredStudent = studentId ? mappedStudents.find(s => s.id === studentId) : null;
-        if (restoredStudent) {
-          setSelectedStudent(restoredStudent);
-          if (routeName === 'editLog') {
-            const restoredLog = logs.find(l => l.student_id === restoredStudent.id);
-            if (restoredLog) setSelectedLog(restoredLog);
-          }
-          setRoute(lastRoute);
+    // Restore last route if within 2 hours
+    const savedRoute = LS.get('lastRoute');
+    const savedTs    = LS.get('lastRouteTs') || 0;
+    const twoHours   = 2 * 60 * 60 * 1000;
+    const isPublicUrl = !!location.hash.match(/^#\/p\//);
+    if (!isPublicUrl && savedRoute && savedRoute !== 'dashboard' && savedRoute !== 'auth' && savedRoute !== 'loading' && (Date.now() - savedTs) < twoHours) {
+      const rName = typeof savedRoute === 'object' ? savedRoute.name : savedRoute;
+      if (['logClass','editLog','share','studentProfile'].includes(rName)) {
+        const sId = typeof savedRoute === 'object' ? savedRoute.studentId : null;
+        const restoredS = sId ? mappedStudents.find(s => s.id === sId) : null;
+        if (restoredS) {
+          setSelectedStudent(restoredS);
+          setRoute(savedRoute);
           flushQueue(uid);
           return;
         }
-      }
-
-      // Simple routes that just need to be restored
-      if (['pickStudent', 'addStudent', 'editProfile', 'manageStudents'].includes(routeName)) {
-        setRoute(lastRoute);
+      } else if (['pickStudent','addStudent','editProfile','manageStudents'].includes(rName)) {
+        setRoute(savedRoute);
         flushQueue(uid);
         return;
       }
     }
-
+    LS.set('lastRoute', 'dashboard');
     go('dashboard');
     flushQueue(uid);
   }
