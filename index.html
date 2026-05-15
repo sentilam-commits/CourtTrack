@@ -69,6 +69,20 @@
     ADD COLUMN IF NOT EXISTS visual_correction TEXT,
     ADD COLUMN IF NOT EXISTS visual_task      TEXT;
 
+  -- Student Reaction: run once in Supabase SQL Editor
+  ALTER TABLE public.class_logs
+    ADD COLUMN IF NOT EXISTS student_reaction TEXT,
+    ADD COLUMN IF NOT EXISTS reaction_at      TIMESTAMPTZ;
+
+  -- RPC so anon users can save their reaction (SECURITY DEFINER bypasses RLS)
+  CREATE OR REPLACE FUNCTION public.set_student_reaction(log_id uuid)
+  RETURNS void LANGUAGE sql SECURITY DEFINER AS $$
+    UPDATE public.class_logs
+    SET student_reaction = 'entendido', reaction_at = now()
+    WHERE id = log_id AND student_reaction IS NULL;
+  $$;
+  GRANT EXECUTE ON FUNCTION public.set_student_reaction(uuid) TO anon, authenticated;
+
   -- Storage bucket: run once in Supabase SQL Editor
   INSERT INTO storage.buckets (id, name, public)
     VALUES ('class-media', 'class-media', true)
@@ -524,6 +538,38 @@
       font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em;
     }
     .dl-btn:active { opacity: 0.8; }
+
+    /* ── Student Reaction Button ─────────────────────────── */
+    .reaction-wrap {
+      margin: 20px 0 4px;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+    }
+    .reaction-btn {
+      width: 100%; height: 52px; border-radius: 14px;
+      font-size: 1rem; font-weight: 600; letter-spacing: 0.01em;
+      border: none; cursor: pointer;
+      transition: background 0.3s ease, color 0.3s ease, border 0.3s ease, opacity 0.3s ease;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .reaction-btn--idle {
+      background: var(--green-dark); color: #fff;
+    }
+    .reaction-btn--done {
+      background: transparent;
+      border: 1.5px solid var(--green-mid);
+      color: var(--green-mid);
+      opacity: 0.7;
+      cursor: default;
+    }
+    .reaction-hint {
+      font-size: 0.75rem; color: var(--text-hint); text-align: center;
+    }
+    /* ── Seen badge on StudentCard ───────────────────────── */
+    .sc-seen {
+      font-size: 0.75rem; color: var(--green-mid);
+      margin-top: 3px; white-space: nowrap;
+    }
+
     .hist-date  { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 4px; }
     .hist-title { font-size: 0.9rem; font-weight: 600; }
     .hist-tag   { font-size: 0.75rem; font-weight: 600; color: var(--green-mid); background: var(--green-soft); border-radius: 100px; padding: 4px 10px; white-space: nowrap; }
@@ -4570,12 +4616,15 @@ function StudentCard({ student, lastLog, onClick, highlighted }) {
     lastLog ? relativeDate(lastLog.date) : 'Sin clases aún',
   ].filter(Boolean);
 
+  const sawReport = lastLog?.student_reaction;
+
   return (
     <button className={`student-card${highlighted ? ' student-card--hl' : ''}`} onClick={onClick}>
       <Avatar name={student.name} size={44} />
       <div className="sc-info">
         <div className="sc-name">{student.name}</div>
         <div className="sc-sub">{parts.join(' · ')}</div>
+        {sawReport && <div className="sc-seen">💪 vio su reporte</div>}
       </div>
       <span className="sc-chev">›</span>
     </button>
@@ -5519,18 +5568,45 @@ function HistCard({ log }) {
 }
 
 function PublicReportScreen({ studentId }) {
-  const [data, setData]       = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
+  const [data, setData]           = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState('');
+  const [reacted, setReacted]     = useState(false);
+  const [reacting, setReacting]   = useState(false);
 
   useEffect(() => {
     sb.rpc('get_public_student', { public_student_id: studentId })
       .then(({ data, error }) => {
         if (error || !data) { setError('No se pudo cargar el reporte.'); }
-        else setData(data);
+        else {
+          setData(data);
+          // Check if student already reacted (from localStorage or from DB)
+          const latestLog = data?.class_logs?.[0];
+          if (latestLog) {
+            const alreadyReacted = latestLog.student_reaction ||
+              localStorage.getItem(`reacted:${latestLog.id}`) === '1';
+            if (alreadyReacted) setReacted(true);
+          }
+        }
         setLoading(false);
       });
   }, [studentId]);
+
+  async function saveReaction() {
+    if (reacted || reacting || !data?.class_logs?.[0]) return;
+    setReacting(true);
+    const logId = data.class_logs[0].id;
+    try {
+      await sb.rpc('set_student_reaction', { log_id: logId });
+      localStorage.setItem(`reacted:${logId}`, '1');
+      setReacted(true);
+    } catch(e) {
+      // Fail silently — still mark locally
+      localStorage.setItem(`reacted:${logId}`, '1');
+      setReacted(true);
+    }
+    setReacting(false);
+  }
 
   if (loading) return <div className="loading">Cargando reporte…</div>;
   if (error || !data) return <div className="loading">{error || 'Reporte no encontrado.'}</div>;
@@ -5645,6 +5721,20 @@ function PublicReportScreen({ studentId }) {
                 <div style={{fontSize:'0.92rem', color:'var(--text-primary)', lineHeight:1.5}}>{linkify(latest.visual_what)}</div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── Reaction Button ── */}
+        {latest && (
+          <div className="reaction-wrap">
+            <button
+              className={`reaction-btn ${reacted ? 'reaction-btn--done' : 'reaction-btn--idle'}`}
+              onClick={saveReaction}
+              disabled={reacted || reacting}
+            >
+              {reacted ? '💪 ¡Listo! El coach lo sabrá' : (reacting ? '…' : '✓ ¡Entendido! Voy a practicarlo')}
+            </button>
+            <div className="reaction-hint">Tu coach verá que viste el reporte</div>
           </div>
         )}
 
