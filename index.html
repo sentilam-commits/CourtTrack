@@ -5540,7 +5540,7 @@ function HistCard({ log }) {
               <div className="hist-field-lbl hist-field-lbl--visual">REFERENCIA VISUAL</div>
               {log.media_url && log.media_type === 'video' && (
                 <div>
-                  <VideoPlayer src={log.media_url} maxHeight={220} loop={true} />
+                  <video src={log.media_url} className="hist-media" controls playsInline loop style={{width:'100%', maxHeight:220, display:'block'}} />
                   <button className="dl-btn" onClick={() => downloadMedia(log.media_url, 'video')}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
@@ -5666,7 +5666,7 @@ function PublicReportScreen({ studentId }) {
               <div style={{background:'#000', lineHeight:0, overflow:'hidden'}}>
                 {latest.media_type === 'video'
                   ? <div>
-                      <VideoPlayer src={latest.media_url} maxHeight={300} loop={true} />
+                      <video src={latest.media_url} controls playsInline loop style={{width:'100%', maxHeight:300, display:'block'}} />
                       <button className="dl-btn" style={{borderRadius:0, marginTop:0, padding:'11px 16px'}}
                         onClick={() => downloadMedia(latest.media_url, 'video')}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -6239,7 +6239,7 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
                       {log.media_url && (
                         <div style={{borderRadius:10, overflow:'hidden', background:'#000', marginBottom: log.visual_what ? 8 : 0, lineHeight:0}}>
                           {log.media_type === 'video'
-                            ? <VideoPlayer src={log.media_url} maxHeight={200} />
+                            ? <video src={log.media_url} controls playsInline style={{width:'100%', maxHeight:200, display:'block'}} />
                             : <a href={log.media_url} target="_blank" rel="noopener noreferrer">
                                 <img src={log.media_url} alt="Referencia visual" loading="lazy"
                                   style={{width:'100%', maxHeight:200, objectFit:'cover', display:'block', cursor:'zoom-in'}} />
