@@ -97,6 +97,7 @@
       --text-primary:   #0E1311;
       --text-secondary: #888888;
       --text-hint:      #AAAAAA;
+      --blue-slate:     #3D6B8A;
       --border:         #E0E4E1;
     }
 
@@ -510,7 +511,7 @@
     .hist-field-lbl--worked  { color: var(--green-dark); }
     .hist-field-lbl--improved { color: var(--green-mid); }
     .hist-field-lbl--correct { color: var(--orange); }
-    .hist-field-lbl--tarea   { color: var(--text-primary); }
+    .hist-field-lbl--tarea   { color: var(--blue-slate); }
     .hist-field-lbl--visual  { color: var(--green-mid); }
     .hist-field-val {
       font-size: 0.88rem; color: var(--text-primary); line-height: 1.5;
@@ -3797,7 +3798,7 @@ function StudentProfileScreen(_ref20) {
         fontSize: '0.7rem',
         fontWeight: 700,
         letterSpacing: '0.08em',
-        color: 'var(--text-primary)',
+        color: 'var(--blue-slate)',
         marginBottom: 4
       }
     }, "TAREA"), /*#__PURE__*/React.createElement("div", {
@@ -6156,7 +6157,7 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
                   </div>
                   {focusArr.length > 0 && (
                     <div style={{marginBottom:8}}>
-                      <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--text-secondary)', marginBottom:4}}>TRABAJARON</div>
+                      <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--green-dark)', marginBottom:4}}>TRABAJARON</div>
                       <div style={{fontSize:'0.88rem'}}>{focusArr.join(', ')}</div>
                     </div>
                   )}
@@ -6174,7 +6175,7 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
                   )}
                   {homeworkArr.length > 0 && (
                     <div style={{marginBottom: (log.media_url || log.visual_what) ? 8 : 0}}>
-                      <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--text-secondary)', marginBottom:4}}>TAREA</div>
+                      <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--blue-slate)', marginBottom:4}}>TAREA</div>
                       <div style={{fontSize:'0.88rem'}}>{homeworkArr.join(', ')}</div>
                     </div>
                   )}
