@@ -507,6 +507,11 @@
     .hist-field-lbl {
       font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; color: var(--text-secondary); margin-bottom: 3px;
     }
+    .hist-field-lbl--worked  { color: var(--green-dark); }
+    .hist-field-lbl--improved { color: var(--green-mid); }
+    .hist-field-lbl--correct { color: var(--orange); }
+    .hist-field-lbl--tarea   { color: var(--text-primary); }
+    .hist-field-lbl--visual  { color: var(--green-mid); }
     .hist-field-val {
       font-size: 0.88rem; color: var(--text-primary); line-height: 1.5;
     }
@@ -3748,7 +3753,7 @@ function StudentProfileScreen(_ref20) {
         fontSize: '0.7rem',
         fontWeight: 700,
         letterSpacing: '0.08em',
-        color: 'var(--text-secondary)',
+        color: 'var(--green-dark)',
         marginBottom: 4
       }
     }, "TRABAJARON"), /*#__PURE__*/React.createElement("div", {
@@ -3792,7 +3797,7 @@ function StudentProfileScreen(_ref20) {
         fontSize: '0.7rem',
         fontWeight: 700,
         letterSpacing: '0.08em',
-        color: 'var(--text-secondary)',
+        color: 'var(--text-primary)',
         marginBottom: 4
       }
     }, "TAREA"), /*#__PURE__*/React.createElement("div", {
@@ -5432,7 +5437,7 @@ async function downloadMedia(url, type) {
 function HistCard({ log }) {
   const [expanded, setExpanded] = useState(false);
   const fArr = toArr(log.today_focus);
-  const hasExtra = log.what_worked || log.what_improved || log.to_correct || log.homework || log.visual_what || log.media_url;
+  const hasExtra = log.today_focus || log.what_improved || log.main_correction || log.homework || log.visual_what || log.media_url;
   return (
     <div className="hist-card">
       <div className="hist-card-header">
@@ -5451,33 +5456,33 @@ function HistCard({ log }) {
       )}
       {expanded && (
         <div className="hist-card-body">
-          {log.what_worked && (
+          {fArr.length > 0 && (
             <div>
-              <div className="hist-field-lbl">TRABAJARON</div>
-              <div className="hist-field-val">{log.what_worked}</div>
+              <div className="hist-field-lbl hist-field-lbl--worked">TRABAJARON</div>
+              <div className="hist-field-val">{fArr.join(', ')}</div>
             </div>
           )}
           {log.what_improved && (
             <div>
-              <div className="hist-field-lbl">MEJORÓ</div>
+              <div className="hist-field-lbl hist-field-lbl--improved">MEJORÓ</div>
               <div className="hist-field-val">{log.what_improved}</div>
             </div>
           )}
-          {log.to_correct && (
+          {log.main_correction && (
             <div>
-              <div className="hist-field-lbl">CORREGIR</div>
-              <div className="hist-field-val">{log.to_correct}</div>
+              <div className="hist-field-lbl hist-field-lbl--correct">CORREGIR</div>
+              <div className="hist-field-val">{log.main_correction}</div>
             </div>
           )}
           {log.homework && (
             <div>
-              <div className="hist-field-lbl">TAREA</div>
-              <div className="hist-field-val">{log.homework}</div>
+              <div className="hist-field-lbl hist-field-lbl--tarea">TAREA</div>
+              <div className="hist-field-val">{toArr(log.homework).join(', ')}</div>
             </div>
           )}
           {(log.visual_what || log.media_url) && (
             <div>
-              <div className="hist-field-lbl">REFERENCIA VISUAL</div>
+              <div className="hist-field-lbl hist-field-lbl--visual">REFERENCIA VISUAL</div>
               {log.media_url && log.media_type === 'video' && (
                 <div>
                   <video
