@@ -6106,7 +6106,6 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
   }, [student.id]);
 
   async function deleteLog(logId) {
-    const logToDelete = logs.find(l => l.id === logId);
     const { error } = await sb.from('class_logs').delete().eq('id', logId);
     if (error) {
       alert('No se pudo eliminar la clase. Verificá tu conexión e intentá de nuevo.');
@@ -6115,7 +6114,7 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
     }
     setLogs(prev => prev.filter(l => l.id !== logId));
     setConfirmDelete(null);
-    if (logToDelete && onLogDeleted) onLogDeleted(logToDelete.date);
+    if (onLogDeleted) onLogDeleted();
   }
 
   return (
@@ -6414,9 +6413,7 @@ function App() {
               onBack={() => go('dashboard')}
               onEdit={() => { setSelectedStudent(s); go('editStudent'); }}
               onRegisterClass={() => { setSelectedStudent(s); go({ name: 'logClass', from: 'studentProfile', studentId: s.id }); }}
-              onLogDeleted={logDate => {
-                if (logDate === todayISO()) setTodayCount(prev => Math.max(0, prev - 1));
-              }} />
+              onLogDeleted={() => refreshStudents(user.id)} />
           ) : null;
         })()
       )}
