@@ -823,7 +823,7 @@ function VisualReferenceSection({ coachId, studentId, mediaUrl, mediaType, local
       {hasMedia && (
         <div style={{position:'relative', borderRadius:14, overflow:'hidden', background:'#000', marginBottom:12}}>
           {mediaType === 'video'
-            ? <video src={localPreview || mediaUrl} controls playsInline style={{width:'100%', maxHeight:220, display:'block'}} />
+            ? <video src={localPreview || mediaUrl} controls playsInline loop style={{width:'100%', maxHeight:220, display:'block'}} />
             : <img src={localPreview || mediaUrl} alt="Referencia visual" style={{width:'100%', maxHeight:220, objectFit:'cover', display:'block'}} />
           }
           {uploading && (
@@ -2591,7 +2591,7 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
                         <div style={{marginBottom: log.visual_what ? 8 : 0}}>
                           {log.media_type === 'video'
                             ? <div className="video-wrap">
-                                <video src={log.media_url} controls playsInline />
+                                <video src={log.media_url} controls playsInline loop />
                               </div>
                             : <a href={log.media_url} target="_blank" rel="noopener noreferrer">
                                 <img src={log.media_url} alt="Referencia visual" loading="lazy"
@@ -2758,7 +2758,7 @@ function App() {
               student={s}
               coachId={user.id}
               onBack={() => go('dashboard')}
-              onEdit={() => { setSelectedStudent(s); go('editStudent'); }}
+              onEdit={() => { setSelectedStudent(s); go({ name: 'editStudent', from: 'studentProfile' }); }}
               onRegisterClass={() => { setSelectedStudent(s); go({ name: 'logClass', from: 'studentProfile', studentId: s.id }); }}
               onLogDeleted={() => refreshStudents(user.id)} />
           ) : null;
@@ -2795,11 +2795,18 @@ function App() {
           onEditStudent={s => { setSelectedStudent(s); go('editStudent'); }} />
       )}
 
-      {route === 'editStudent' && selectedStudent && (
-        <EditStudentScreen student={selectedStudent} onBack={() => go('dashboard')}
+      {(route === 'editStudent' || route?.name === 'editStudent') && selectedStudent && (
+        <EditStudentScreen student={selectedStudent}
+          onBack={() => {
+            const from = route?.from;
+            if (from === 'studentProfile') go({ name: 'studentProfile', studentId: selectedStudent.id });
+            else go('dashboard');
+          }}
           onSaved={updated => {
             setStudents(prev => prev.map(s => s.id === updated.id ? { ...s, ...updated } : s));
-            go('dashboard');
+            const from = route?.from;
+            if (from === 'studentProfile') go({ name: 'studentProfile', studentId: updated.id });
+            else go('dashboard');
           }}
           onDeleted={id => {
             setStudents(prev => prev.filter(s => s.id !== id));
