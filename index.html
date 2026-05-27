@@ -969,8 +969,8 @@ function ChipGroup({ chips, addLabel, values, onChange, onNewChip }) {
 
   function addCustom() {
     const v = inputVal.trim();
-    if (v && !values.includes(v)) {
-      onChange([...values, v]);
+    if (v) {
+      if (!values.includes(v)) onChange([...values, v]);
       if (onNewChip) onNewChip(v);
     }
     setInputVal(''); setShowInput(false);
@@ -1033,13 +1033,13 @@ function ChipGroup({ chips, addLabel, values, onChange, onNewChip }) {
         )}
       </div>
       {showInput && (
-        <div className="chip-input-row">
+        <form className="chip-input-row" onSubmit={e => { e.preventDefault(); addCustom(); }}>
           <input ref={inputRef} className="chip-input" value={inputVal}
             onChange={e => setInputVal(e.target.value)}
             placeholder="Escribe aquí..."
             onKeyDown={e => e.key === 'Enter' && addCustom()} />
-          <button className="chip-input-add" onClick={addCustom}>+</button>
-        </div>
+          <button type="submit" className="chip-input-add">✓</button>
+        </form>
       )}
       {customValues.length > 0 && (
         <div className="chips">
