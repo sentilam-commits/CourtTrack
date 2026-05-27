@@ -522,16 +522,8 @@
       padding: 0; margin-top: 10px; display: flex; align-items: center; gap: 4px;
     }
     .hist-media { width: 100%; border-radius: 10px; margin-top: 6px; max-height: 240px; object-fit: cover; }
-    .video-wrap {
-      width: 100%; margin-top: 8px;
-      background: #000; border-radius: 12px;
-      overflow: hidden; position: relative;
-      aspect-ratio: 9/16;
-    }
-    .video-wrap video {
-      width: 100%; height: 100%;
-      object-fit: contain; display: block;
-    }
+    .video-wrap { width: 100%; margin-top: 8px; background: #000; border-radius: 12px; overflow: hidden; position: relative; aspect-ratio: 9/16; }
+    .video-wrap video { width: 100%; height: 100%; object-fit: contain; display: block; }
     .dl-btn {
       display: flex; align-items: center; justify-content: center; gap: 6px;
       width: 100%; margin-top: 8px; padding: 9px 14px;
@@ -823,7 +815,7 @@ function VisualReferenceSection({ coachId, studentId, mediaUrl, mediaType, local
       {hasMedia && (
         <div style={{position:'relative', borderRadius:14, overflow:'hidden', background:'#000', marginBottom:12}}>
           {mediaType === 'video'
-            ? <video src={localPreview || mediaUrl} controls playsInline loop style={{width:'100%', maxHeight:220, display:'block'}} />
+            ? <video src={localPreview || mediaUrl} controls playsInline style={{width:'100%', maxHeight:220, display:'block'}} />
             : <img src={localPreview || mediaUrl} alt="Referencia visual" style={{width:'100%', maxHeight:220, objectFit:'cover', display:'block'}} />
           }
           {uploading && (
@@ -964,7 +956,7 @@ function Chip({ label, on, onClick, onLongPress }) {
 }
 
 // ── ChipGroup ────────────────────────────────────────────────
-function ChipGroup({ chips, addLabel, values, onChange }) {
+function ChipGroup({ chips, addLabel, values, onChange, onNewChip }) {
   const [showInput, setShowInput] = useState(false);
   const [inputVal, setInputVal]   = useState('');
   const [editing, setEditing]     = useState(null); // { original, value }
@@ -977,7 +969,10 @@ function ChipGroup({ chips, addLabel, values, onChange }) {
 
   function addCustom() {
     const v = inputVal.trim();
-    if (v && !values.includes(v)) onChange([...values, v]);
+    if (v && !values.includes(v)) {
+      onChange([...values, v]);
+      if (onNewChip) onNewChip(v);
+    }
     setInputVal(''); setShowInput(false);
   }
 
@@ -1495,6 +1490,19 @@ function AddStudentScreen({ coachId, onBack, onDone }) {
 }
 
 // ── S5 Log Class ─────────────────────────────────────────────
+// ── Coach chip defaults ───────────────────────────────────────
+const DEFAULT_FOCUS    = ['Revés','Volea','Bandeja','Globo','Pared','Smash','Saque','Posicionamiento'];
+const DEFAULT_IMPROVED = ['Volea','Reacción','Confianza','Consistencia','Técnica','Actitud','Potencia','Puntería','Juego en red'];
+const DEFAULT_HOMEWORK = ['Practicar bandeja','Ver video','Ejercicio físico','Practicar saque','Ver partido','Fortalecer muñeca'];
+function getCoachChips(coachId, category, defaults) {
+  const custom = LS.get(`coach_chips:${category}:${coachId}`) || [];
+  return [...new Set([...defaults, ...custom])];
+}
+function saveCoachChip(coachId, category, chip) {
+  const existing = LS.get(`coach_chips:${category}:${coachId}`) || [];
+  if (!existing.includes(chip)) LS.set(`coach_chips:${category}:${coachId}`, [...existing, chip]);
+}
+
 function LogClassScreen({ student, coachId, onBack, onSaved }) {
   const draftKey = `draft:${student.id}`;
   const draft    = LS.get(draftKey) || {};
@@ -1630,8 +1638,9 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
             {focus.length > 0 && <span style={{color:'var(--green-mid)', marginLeft:6}}>✓</span>}
           </div>
           <ChipGroup
-            chips={['Revés','Volea','Bandeja','Globo','Pared','Smash','Saque','Posicionamiento']}
-            addLabel="+ Otro" values={focus} onChange={v => { setFocus(v); setSeededBanner(false); }} />
+            chips={getCoachChips(coachId, 'focus', DEFAULT_FOCUS)}
+            addLabel="+ Otro" values={focus} onChange={v => { setFocus(v); setSeededBanner(false); }}
+            onNewChip={chip => saveCoachChip(coachId, 'focus', chip)} />
         </div>
 
         <div className="log-section">
@@ -1640,8 +1649,9 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
             {improved.length > 0 && <span style={{marginLeft:6}}>✓</span>}
           </div>
           <ChipGroup
-            chips={['Volea','Reacción','Confianza','Consistencia','Técnica','Actitud','Potencia','Puntería','Juego en red']}
-            addLabel="+ Escribir" values={improved} onChange={v => { setImproved(v); setSeededBanner(false); }} />
+            chips={getCoachChips(coachId, 'improved', DEFAULT_IMPROVED)}
+            addLabel="+ Escribir" values={improved} onChange={v => { setImproved(v); setSeededBanner(false); }}
+            onNewChip={chip => saveCoachChip(coachId, 'improved', chip)} />
         </div>
 
         <div className="log-section">
@@ -1663,8 +1673,9 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
             {homework.length > 0 && <span style={{color:'var(--text-secondary)', marginLeft:6}}>✓</span>}
           </div>
           <ChipGroup
-            chips={['Practicar bandeja','Ver video','Ejercicio físico','Practicar saque','Ver partido','Fortalecer muñeca']}
-            addLabel="+ Escribir" values={homework} onChange={v => { setHomework(v); setSeededBanner(false); }} />
+            chips={getCoachChips(coachId, 'homework', DEFAULT_HOMEWORK)}
+            addLabel="+ Escribir" values={homework} onChange={v => { setHomework(v); setSeededBanner(false); }}
+            onNewChip={chip => saveCoachChip(coachId, 'homework', chip)} />
         </div>
 
         <VisualReferenceSection
@@ -1878,9 +1889,7 @@ function HistCard({ log }) {
               <div className="hist-field-lbl hist-field-lbl--visual">REFERENCIA VISUAL</div>
               {log.media_url && log.media_type === 'video' && (
                 <div>
-                  <div className="video-wrap">
-                    <video src={log.media_url} controls playsInline loop />
-                  </div>
+                  <div className="video-wrap"><video src={log.media_url} controls playsInline loop /></div>
                   <button className="dl-btn" onClick={() => downloadMedia(log.media_url, 'video')}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
@@ -2006,9 +2015,7 @@ function PublicReportScreen({ studentId }) {
               <div style={{background:'#000', lineHeight:0, overflow:'hidden'}}>
                 {latest.media_type === 'video'
                   ? <div>
-                      <div className="video-wrap" style={{borderRadius:0}}>
-                        <video src={latest.media_url} controls playsInline loop />
-                      </div>
+                      <div className="video-wrap" style={{borderRadius:0}}><video src={latest.media_url} controls playsInline loop /></div>
                       <button className="dl-btn" style={{borderRadius:0, marginTop:0, padding:'11px 16px'}}
                         onClick={() => downloadMedia(latest.media_url, 'video')}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -2326,8 +2333,9 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
             ¿QUÉ TRABAJARON HOY?
             {focus.length > 0 && <span style={{color:'var(--green-mid)', marginLeft:6}}>✓</span>}
           </div>
-          <ChipGroup chips={['Revés','Volea','Bandeja','Globo','Pared','Smash','Saque','Posicionamiento']}
-            addLabel="+ Otro" values={focus} onChange={setFocus} />
+          <ChipGroup chips={getCoachChips(log.coach_id, 'focus', DEFAULT_FOCUS)}
+            addLabel="+ Otro" values={focus} onChange={setFocus}
+            onNewChip={chip => saveCoachChip(log.coach_id, 'focus', chip)} />
         </div>
 
         <div className="log-section">
@@ -2335,8 +2343,9 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
             LO QUE MEJORÓ
             {improved.length > 0 && <span style={{marginLeft:6}}>✓</span>}
           </div>
-          <ChipGroup chips={['Volea','Reacción','Confianza','Consistencia','Técnica','Actitud','Potencia','Puntería','Juego en red']}
-            addLabel="+ Escribir" values={improved} onChange={setImproved} />
+          <ChipGroup chips={getCoachChips(log.coach_id, 'improved', DEFAULT_IMPROVED)}
+            addLabel="+ Escribir" values={improved} onChange={setImproved}
+            onNewChip={chip => saveCoachChip(log.coach_id, 'improved', chip)} />
         </div>
 
         <div className="log-section">
@@ -2357,8 +2366,9 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
             TAREA PARA CASA
             {homework.length > 0 && <span style={{color:'var(--text-secondary)', marginLeft:6}}>✓</span>}
           </div>
-          <ChipGroup chips={['Practicar bandeja','Ver video','Ejercicio físico','Practicar saque','Ver partido','Fortalecer muñeca']}
-            addLabel="+ Escribir" values={homework} onChange={setHomework} />
+          <ChipGroup chips={getCoachChips(log.coach_id, 'homework', DEFAULT_HOMEWORK)}
+            addLabel="+ Escribir" values={homework} onChange={setHomework}
+            onNewChip={chip => saveCoachChip(log.coach_id, 'homework', chip)} />
         </div>
 
         <VisualReferenceSection
@@ -2588,14 +2598,12 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
                         REFERENCIA VISUAL
                       </div>
                       {log.media_url && (
-                        <div style={{marginBottom: log.visual_what ? 8 : 0}}>
+                        <div style={{borderRadius:10, overflow:'hidden', background:'#000', marginBottom: log.visual_what ? 8 : 0, lineHeight:0}}>
                           {log.media_type === 'video'
-                            ? <div className="video-wrap">
-                                <video src={log.media_url} controls playsInline loop />
-                              </div>
+                            ? <div className="video-wrap"><video src={log.media_url} controls playsInline loop /></div>
                             : <a href={log.media_url} target="_blank" rel="noopener noreferrer">
                                 <img src={log.media_url} alt="Referencia visual" loading="lazy"
-                                  style={{width:'100%', maxHeight:200, objectFit:'cover', display:'block', borderRadius:10, cursor:'zoom-in'}} />
+                                  style={{width:'100%', maxHeight:200, objectFit:'cover', display:'block', cursor:'zoom-in'}} />
                               </a>
                           }
                         </div>
