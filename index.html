@@ -921,11 +921,14 @@ function StudentCard({ student, lastLog, onClick, highlighted }) {
 // ── Chip ─────────────────────────────────────────────────────
 function Chip({ label, on, onClick, onLongPress }) {
   const timerRef = useRef(null);
+  const longPressRef = useRef(false);
 
   function startPress(e) {
     if (!onLongPress) return;
     e.preventDefault();
+    longPressRef.current = false;
     timerRef.current = setTimeout(() => {
+      longPressRef.current = true;
       onLongPress();
       timerRef.current = null;
     }, 500);
@@ -934,14 +937,18 @@ function Chip({ label, on, onClick, onLongPress }) {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
   }
   function handleClick(e) {
-    if (timerRef.current === null && onLongPress) return; // was long-press, skip click
+    if (longPressRef.current) {
+      e.preventDefault();
+      longPressRef.current = false;
+      return;
+    }
     onClick(e);
   }
 
   return (
     <button
       className={`chip${on ? ' chip--on' : ''}`}
-      onClick={onClick}
+      onClick={handleClick}
       onTouchStart={startPress}
       onTouchEnd={e => { cancelPress(); }}
       onTouchMove={cancelPress}
@@ -956,12 +963,17 @@ function Chip({ label, on, onClick, onLongPress }) {
 }
 
 // ── ChipGroup ────────────────────────────────────────────────
-function ChipGroup({ chips, addLabel, values, onChange, onNewChip }) {
-  const [showInput, setShowInput] = useState(false);
-  const [inputVal, setInputVal]   = useState('');
-  const [editing, setEditing]     = useState(null); // { original, value }
-  const inputRef    = useRef();
-  const editRef     = useRef();
+function ChipGroup({ chips, addLabel, values, onChange, onNewChip, onEditChip, onDeleteChip }) {
+  const [showInput, setShowInput]   = useState(false);
+  const [inputVal, setInputVal]     = useState('');
+  const [editing, setEditing]       = useState(null);
+  const [localChips, setLocalChips] = useState(() => chips);
+  const inputRef = useRef();
+  const editRef  = useRef();
+
+  useEffect(() => {
+    setLocalChips(chips);
+  }, [chips.join('\u0001')]);
 
   function toggle(chip) {
     onChange(values.includes(chip) ? values.filter(v => v !== chip) : [...values, chip]);
@@ -971,6 +983,7 @@ function ChipGroup({ chips, addLabel, values, onChange, onNewChip }) {
     const v = inputVal.trim();
     if (v) {
       if (!values.includes(v)) onChange([...values, v]);
+      if (!localChips.includes(v)) setLocalChips(prev => [...prev, v]);
       if (onNewChip) onNewChip(v);
     }
     setInputVal(''); setShowInput(false);
@@ -984,20 +997,31 @@ function ChipGroup({ chips, addLabel, values, onChange, onNewChip }) {
   function confirmEdit() {
     if (!editing) return;
     const newVal = editing.value.trim();
-    if (newVal && newVal !== editing.original) {
-      // Replace old value with new in selected values
-      if (values.includes(editing.original)) {
-        onChange(values.map(v => v === editing.original ? newVal : v));
+    const oldVal = editing.original;
+    if (!newVal) {
+      if (values.includes(oldVal)) {
+        onChange(values.filter(v => v !== oldVal));
       }
+      setLocalChips(prev => prev.filter(c => c !== oldVal));
+      if (onDeleteChip) onDeleteChip(oldVal);
+      setEditing(null);
+      return;
+    }
+    if (newVal !== oldVal) {
+      if (values.includes(oldVal)) {
+        onChange(values.map(v => v === oldVal ? newVal : v));
+      }
+      setLocalChips(prev => [...new Set(prev.map(c => c === oldVal ? newVal : c))]);
+      if (onEditChip) onEditChip(oldVal, newVal);
     }
     setEditing(null);
   }
 
   function cancelEdit() { setEditing(null); }
 
-  const customValues = values.filter(v => !chips.includes(v));
+  const customValues = values.filter(v => !localChips.includes(v));
 
-  function renderChip(c, isCustom = false) {
+  function renderChip(c) {
     if (editing && editing.original === c) {
       return (
         <span key={c} className="chip-edit-wrap">
@@ -1024,7 +1048,7 @@ function ChipGroup({ chips, addLabel, values, onChange, onNewChip }) {
   return (
     <div className="chip-group">
       <div className="chips">
-        {chips.map(c => renderChip(c))}
+        {localChips.map(c => renderChip(c))}
         {addLabel && (
           <Chip label={addLabel} on={showInput} onClick={() => {
             setShowInput(s => !s);
@@ -1043,7 +1067,7 @@ function ChipGroup({ chips, addLabel, values, onChange, onNewChip }) {
       )}
       {customValues.length > 0 && (
         <div className="chips">
-          {customValues.map(v => renderChip(v, true))}
+          {customValues.map(v => renderChip(v))}
         </div>
       )}
     </div>
@@ -1490,17 +1514,51 @@ function AddStudentScreen({ coachId, onBack, onDone }) {
 }
 
 // ── S5 Log Class ─────────────────────────────────────────────
-// ── Coach chip defaults ───────────────────────────────────────
+
 const DEFAULT_FOCUS    = ['Revés','Volea','Bandeja','Globo','Pared','Smash','Saque','Posicionamiento'];
 const DEFAULT_IMPROVED = ['Volea','Reacción','Confianza','Consistencia','Técnica','Actitud','Potencia','Puntería','Juego en red'];
 const DEFAULT_HOMEWORK = ['Practicar bandeja','Ver video','Ejercicio físico','Practicar saque','Ver partido','Fortalecer muñeca'];
+
+const chipCustomKey = (coachId, category) => `coach_chips:${category}:${coachId}`;
+const chipDeletedKey = (coachId, category) => `coach_chips_deleted:${category}:${coachId}`;
+const normalizeChips = chips => [...new Set((chips || []).map(c => (c || '').trim()).filter(Boolean))];
+
 function getCoachChips(coachId, category, defaults) {
-  const custom = LS.get(`coach_chips:${category}:${coachId}`) || [];
-  return [...new Set([...defaults, ...custom])];
+  const custom = normalizeChips(LS.get(chipCustomKey(coachId, category)) || []);
+  const deleted = new Set(normalizeChips(LS.get(chipDeletedKey(coachId, category)) || []));
+  return [...new Set([...defaults.filter(chip => !deleted.has(chip)), ...custom])];
 }
 function saveCoachChip(coachId, category, chip) {
-  const existing = LS.get(`coach_chips:${category}:${coachId}`) || [];
-  if (!existing.includes(chip)) LS.set(`coach_chips:${category}:${coachId}`, [...existing, chip]);
+  const value = (chip || '').trim();
+  if (!value) return;
+  const customKey = chipCustomKey(coachId, category);
+  const deletedKey = chipDeletedKey(coachId, category);
+  const existing = normalizeChips(LS.get(customKey) || []);
+  if (!existing.includes(value)) LS.set(customKey, [...existing, value]);
+  LS.set(deletedKey, normalizeChips(LS.get(deletedKey) || []).filter(c => c !== value));
+}
+function editCoachChip(coachId, category, oldChip, newChip) {
+  const oldVal = (oldChip || '').trim();
+  const newVal = (newChip || '').trim();
+  if (!oldVal) return;
+  if (!newVal) { deleteCoachChip(coachId, category, oldVal); return; }
+  if (oldVal === newVal) return;
+
+  const customKey = chipCustomKey(coachId, category);
+  const deletedKey = chipDeletedKey(coachId, category);
+  const existing = normalizeChips(LS.get(customKey) || []).filter(c => c !== oldVal);
+  LS.set(customKey, normalizeChips([...existing, newVal]));
+
+  const deleted = normalizeChips(LS.get(deletedKey) || []).filter(c => c !== newVal);
+  LS.set(deletedKey, normalizeChips([...deleted, oldVal]));
+}
+function deleteCoachChip(coachId, category, chip) {
+  const value = (chip || '').trim();
+  if (!value) return;
+  const customKey = chipCustomKey(coachId, category);
+  const deletedKey = chipDeletedKey(coachId, category);
+  LS.set(customKey, normalizeChips(LS.get(customKey) || []).filter(c => c !== value));
+  LS.set(deletedKey, normalizeChips([...(LS.get(deletedKey) || []), value]));
 }
 
 function LogClassScreen({ student, coachId, onBack, onSaved }) {
@@ -1640,7 +1698,9 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
           <ChipGroup
             chips={getCoachChips(coachId, 'focus', DEFAULT_FOCUS)}
             addLabel="+ Otro" values={focus} onChange={v => { setFocus(v); setSeededBanner(false); }}
-            onNewChip={chip => saveCoachChip(coachId, 'focus', chip)} />
+            onNewChip={chip => saveCoachChip(coachId, 'focus', chip)}
+            onEditChip={(old, nw) => editCoachChip(coachId, 'focus', old, nw)}
+            onDeleteChip={chip => deleteCoachChip(coachId, 'focus', chip)} />
         </div>
 
         <div className="log-section">
@@ -1651,7 +1711,9 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
           <ChipGroup
             chips={getCoachChips(coachId, 'improved', DEFAULT_IMPROVED)}
             addLabel="+ Escribir" values={improved} onChange={v => { setImproved(v); setSeededBanner(false); }}
-            onNewChip={chip => saveCoachChip(coachId, 'improved', chip)} />
+            onNewChip={chip => saveCoachChip(coachId, 'improved', chip)}
+            onEditChip={(old, nw) => editCoachChip(coachId, 'improved', old, nw)}
+            onDeleteChip={chip => deleteCoachChip(coachId, 'improved', chip)} />
         </div>
 
         <div className="log-section">
@@ -1675,7 +1737,9 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
           <ChipGroup
             chips={getCoachChips(coachId, 'homework', DEFAULT_HOMEWORK)}
             addLabel="+ Escribir" values={homework} onChange={v => { setHomework(v); setSeededBanner(false); }}
-            onNewChip={chip => saveCoachChip(coachId, 'homework', chip)} />
+            onNewChip={chip => saveCoachChip(coachId, 'homework', chip)}
+            onEditChip={(old, nw) => editCoachChip(coachId, 'homework', old, nw)}
+            onDeleteChip={chip => deleteCoachChip(coachId, 'homework', chip)} />
         </div>
 
         <VisualReferenceSection
@@ -2015,7 +2079,7 @@ function PublicReportScreen({ studentId }) {
               <div style={{background:'#000', lineHeight:0, overflow:'hidden'}}>
                 {latest.media_type === 'video'
                   ? <div>
-                      <div className="video-wrap" style={{borderRadius:0}}><video src={latest.media_url} controls playsInline loop /></div>
+                      <div className="video-wrap"><video src={latest.media_url} controls playsInline loop /></div>
                       <button className="dl-btn" style={{borderRadius:0, marginTop:0, padding:'11px 16px'}}
                         onClick={() => downloadMedia(latest.media_url, 'video')}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -2335,7 +2399,9 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
           </div>
           <ChipGroup chips={getCoachChips(log.coach_id, 'focus', DEFAULT_FOCUS)}
             addLabel="+ Otro" values={focus} onChange={setFocus}
-            onNewChip={chip => saveCoachChip(log.coach_id, 'focus', chip)} />
+            onNewChip={chip => saveCoachChip(log.coach_id, 'focus', chip)}
+            onEditChip={(old, nw) => editCoachChip(log.coach_id, 'focus', old, nw)}
+            onDeleteChip={chip => deleteCoachChip(log.coach_id, 'focus', chip)} />
         </div>
 
         <div className="log-section">
@@ -2345,7 +2411,9 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
           </div>
           <ChipGroup chips={getCoachChips(log.coach_id, 'improved', DEFAULT_IMPROVED)}
             addLabel="+ Escribir" values={improved} onChange={setImproved}
-            onNewChip={chip => saveCoachChip(log.coach_id, 'improved', chip)} />
+            onNewChip={chip => saveCoachChip(log.coach_id, 'improved', chip)}
+            onEditChip={(old, nw) => editCoachChip(log.coach_id, 'improved', old, nw)}
+            onDeleteChip={chip => deleteCoachChip(log.coach_id, 'improved', chip)} />
         </div>
 
         <div className="log-section">
@@ -2368,7 +2436,9 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
           </div>
           <ChipGroup chips={getCoachChips(log.coach_id, 'homework', DEFAULT_HOMEWORK)}
             addLabel="+ Escribir" values={homework} onChange={setHomework}
-            onNewChip={chip => saveCoachChip(log.coach_id, 'homework', chip)} />
+            onNewChip={chip => saveCoachChip(log.coach_id, 'homework', chip)}
+            onEditChip={(old, nw) => editCoachChip(log.coach_id, 'homework', old, nw)}
+            onDeleteChip={chip => deleteCoachChip(log.coach_id, 'homework', chip)} />
         </div>
 
         <VisualReferenceSection
@@ -2600,7 +2670,7 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
                       {log.media_url && (
                         <div style={{borderRadius:10, overflow:'hidden', background:'#000', marginBottom: log.visual_what ? 8 : 0, lineHeight:0}}>
                           {log.media_type === 'video'
-                            ? <div className="video-wrap"><video src={log.media_url} controls playsInline loop /></div>
+                            ? <video src={log.media_url} controls playsInline style={{width:'100%', maxHeight:200, display:'block'}} />
                             : <a href={log.media_url} target="_blank" rel="noopener noreferrer">
                                 <img src={log.media_url} alt="Referencia visual" loading="lazy"
                                   style={{width:'100%', maxHeight:200, objectFit:'cover', display:'block', cursor:'zoom-in'}} />
