@@ -2781,6 +2781,11 @@ function App() {
         const restoredS = sId ? mappedStudents.find(s => s.id === sId) : null;
         if (restoredS) {
           setSelectedStudent(restoredS);
+          if (rName === 'editLog' && savedRoute?.logId) {
+            const restoredLog = logs.find(l => l.id === savedRoute.logId);
+            if (!restoredLog) { go('dashboard'); flushQueue(uid); return; }
+            setSelectedLog(restoredLog);
+          }
           setRoute(savedRoute);
           flushQueue(uid);
           return;
@@ -2829,7 +2834,7 @@ function App() {
           onSignOut={() => { LS.set('lastRoute', null); sb.auth.signOut(); }}
           onEditProfile={() => go('editProfile')}
           onEditStudent={s => { setSelectedStudent(s); go('editStudent'); }}
-          onEditLog={(s, log) => { setSelectedStudent(s); setSelectedLog(log); go('editLog'); }}
+          onEditLog={(s, log) => { setSelectedStudent(s); setSelectedLog(log); go({ name: 'editLog', studentId: s.id, logId: log.id }); }}
           onManageStudents={() => go('manageStudents')}
           onQuickLog={s => { setSelectedStudent(s); go({ name: 'logClass', from: 'dashboard', studentId: s.id }); }}
           managing={isManaging}
@@ -2901,7 +2906,7 @@ function App() {
           }} />
       )}
 
-      {route === 'editLog' && selectedLog && selectedStudent && (
+      {(route === 'editLog' || route?.name === 'editLog') && selectedLog && selectedStudent && (
         <EditLogScreen log={selectedLog} student={selectedStudent} onBack={() => go('dashboard')}
           onSaved={updated => {
             refreshStudents(user.id);
