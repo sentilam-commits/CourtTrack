@@ -1903,45 +1903,79 @@ async function downloadMedia(url, type) {
 
 
 // ── VideoPlayer ──────────────────────────────────────────────
-function VideoPlayer({ src, maxHeight = 300, loop = false }) {
-  const videoRef  = useRef(null);
-  const tapTimer  = useRef(null);
-  const tapSide   = useRef(null);
-  const [playing, setPlaying]   = useState(false);
-  const [seekHint, setSeekHint] = useState(null); // 'left' | 'right' | null
+function fmtTime(s) {
+  if (!s || isNaN(s)) return '0:00';
+  const m = Math.floor(s / 60);
+  return `${m}:${String(Math.floor(s % 60)).padStart(2,'0')}`;
+}
 
-  function showHint(side) {
-    setSeekHint(side);
-    setTimeout(() => setSeekHint(null), 600);
+function VideoPlayer({ src, maxHeight = 300, loop = false }) {
+  const videoRef   = useRef(null);
+  const tapTimer   = useRef(null);
+  const tapSide    = useRef(null);
+  const hideTimer  = useRef(null);
+
+  const [playing,     setPlaying]     = useState(false);
+  const [showCtrl,    setShowCtrl]    = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration,    setDuration]    = useState(0);
+  const [seekHint,    setSeekHint]    = useState(null);
+
+  function scheduleHide() {
+    clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setShowCtrl(false), 3000);
   }
 
-  function handleTap(e) {
-    e.stopPropagation();
-    const v = videoRef.current;
-    if (!v) return;
+  function flashHint(side) {
+    setSeekHint(side);
+    setTimeout(() => setSeekHint(null), 700);
+  }
+
+  function seek(delta) {
+    const v = videoRef.current; if (!v) return;
+    v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + delta));
+    flashHint(delta > 0 ? 'right' : 'left');
+    scheduleHide();
+  }
+
+  function togglePlay(e) {
+    if (e) e.stopPropagation();
+    const v = videoRef.current; if (!v) return;
+    if (v.paused) v.play(); else v.pause();
+    scheduleHide();
+  }
+
+  function handleOverlayTap(e) {
     const rect = e.currentTarget.getBoundingClientRect();
-    const x    = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const x    = e.clientX - rect.left;
     const side = x < rect.width / 2 ? 'left' : 'right';
 
     if (tapTimer.current && tapSide.current === side) {
-      // Double tap
-      clearTimeout(tapTimer.current);
-      tapTimer.current = null;
-      v.currentTime = Math.max(0, v.currentTime + (side === 'right' ? 5 : -5));
-      showHint(side);
+      clearTimeout(tapTimer.current); tapTimer.current = null;
+      seek(side === 'right' ? 5 : -5);
     } else {
-      // First tap — wait to see if double tap follows
       tapSide.current = side;
       tapTimer.current = setTimeout(() => {
         tapTimer.current = null;
-        if (v.paused) { v.play(); setPlaying(true); }
-        else          { v.pause(); setPlaying(false); }
+        if (showCtrl) { setShowCtrl(false); clearTimeout(hideTimer.current); }
+        else          { setShowCtrl(true);  scheduleHide(); }
       }, 250);
     }
   }
 
+  function handleScrub(e) {
+    e.stopPropagation();
+    const v = videoRef.current; if (!v || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    v.currentTime = Math.max(0, Math.min(duration, ((e.clientX - rect.left) / rect.width) * duration));
+    scheduleHide();
+  }
+
+  const pct = duration ? (currentTime / duration) * 100 : 0;
+  const iBtn = { background:'none', border:'none', cursor:'pointer', padding:0, display:'flex', alignItems:'center', justifyContent:'center' };
+
   return (
-    <div style={{position:'relative', background:'#000', lineHeight:0, borderRadius:12, overflow:'hidden'}}>
+    <div style={{position:'relative', background:'#000', lineHeight:0, borderRadius:12, overflow:'hidden', userSelect:'none'}}>
       <video
         ref={videoRef}
         src={src}
@@ -1951,42 +1985,76 @@ function VideoPlayer({ src, maxHeight = 300, loop = false }) {
         style={{width:'100%', maxHeight, display:'block'}}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
+        onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
+        onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
       />
-      {/* Full overlay — handles tap and double-tap */}
-      <div
-        onClick={handleTap}
-        style={{position:'absolute', inset:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}
-      >
-        {/* Play icon when paused */}
-        {!playing && (
-          <div style={{
-            width:54, height:54, borderRadius:'50%',
-            background:'rgba(0,0,0,0.5)',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            border:'1.5px solid rgba(255,255,255,0.25)',
-            pointerEvents:'none',
-          }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="white" style={{marginLeft:3}}>
-              <polygon points="5,3 19,12 5,21"/>
-            </svg>
+
+      {/* Tap overlay */}
+      <div onClick={handleOverlayTap} style={{position:'absolute', inset:0, cursor:'pointer'}} />
+
+      {/* Controls layer */}
+      <div style={{
+        position:'absolute', inset:0, pointerEvents:'none',
+        background: showCtrl ? 'rgba(0,0,0,0.38)' : 'transparent',
+        transition:'background 0.2s',
+        display:'flex', flexDirection:'column', justifyContent:'space-between',
+      }}>
+        {/* Center buttons */}
+        <div style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:36}}>
+          {showCtrl && (
+            <>
+              <button onClick={(e)=>{e.stopPropagation();seek(-5);}} style={{...iBtn, pointerEvents:'all', opacity:0.92}}>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
+                  <text x="12" y="14" textAnchor="middle" fill="white" stroke="none" fontSize="5" fontWeight="700">5</text>
+                </svg>
+              </button>
+              <button onClick={togglePlay} style={{...iBtn, pointerEvents:'all',
+                width:56, height:56, borderRadius:'50%',
+                background:'rgba(255,255,255,0.18)', border:'1.5px solid rgba(255,255,255,0.35)'}}>
+                {playing
+                  ? <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                  : <svg width="22" height="22" viewBox="0 0 24 24" fill="white" style={{marginLeft:3}}><polygon points="5,3 19,12 5,21"/></svg>
+                }
+              </button>
+              <button onClick={(e)=>{e.stopPropagation();seek(5);}} style={{...iBtn, pointerEvents:'all', opacity:0.92}}>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-4.5"/>
+                  <text x="12" y="14" textAnchor="middle" fill="white" stroke="none" fontSize="5" fontWeight="700">5</text>
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Bottom: time + scrubber */}
+        {showCtrl && (
+          <div style={{padding:'0 14px 12px', pointerEvents:'all'}}>
+            <div style={{display:'flex', justifyContent:'space-between', color:'white', fontSize:'0.72rem', fontWeight:600, marginBottom:6, opacity:0.9}}>
+              <span>{fmtTime(currentTime)}</span>
+              <span>{fmtTime(duration)}</span>
+            </div>
+            <div onClick={handleScrub} style={{height:3, background:'rgba(255,255,255,0.3)', borderRadius:2, cursor:'pointer', position:'relative'}}>
+              <div style={{height:'100%', background:'white', borderRadius:2, width:`${pct}%`, pointerEvents:'none'}} />
+              <div style={{position:'absolute', top:'50%', left:`${pct}%`, transform:'translate(-50%,-50%)',
+                width:12, height:12, borderRadius:'50%', background:'white', pointerEvents:'none'}} />
+            </div>
           </div>
         )}
-        {/* Seek hints */}
-        {seekHint === 'left' && (
-          <div style={{
-            position:'absolute', left:12, top:'50%', transform:'translateY(-50%)',
-            background:'rgba(0,0,0,0.55)', borderRadius:10, padding:'6px 12px',
-            color:'white', fontSize:'0.85rem', fontWeight:700, pointerEvents:'none',
-          }}>« 5s</div>
-        )}
-        {seekHint === 'right' && (
-          <div style={{
-            position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
-            background:'rgba(0,0,0,0.55)', borderRadius:10, padding:'6px 12px',
-            color:'white', fontSize:'0.85rem', fontWeight:700, pointerEvents:'none',
-          }}>5s »</div>
-        )}
       </div>
+
+      {/* Seek hints */}
+      {seekHint === 'left' && (
+        <div style={{position:'absolute', left:14, top:'50%', transform:'translateY(-50%)',
+          background:'rgba(0,0,0,0.6)', borderRadius:10, padding:'6px 14px',
+          color:'white', fontSize:'0.85rem', fontWeight:700, pointerEvents:'none'}}>« 5s</div>
+      )}
+      {seekHint === 'right' && (
+        <div style={{position:'absolute', right:14, top:'50%', transform:'translateY(-50%)',
+          background:'rgba(0,0,0,0.6)', borderRadius:10, padding:'6px 14px',
+          color:'white', fontSize:'0.85rem', fontWeight:700, pointerEvents:'none'}}>5s »</div>
+      )}
+    </div>
     </div>
   );
 }
