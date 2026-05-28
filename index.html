@@ -99,6 +99,9 @@
       --text-hint:      #AAAAAA;
       --blue-slate:     #3D6B8A;
       --border:         #E0E4E1;
+      --top-safe-area:   0px;
+      --header-bottom-gap: 0px;
+      --header-height:   52px;
     }
 
     html, body {
@@ -157,14 +160,15 @@
     .app-header {
       display: flex;
       align-items: center;
-      height: 52px;
-      padding: 0 16px;
+      min-height: var(--header-height);
+      padding: var(--top-safe-area) 16px var(--header-bottom-gap);
       background: var(--green-dark);
       color: white;
       position: sticky;
       top: 0;
       z-index: 10;
       flex-shrink: 0;
+      box-sizing: border-box;
     }
 
     .header-back {
@@ -371,8 +375,9 @@
     /* ── Dashboard ── */
     .dash-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 20px; height: 52px;
+      min-height: var(--header-height); padding: var(--top-safe-area) 20px var(--header-bottom-gap);
       background: var(--green-dark); position: sticky; top: 0; z-index: 10; flex-shrink: 0;
+      box-sizing: border-box;
     }
     .dash-avatar-wrap {
       width: 36px; height: 36px; border-radius: 50%; overflow: hidden;
@@ -439,8 +444,10 @@
       display: flex; flex-direction: column;
     }
     .share-header {
-      height: 52px; display: flex; align-items: center; justify-content: center;
+      min-height: var(--header-height); padding-top: var(--top-safe-area); padding-bottom: var(--header-bottom-gap);
+      display: flex; align-items: center; justify-content: center;
       background: var(--green-dark); flex-shrink: 0;
+      box-sizing: border-box;
     }
     .share-header-txt { color: var(--green-mid); font-size: 0.92rem; font-weight: 600; }
     .share-body {
@@ -544,26 +551,21 @@
 
     /* ── PWA standalone safe area (Add to Home Screen) ── */
     @media (display-mode: standalone) {
-      .app-header {
-        padding-top: env(safe-area-inset-top);
-        height: calc(52px + env(safe-area-inset-top));
-        align-items: flex-end;
-        box-sizing: border-box;
-      }
-      .dash-header {
-        padding-top: env(safe-area-inset-top);
-        height: calc(52px + env(safe-area-inset-top));
-        align-items: flex-end;
-        box-sizing: border-box;
-      }
-      .share-header {
-        padding-top: env(safe-area-inset-top);
-        box-sizing: border-box;
+      :root {
+        --top-safe-area: env(safe-area-inset-top);
+        --header-bottom-gap: 10px;
+        --header-height: calc(62px + env(safe-area-inset-top));
       }
       .pub-header {
         padding-top: calc(env(safe-area-inset-top) + 20px);
         box-sizing: border-box;
       }
+    }
+
+    html.is-standalone {
+      --top-safe-area: env(safe-area-inset-top);
+      --header-bottom-gap: 10px;
+      --header-height: calc(62px + env(safe-area-inset-top));
     }
   </style>
 <body>
@@ -2959,18 +2961,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 
 <script>
-  // Only apply when launched from home screen (not Safari browser)
+  // iOS home-screen apps expose safe-area values through env().
   if (window.navigator.standalone === true) {
-    const style = document.createElement('style');
-    style.textContent = `
-      .app-header, .dash-header, .share-header {
-        padding-top: env(safe-area-inset-top) !important;
-        height: calc(52px + env(safe-area-inset-top)) !important;
-        align-items: flex-end !important;
-        box-sizing: border-box !important;
-      }
-    `;
-    document.head.appendChild(style);
+    document.documentElement.classList.add('is-standalone');
   }
 </script>
 
