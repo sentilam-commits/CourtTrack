@@ -2073,8 +2073,8 @@ function VideoPlayer({ src, maxHeight = 300, loop = false }) {
   const [isMobilePlayer, setIsMobilePlayer] = useState(false);
 
   useEffect(() => {
-    const query = window.matchMedia?.('(max-width: 640px), (hover: none) and (pointer: coarse)');
-    const updateMobileState = () => setIsMobilePlayer(query ? query.matches : window.innerWidth <= 640);
+    const query = window.matchMedia?.('(max-width: 767px)');
+    const updateMobileState = () => setIsMobilePlayer(query ? query.matches : window.innerWidth <= 767);
     updateMobileState();
     if (query?.addEventListener) query.addEventListener('change', updateMobileState);
     else query?.addListener?.(updateMobileState);
@@ -2266,6 +2266,15 @@ function VideoPlayer({ src, maxHeight = 300, loop = false }) {
   const pct = duration ? Math.max(0, Math.min(100, (currentTime / duration) * 100)) : 0;
   const loading = !ready || waiting;
   const playerClass = `video-player${controls || !playing ? ' video-player--controls' : ''}${loading ? ' video-player--loading' : ''}${ready ? ' video-player--ready' : ''}`;
+
+  // ── Desktop: native browser player ──────────────────────────
+  if (!isMobilePlayer) {
+    return (
+      <div className="video-wrap">
+        <video src={src} controls playsInline loop={loop} preload="metadata" />
+      </div>
+    );
+  }
 
   return (
     <div
