@@ -554,18 +554,12 @@
     }
     .video-player__poster {
       background:
-        radial-gradient(circle at 50% 44%, rgba(255,255,255,0.10), transparent 22%),
+        radial-gradient(circle at 50% 42%, rgba(255,255,255,0.08), transparent 24%),
+        linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0) 34%),
         linear-gradient(145deg, #0e2a1c, #07140d);
-      display: flex; align-items: center; justify-content: center;
       opacity: 1; transition: opacity 0.22s ease;
     }
     .video-player__poster.is-hidden { opacity: 0; }
-    .video-player__poster-play {
-      width: 68px; height: 68px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.32);
-      box-shadow: 0 12px 30px rgba(0,0,0,0.28);
-    }
     .video-player__loading {
       background: linear-gradient(110deg, rgba(255,255,255,0.02) 8%, rgba(255,255,255,0.10) 18%, rgba(255,255,255,0.02) 33%);
       background-size: 220% 100%; animation: videoShimmer 1.15s linear infinite;
@@ -580,12 +574,13 @@
     .video-player__shade {
       position: absolute; inset: 0; z-index: 4; pointer-events: none;
       background:
-        linear-gradient(to bottom, rgba(0,0,0,0.48), transparent 25%, transparent 58%, rgba(0,0,0,0.72)),
-        radial-gradient(circle at center, rgba(0,0,0,0.12), rgba(0,0,0,0.34));
+        linear-gradient(to bottom, rgba(0,0,0,0.30), transparent 28%, transparent 62%, rgba(0,0,0,0.62)),
+        radial-gradient(circle at center, rgba(0,0,0,0.04), rgba(0,0,0,0.22));
       opacity: 0; transition: opacity 0.24s ease;
     }
-    .video-player--controls .video-player__shade,
-    .video-player--loading .video-player__shade { opacity: 1; }
+    .video-player--controls .video-player__shade { opacity: 0.66; }
+    .video-player--loading .video-player__shade { opacity: 0.46; }
+    .video-player--ready.video-player--controls .video-player__shade { opacity: 0.34; }
     .video-player__controls {
       position: absolute; inset: 0; z-index: 5; pointer-events: none;
       display: flex; flex-direction: column; justify-content: space-between;
@@ -2048,24 +2043,6 @@ function fmtTime(s) {
   return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
 }
 
-const VIDEO_POSTER = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1600">
-  <defs>
-    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0" stop-color="#123522"/>
-      <stop offset="1" stop-color="#06130c"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="50%" cy="42%" r="46%">
-      <stop offset="0" stop-color="#ffffff" stop-opacity=".14"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-  <rect width="900" height="1600" rx="48" fill="url(#bg)"/>
-  <rect width="900" height="1600" fill="url(#glow)"/>
-  <circle cx="450" cy="800" r="92" fill="#fff" fill-opacity=".16" stroke="#fff" stroke-opacity=".34" stroke-width="4"/>
-  <path d="M424 744v112l96-56z" fill="#fff"/>
-</svg>`);
-
 function VideoPlayer({ src, maxHeight = 300, loop = false }) {
   const videoRef      = useRef(null);
   const playerRef     = useRef(null);
@@ -2074,6 +2051,7 @@ function VideoPlayer({ src, maxHeight = 300, loop = false }) {
   const hideTimer     = useRef(null);
   const hintTimer     = useRef(null);
   const scrubbing     = useRef(false);
+  const previewAttempted = useRef(false);
 
   const [playing, setPlaying]       = useState(false);
   const [controls, setControls]     = useState(true);
@@ -2092,6 +2070,7 @@ function VideoPlayer({ src, maxHeight = 300, loop = false }) {
     setReady(false);
     setWaiting(true);
     setError('');
+    previewAttempted.current = false;
     clearTimeout(hideTimer.current);
     clearTimeout(tapTimer.current);
     clearTimeout(hintTimer.current);
@@ -2128,6 +2107,27 @@ function VideoPlayer({ src, maxHeight = 300, loop = false }) {
     if (!v) return;
     setCurrentTime(v.currentTime || 0);
     if (isFinite(v.duration)) setDuration(v.duration || 0);
+  }
+
+  function markReady() {
+    setReady(true);
+    setWaiting(false);
+    syncTime();
+  }
+
+  function preparePreviewFrame() {
+    const v = videoRef.current;
+    syncTime();
+    if (!v) return;
+    if (v.readyState >= 2) {
+      markReady();
+      return;
+    }
+    if (previewAttempted.current || !isFinite(v.duration) || v.duration <= 0) return;
+    previewAttempted.current = true;
+    try {
+      v.currentTime = Math.min(0.05, Math.max(0, v.duration - 0.05));
+    } catch (_) {}
   }
 
   function seek(delta) {
@@ -2227,7 +2227,7 @@ function VideoPlayer({ src, maxHeight = 300, loop = false }) {
 
   const pct = duration ? Math.max(0, Math.min(100, (currentTime / duration) * 100)) : 0;
   const loading = !ready || waiting;
-  const playerClass = `video-player${controls || !playing ? ' video-player--controls' : ''}${loading ? ' video-player--loading' : ''}`;
+  const playerClass = `video-player${controls || !playing ? ' video-player--controls' : ''}${loading ? ' video-player--loading' : ''}${ready ? ' video-player--ready' : ''}`;
 
   return (
     <div
@@ -2240,11 +2240,10 @@ function VideoPlayer({ src, maxHeight = 300, loop = false }) {
         ref={videoRef}
         className="video-player__video"
         src={src}
-        poster={VIDEO_POSTER}
         playsInline
         webkit-playsinline="true"
         loop={loop}
-        preload="metadata"
+        preload="auto"
         controls={false}
         controlsList="nodownload noplaybackrate"
         disablePictureInPicture
@@ -2252,21 +2251,16 @@ function VideoPlayer({ src, maxHeight = 300, loop = false }) {
         onPause={() => { setPlaying(false); setControls(true); }}
         onEnded={() => { setPlaying(false); setControls(true); }}
         onTimeUpdate={syncTime}
-        onLoadedMetadata={syncTime}
-        onLoadedData={() => { setReady(true); setWaiting(false); }}
-        onCanPlay={() => { setReady(true); setWaiting(false); }}
+        onLoadedMetadata={preparePreviewFrame}
+        onLoadedData={markReady}
+        onCanPlay={markReady}
+        onSeeked={markReady}
         onWaiting={() => setWaiting(true)}
         onPlaying={() => { setWaiting(false); setPlaying(true); }}
         onError={() => { setError('No se pudo cargar el video. Intenta abrirlo de nuevo.'); setWaiting(false); }}
       />
 
-      <div className={`video-player__poster${ready ? ' is-hidden' : ''}`}>
-        <div className="video-player__poster-play">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="white" style={{marginLeft:3}}>
-            <polygon points="6,4 20,12 6,20" />
-          </svg>
-        </div>
-      </div>
+      <div className={`video-player__poster${ready ? ' is-hidden' : ''}`} />
       <div className={`video-player__loading${loading ? ' is-visible' : ''}`} />
       <div className="video-player__tap-surface" onClick={handleSurfaceTap} />
       <div className="video-player__shade" />
