@@ -11,7 +11,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Padel Log">
-  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com/">
@@ -100,8 +101,8 @@
       --blue-slate:     #3D6B8A;
       --border:         #E0E4E1;
       --top-safe-area:   0px;
-      --header-bottom-gap: 0px;
-      --header-height:   52px;
+      --header-bottom-gap: 12px;
+      --header-height:   64px;
     }
 
     html, body {
@@ -553,8 +554,8 @@
     @media (display-mode: standalone) {
       :root {
         --top-safe-area: env(safe-area-inset-top);
-        --header-bottom-gap: 10px;
-        --header-height: calc(62px + env(safe-area-inset-top));
+        --header-bottom-gap: 16px;
+        --header-height: calc(76px + env(safe-area-inset-top));
       }
       .pub-header {
         padding-top: calc(env(safe-area-inset-top) + 20px);
@@ -564,8 +565,8 @@
 
     html.is-standalone {
       --top-safe-area: env(safe-area-inset-top);
-      --header-bottom-gap: 10px;
-      --header-height: calc(62px + env(safe-area-inset-top));
+      --header-bottom-gap: 16px;
+      --header-height: calc(76px + env(safe-area-inset-top));
     }
   </style>
 <body>
@@ -590,6 +591,22 @@ const LS = {
     set(q)   { LS.set('q', q); },
   },
 };
+
+const SAVED_EMAIL_KEY = 'saved_email';
+const normalizeEmail = email => (email || '').trim().toLowerCase();
+function getSavedCoachEmail() {
+  return normalizeEmail(localStorage.getItem(SAVED_EMAIL_KEY) || '');
+}
+function saveCoachEmail(email) {
+  const value = normalizeEmail(email);
+  if (value) localStorage.setItem(SAVED_EMAIL_KEY, value);
+  return value;
+}
+function clearLocalStorageKeepingCoachEmail() {
+  const savedEmail = getSavedCoachEmail();
+  localStorage.clear();
+  if (savedEmail) saveCoachEmail(savedEmail);
+}
 
 // Attempt to push any queued offline writes to Supabase
 async function flushQueue(uid) {
@@ -1102,7 +1119,7 @@ function translateError(msg) {
 // ── S1 Auth ──────────────────────────────────────────────────
 function AuthScreen() {
   const [isSignup, setIsSignup]       = useState(false);
-  const [email, setEmail]             = useState(() => localStorage.getItem('saved_email') || '');
+  const [email, setEmail]             = useState(() => getSavedCoachEmail());
   const [password, setPassword]       = useState('');
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState('');
@@ -1112,7 +1129,7 @@ function AuthScreen() {
 
   function handleEmailChange(val) {
     setEmail(val);
-    localStorage.setItem('saved_email', val);
+    saveCoachEmail(val);
   }
 
   async function submit() {
@@ -1124,8 +1141,8 @@ function AuthScreen() {
         : sb.auth.signInWithPassword({ email: email.trim(), password });
       const { error } = await fn;
       if (error) throw error;
+      saveCoachEmail(email);
       if (isSignup) setSignupDone(true);
-      else localStorage.setItem('saved_email', email.trim());
     } catch (e) {
       setError(translateError(e.message));
     } finally { setLoading(false); }
@@ -1133,6 +1150,7 @@ function AuthScreen() {
 
   async function sendReset() {
     if (!email.trim()) { setError('Ingresá tu email primero.'); return; }
+    saveCoachEmail(email);
     setLoading(true); setError('');
     try {
       const { error } = await sb.auth.resetPasswordForEmail(email.trim(), {
@@ -1259,7 +1277,7 @@ function AuthScreen() {
 
 // ── S2 Onboarding ────────────────────────────────────────────
 function OnboardingScreen({ user, onDone }) {
-  const [displayName, setDisplayName] = useState('');
+  const [displayName, setDisplayName] = useState('Coach Diego');
   const [clubName, setClubName]       = useState('');
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState('');
@@ -1295,7 +1313,7 @@ function OnboardingScreen({ user, onDone }) {
         <div className="form-field">
           <label className="field-label">Nombre del coach</label>
           <input className="field-input" value={displayName}
-            onChange={e => setDisplayName(e.target.value)} placeholder="Coach Benji" />
+            onChange={e => setDisplayName(e.target.value)} placeholder="Coach Diego" />
         </div>
         <div className="form-field">
           <label className="field-label">
@@ -1803,7 +1821,7 @@ function ShareScreen({ student, savedOffline, onHome }) {
     const msg = encodeURIComponent(
       `Hola ${firstName}, aquí tienes el reporte de tu clase de hoy 🎾\n${publicUrl}`
     );
-    window.open(`https://wa.me/?text=${msg}`, '_blank');
+    window.open(`https://wa.me/?text=${msg}`, '_blank', 'noopener,noreferrer');
   }
 
   return (
@@ -1820,11 +1838,17 @@ function ShareScreen({ student, savedOffline, onHome }) {
             Guardado sin conexión — se sincronizará automáticamente cuando vuelva internet.
           </div>
         )}
-        <div className="share-link-card">
+        <a
+          className="share-link-card"
+          href={publicUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{display:'block', color:'inherit', textDecoration:'none'}}
+        >
           <div className="share-link-lbl">LINK DEL ALUMNO</div>
           <div className="share-link-url">{publicUrl.replace(/^https?:\/\//, '')}</div>
-          <div className="share-link-note">Un link para siempre. Siempre actualizado.</div>
-        </div>
+          <div className="share-link-note">Toca para abrirlo en una pestaña nueva.</div>
+        </a>
         <button className="btn btn-whatsapp" onClick={sendWhatsApp} style={{width:'100%'}}>
           Enviar por WhatsApp 🎾
         </button>
@@ -2170,8 +2194,8 @@ function EditProfileScreen({ user, profile, onBack, onSaved, onDeleted }) {
       await sb.from('students').delete().eq('coach_id', user.id);
       await sb.from('profiles').delete().eq('id', user.id);
       await sb.auth.admin?.deleteUser(user.id);
-      // Clear local storage
-      localStorage.clear();
+      // Clear local app data but keep the last coach email on this device.
+      clearLocalStorageKeepingCoachEmail();
       await sb.auth.signOut();
       onDeleted();
     } catch(e) {
@@ -2197,7 +2221,7 @@ function EditProfileScreen({ user, profile, onBack, onSaved, onDeleted }) {
         <div className="form-field">
           <label className="field-label">Nombre del coach</label>
           <input className="field-input" value={displayName}
-            onChange={e => setDisplayName(e.target.value)} placeholder="Coach Benji" />
+            onChange={e => setDisplayName(e.target.value)} placeholder="Coach Diego" />
         </div>
         <div className="form-field">
           <label className="field-label">
@@ -2746,6 +2770,7 @@ function App() {
 
     sb.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
+        saveCoachEmail(session.user.email);
         setUser(session.user);
         loadEverything(session.user.id);
       } else {
@@ -2754,7 +2779,7 @@ function App() {
     }).catch(() => go('auth'));
 
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) { setUser(session.user); loadEverything(session.user.id); }
+      if (session?.user) { saveCoachEmail(session.user.email); setUser(session.user); loadEverything(session.user.id); }
       else { setUser(null); setProfile(null); go('auth'); }
     });
 
