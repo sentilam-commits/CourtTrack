@@ -2003,11 +2003,11 @@ function VideoPlayer({ src, maxHeight = 300, loop = false }) {
         <div style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:36}}>
           {showCtrl && (
             <>
-              <button onClick={(e)=>{e.stopPropagation();seek(-5);}} style={{...iBtn, pointerEvents:'all', opacity:0.92}}>
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <button onClick={(e)=>{e.stopPropagation();seek(-5);}} style={{...iBtn, pointerEvents:'all', opacity:0.92, flexDirection:'column', gap:2}}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
-                  <text x="12" y="14" textAnchor="middle" fill="white" stroke="none" fontSize="5" fontWeight="700">5</text>
                 </svg>
+                <span style={{color:'white', fontSize:'0.65rem', fontWeight:700, lineHeight:1}}>5s</span>
               </button>
               <button onClick={togglePlay} style={{...iBtn, pointerEvents:'all',
                 width:56, height:56, borderRadius:'50%',
@@ -2017,11 +2017,11 @@ function VideoPlayer({ src, maxHeight = 300, loop = false }) {
                   : <svg width="22" height="22" viewBox="0 0 24 24" fill="white" style={{marginLeft:3}}><polygon points="5,3 19,12 5,21"/></svg>
                 }
               </button>
-              <button onClick={(e)=>{e.stopPropagation();seek(5);}} style={{...iBtn, pointerEvents:'all', opacity:0.92}}>
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <button onClick={(e)=>{e.stopPropagation();seek(5);}} style={{...iBtn, pointerEvents:'all', opacity:0.92, flexDirection:'column', gap:2}}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-4.5"/>
-                  <text x="12" y="14" textAnchor="middle" fill="white" stroke="none" fontSize="5" fontWeight="700">5</text>
                 </svg>
+                <span style={{color:'white', fontSize:'0.65rem', fontWeight:700, lineHeight:1}}>5s</span>
               </button>
             </>
           )}
@@ -2054,7 +2054,6 @@ function VideoPlayer({ src, maxHeight = 300, loop = false }) {
           background:'rgba(0,0,0,0.6)', borderRadius:10, padding:'6px 14px',
           color:'white', fontSize:'0.85rem', fontWeight:700, pointerEvents:'none'}}>5s »</div>
       )}
-    </div>
     </div>
   );
 }
