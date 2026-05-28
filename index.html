@@ -1265,12 +1265,21 @@ function OnboardingScreen({ user, onDone }) {
   async function save() {
     if (!displayName.trim()) { setError('El nombre es obligatorio.'); return; }
     setLoading(true); setError('');
+
+    // Refresh session so the JWT is current when Supabase evaluates RLS
+    let uid = user?.id;
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session?.user) uid = session.user.id;
+    } catch(_) {}
+    if (!uid) { setError('Sesión expirada. Por favor inicia sesión de nuevo.'); setLoading(false); return; }
+
     const prof = { display_name: displayName.trim(), club_name: clubName.trim() || null };
     try {
-      const { error } = await sb.from('profiles').upsert({ id: user.id, ...prof });
+      const { error } = await sb.from('profiles').upsert({ id: uid, ...prof });
       if (error) throw error;
     } catch(e) { setError(e.message); setLoading(false); return; }
-    LS.set(`p:${user.id}`, { id: user.id, ...prof });
+    LS.set(`p:${uid}`, { id: uid, ...prof });
     onDone(prof);
   }
 
@@ -2762,14 +2771,12 @@ function App() {
     const mappedStudents = studs.map(s => ({ ...s, lastLog: logs.find(l => l.student_id === s.id) || null }));
     setStudents(mappedStudents);
 
-    // Restore last route if within 2 hours
+    // Restore last route (no time limit)
     const savedRoute = LS.get('lastRoute');
-    const savedTs    = LS.get('lastRouteTs') || 0;
-    const twoHours   = 2 * 60 * 60 * 1000;
     const isPublicUrl = !!location.hash.match(/^#\/p\//);
-    if (!isPublicUrl && savedRoute && savedRoute !== 'dashboard' && savedRoute !== 'auth' && savedRoute !== 'loading' && (Date.now() - savedTs) < twoHours) {
+    if (!isPublicUrl && savedRoute && savedRoute !== 'dashboard' && savedRoute !== 'auth' && savedRoute !== 'loading') {
       const rName = typeof savedRoute === 'object' ? savedRoute.name : savedRoute;
-      if (['logClass','editLog','share','studentProfile'].includes(rName)) {
+      if (['logClass','editLog','share','studentProfile','editStudent'].includes(rName)) {
         const sId = typeof savedRoute === 'object' ? savedRoute.studentId : null;
         const restoredS = sId ? mappedStudents.find(s => s.id === sId) : null;
         if (restoredS) {
@@ -2778,6 +2785,7 @@ function App() {
           flushQueue(uid);
           return;
         }
+        // Student not found (deleted?), fall through to dashboard
       } else if (['pickStudent','addStudent','editProfile','manageStudents'].includes(rName)) {
         setRoute(savedRoute);
         flushQueue(uid);
