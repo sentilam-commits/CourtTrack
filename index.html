@@ -837,7 +837,7 @@ function VisualReferenceSection({ coachId, studentId, mediaUrl, mediaType, local
       {hasMedia && (
         <div style={{position:'relative', borderRadius:14, overflow:'hidden', background:'#000', marginBottom:12}}>
           {mediaType === 'video'
-            ? <video src={localPreview || mediaUrl} controls playsInline style={{width:'100%', maxHeight:220, display:'block'}} />
+            ? <video src={localPreview || mediaUrl} controls playsInline preload="metadata" style={{width:'100%', maxHeight:220, display:'block'}} />
             : <img src={localPreview || mediaUrl} alt="Referencia visual" style={{width:'100%', maxHeight:220, objectFit:'cover', display:'block'}} />
           }
           {uploading && (
@@ -1904,52 +1904,88 @@ async function downloadMedia(url, type) {
 
 // ── VideoPlayer ──────────────────────────────────────────────
 function VideoPlayer({ src, maxHeight = 300, loop = false }) {
-  const videoRef = useRef(null);
-  const [playing, setPlaying] = useState(false);
+  const videoRef  = useRef(null);
+  const tapTimer  = useRef(null);
+  const tapSide   = useRef(null);
+  const [playing, setPlaying]   = useState(false);
+  const [seekHint, setSeekHint] = useState(null); // 'left' | 'right' | null
 
-  function togglePlay(e) {
+  function showHint(side) {
+    setSeekHint(side);
+    setTimeout(() => setSeekHint(null), 600);
+  }
+
+  function handleTap(e) {
     e.stopPropagation();
     const v = videoRef.current;
     if (!v) return;
-    if (v.paused) { v.play(); setPlaying(true); }
-    else          { v.pause(); setPlaying(false); }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x    = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    const side = x < rect.width / 2 ? 'left' : 'right';
+
+    if (tapTimer.current && tapSide.current === side) {
+      // Double tap
+      clearTimeout(tapTimer.current);
+      tapTimer.current = null;
+      v.currentTime = Math.max(0, v.currentTime + (side === 'right' ? 5 : -5));
+      showHint(side);
+    } else {
+      // First tap — wait to see if double tap follows
+      tapSide.current = side;
+      tapTimer.current = setTimeout(() => {
+        tapTimer.current = null;
+        if (v.paused) { v.play(); setPlaying(true); }
+        else          { v.pause(); setPlaying(false); }
+      }, 250);
+    }
   }
 
   return (
-    <div style={{position:'relative', background:'#000', lineHeight:0}}>
+    <div style={{position:'relative', background:'#000', lineHeight:0, borderRadius:12, overflow:'hidden'}}>
       <video
         ref={videoRef}
         src={src}
-        controls
         playsInline
         loop={loop}
+        preload="metadata"
         style={{width:'100%', maxHeight, display:'block'}}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
       />
-      {/* Tap overlay — only covers upper area above native controls */}
+      {/* Full overlay — handles tap and double-tap */}
       <div
-        onClick={togglePlay}
-        style={{
-          position:'absolute', top:0, left:0, right:0,
-          bottom: 52, /* leave native controls bar exposed */
-          cursor:'pointer',
-          display:'flex', alignItems:'center', justifyContent:'center',
-        }}
+        onClick={handleTap}
+        style={{position:'absolute', inset:0, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}
       >
-        <div style={{
-          opacity: playing ? 0 : 0.72,
-          transition: 'none',
-          width: 54, height: 54, borderRadius: '50%',
-          background: 'rgba(0,0,0,0.45)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          border: '1.5px solid rgba(255,255,255,0.25)',
-        }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="white" style={{marginLeft:3}}>
+        {/* Play icon when paused */}
+        {!playing && (
+          <div style={{
+            width:54, height:54, borderRadius:'50%',
+            background:'rgba(0,0,0,0.5)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            border:'1.5px solid rgba(255,255,255,0.25)',
+            pointerEvents:'none',
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white" style={{marginLeft:3}}>
               <polygon points="5,3 19,12 5,21"/>
             </svg>
-        </div>
+          </div>
+        )}
+        {/* Seek hints */}
+        {seekHint === 'left' && (
+          <div style={{
+            position:'absolute', left:12, top:'50%', transform:'translateY(-50%)',
+            background:'rgba(0,0,0,0.55)', borderRadius:10, padding:'6px 12px',
+            color:'white', fontSize:'0.85rem', fontWeight:700, pointerEvents:'none',
+          }}>« 5s</div>
+        )}
+        {seekHint === 'right' && (
+          <div style={{
+            position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
+            background:'rgba(0,0,0,0.55)', borderRadius:10, padding:'6px 12px',
+            color:'white', fontSize:'0.85rem', fontWeight:700, pointerEvents:'none',
+          }}>5s »</div>
+        )}
       </div>
     </div>
   );
@@ -2006,7 +2042,7 @@ function HistCard({ log }) {
               <div className="hist-field-lbl hist-field-lbl--visual">REFERENCIA VISUAL</div>
               {log.media_url && log.media_type === 'video' && (
                 <div>
-                  <div className="video-wrap"><video src={log.media_url} controls playsInline loop preload="metadata" /></div>
+                  <VideoPlayer src={log.media_url} maxHeight={400} loop />
                   <button className="dl-btn" onClick={() => downloadMedia(log.media_url, 'video')}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
@@ -2132,7 +2168,7 @@ function PublicReportScreen({ studentId }) {
               <div style={{background:'#000', lineHeight:0, overflow:'hidden'}}>
                 {latest.media_type === 'video'
                   ? <div>
-                      <div className="video-wrap"><video src={latest.media_url} controls playsInline loop preload="metadata" /></div>
+                      <VideoPlayer src={latest.media_url} maxHeight={400} loop />
                       <button className="dl-btn" style={{borderRadius:0, marginTop:0, padding:'11px 16px'}}
                         onClick={() => downloadMedia(latest.media_url, 'video')}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -2723,7 +2759,7 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
                       {log.media_url && (
                         <div style={{borderRadius:10, overflow:'hidden', background:'#000', marginBottom: log.visual_what ? 8 : 0, lineHeight:0}}>
                           {log.media_type === 'video'
-                            ? <video src={log.media_url} controls playsInline preload="metadata" style={{width:'100%', maxHeight:200, display:'block'}} />
+                            ? <VideoPlayer src={log.media_url} maxHeight={200} />
                             : <a href={log.media_url} target="_blank" rel="noopener noreferrer">
                                 <img src={log.media_url} alt="Referencia visual" loading="lazy"
                                   style={{width:'100%', maxHeight:200, objectFit:'cover', display:'block', cursor:'zoom-in'}} />
