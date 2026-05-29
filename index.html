@@ -29,20 +29,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Supabase + React (production builds) + Babel -->
-  <!-- Clear stale service worker caches from broken deployments -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(regs) {
-        regs.forEach(function(r) { r.unregister(); });
-      });
-      if (window.caches) {
-        caches.keys().then(function(names) {
-          names.forEach(function(n) { caches.delete(n); });
-        });
-      }
-    }
-  </script>
-
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -91,6 +77,55 @@
   CREATE POLICY IF NOT EXISTS "Media is public"
     ON storage.objects FOR SELECT TO anon, authenticated
     USING (bucket_id = 'class-media');
+
+  -- Account deletion + data retention: run once in Supabase SQL Editor.
+  --
+  -- Archive table survives coach deletion (no FK to auth.users). RLS enabled with
+  -- NO policies, so coaches can't read it — only the Supabase dashboard / service role.
+  -- Each row is a full JSONB snapshot, so every column (incl. media_*/visual_*) is kept.
+  CREATE TABLE IF NOT EXISTS public.archived_records (
+    id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    kind               text NOT NULL,            -- 'student' | 'class_log' | 'progress_score'
+    original_id        uuid,
+    coach_id           uuid,
+    coach_email        text,
+    coach_display_name text,
+    data               jsonb NOT NULL,           -- full snapshot of the original row
+    archived_at        timestamptz DEFAULT now()
+  );
+  ALTER TABLE public.archived_records ENABLE ROW LEVEL SECURITY;
+
+  -- Archives the coach's students/classes/scores (with coach email + name), then
+  -- deletes the auth user — the cascade clears the live profile/students/logs/scores.
+  -- Takes no arguments and uses auth.uid(), so a user can only delete themselves.
+  CREATE OR REPLACE FUNCTION public.delete_my_account()
+  RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+  DECLARE
+    uid     uuid := auth.uid();
+    c_email text;
+    c_name  text;
+  BEGIN
+    IF uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+    SELECT u.email        INTO c_email FROM auth.users u    WHERE u.id = uid;
+    SELECT p.display_name INTO c_name  FROM public.profiles p WHERE p.id = uid;
+
+    INSERT INTO public.archived_records (kind, original_id, coach_id, coach_email, coach_display_name, data)
+      SELECT 'student', s.id, uid, c_email, c_name, to_jsonb(s)
+      FROM public.students s WHERE s.coach_id = uid;
+
+    INSERT INTO public.archived_records (kind, original_id, coach_id, coach_email, coach_display_name, data)
+      SELECT 'class_log', cl.id, uid, c_email, c_name, to_jsonb(cl)
+      FROM public.class_logs cl WHERE cl.coach_id = uid;
+
+    INSERT INTO public.archived_records (kind, original_id, coach_id, coach_email, coach_display_name, data)
+      SELECT 'progress_score', ps.id, uid, c_email, c_name, to_jsonb(ps)
+      FROM public.progress_scores ps WHERE ps.coach_id = uid;
+
+    DELETE FROM auth.users WHERE id = uid;
+  END;
+  $$;
+  GRANT EXECUTE ON FUNCTION public.delete_my_account() TO authenticated;
   -->
 
   <style>
@@ -769,18 +804,16 @@ async function flushQueue(uid) {
   for (const op of q) {
     try {
       if (op.type === 'student') {
-        const { data } = await sb.from('students').insert(op.data).select().single();
-        if (data) {
-          // replace the tmp entry in cache with the real one
-          const studs = (LS.get(`s:${uid}`) || []).map(s => s._tmp === op._ts ? data : s);
-          LS.set(`s:${uid}`, studs);
-        }
+        const { data, error } = await sb.from('students').insert(op.data).select().single();
+        if (error || !data) { failed.push(op); continue; }
+        // replace the tmp entry in cache with the real one
+        const studs = (LS.get(`s:${uid}`) || []).map(s => s._tmp === op._ts ? data : s);
+        LS.set(`s:${uid}`, studs);
       } else if (op.type === 'log') {
-        const { data } = await sb.from('class_logs').insert(op.data).select().single();
-        if (data) {
-          const logs = (LS.get(`l:${uid}`) || []).map(l => l._tmp === op._ts ? data : l);
-          LS.set(`l:${uid}`, logs);
-        }
+        const { data, error } = await sb.from('class_logs').insert(op.data).select().single();
+        if (error || !data) { failed.push(op); continue; }
+        const logs = (LS.get(`l:${uid}`) || []).map(l => l._tmp === op._ts ? data : l);
+        LS.set(`l:${uid}`, logs);
       }
     } catch (e) { failed.push(op); }
   }
@@ -1291,13 +1324,26 @@ function AuthScreen() {
     if (!email.trim() || !password) return;
     setLoading(true); setError('');
     try {
-      const fn = isSignup
-        ? sb.auth.signUp({ email: email.trim(), password })
-        : sb.auth.signInWithPassword({ email: email.trim(), password });
-      const { error } = await fn;
-      if (error) throw error;
-      saveCoachEmail(email);
-      if (isSignup) setSignupDone(true);
+      if (isSignup) {
+        const { data, error } = await sb.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { emailRedirectTo: location.origin + location.pathname },
+        });
+        if (error) throw error;
+        // Supabase's anti-enumeration: signing up with an existing email returns
+        // no error but an empty identities array, and sends no confirmation email.
+        if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          setError('Este email ya tiene una cuenta. Inicia sesión.');
+          return;
+        }
+        saveCoachEmail(email);
+        setSignupDone(true);
+      } else {
+        const { error } = await sb.auth.signInWithPassword({ email: email.trim(), password });
+        if (error) throw error;
+        saveCoachEmail(email);
+      }
     } catch (e) {
       setError(translateError(e.message));
     } finally { setLoading(false); }
@@ -1453,7 +1499,7 @@ function OnboardingScreen({ user, onDone }) {
     try {
       const { error } = await sb.from('profiles').upsert({ id: uid, ...prof });
       if (error) throw error;
-    } catch(e) { setError(e.message); setLoading(false); return; }
+    } catch(e) { setError(translateError(e.message)); setLoading(false); return; }
     LS.set(`p:${uid}`, { id: uid, ...prof });
     onDone(prof);
   }
@@ -2499,7 +2545,7 @@ function EditProfileScreen({ user, profile, onBack, onSaved, onDeleted }) {
     try {
       const { error } = await sb.from('profiles').upsert({ id: user.id, ...prof });
       if (error) throw error;
-    } catch(e) { setError(e.message); setLoading(false); return; }
+    } catch(e) { setError(translateError(e.message)); setLoading(false); return; }
     LS.set(`p:${user.id}`, { id: user.id, ...prof });
     setSaved(true);
     setTimeout(() => { onSaved(prof); }, 800);
@@ -2508,11 +2554,9 @@ function EditProfileScreen({ user, profile, onBack, onSaved, onDeleted }) {
   async function deleteAccount() {
     setDeleting(true); setError('');
     try {
-      // Delete class logs, students, profile then user
-      await sb.from('class_logs').delete().eq('coach_id', user.id);
-      await sb.from('students').delete().eq('coach_id', user.id);
-      await sb.from('profiles').delete().eq('id', user.id);
-      await sb.auth.admin?.deleteUser(user.id);
+      // Deletes logs, students, profile and the auth user server-side (see delete_my_account SQL).
+      const { error } = await sb.rpc('delete_my_account');
+      if (error) throw error;
       // Clear local app data but keep the last coach email on this device.
       clearLocalStorageKeepingCoachEmail();
       await sb.auth.signOut();
@@ -2609,7 +2653,7 @@ function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
         .select().single();
       if (error) throw error;
       onSaved(data);
-    } catch(e) { setError(e.message); setLoading(false); }
+    } catch(e) { setError(translateError(e.message)); setLoading(false); }
   }
 
   async function deleteStudent() {
@@ -2734,7 +2778,7 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
         .select().single();
       if (error) throw error;
       onSaved(data);
-    } catch(e) { setError(e.message); setLoading(false); }
+    } catch(e) { setError(translateError(e.message)); setLoading(false); }
   }
 
   return (
