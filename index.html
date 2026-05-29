@@ -1974,7 +1974,7 @@ function ShareScreen({ student, savedOffline, onHome }) {
   function sendWhatsApp() {
     const firstName = student.name.split(' ')[0];
     const msg = encodeURIComponent(
-      `Hola ${firstName}, aquí tienes el reporte de tu clase de hoy 🎾\n${publicUrl}`
+      `Hola ${firstName}, aquí tienes el reporte de tu clase de hoy.\n${publicUrl}`
     );
     window.open(`https://wa.me/?text=${msg}`, '_blank', 'noopener,noreferrer');
   }
@@ -2005,7 +2005,7 @@ function ShareScreen({ student, savedOffline, onHome }) {
           <div className="share-link-note">Toca para abrirlo en una pestaña nueva.</div>
         </a>
         <button className="btn btn-whatsapp" onClick={sendWhatsApp} style={{width:'100%'}}>
-          Enviar por WhatsApp 🎾
+          Enviar por WhatsApp
         </button>
         <button className="btn btn-outline" onClick={copyLink} style={{width:'100%', gap:8}}>
           {copied ? (
