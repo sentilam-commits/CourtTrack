@@ -16,6 +16,12 @@
   <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
   <link rel="shortcut icon" href="./favicon.ico">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Padel Log">
+  <meta property="og:description" content="El reporte de tu clase de pádel">
+  <meta property="og:image" content="https://padel-log-app.vercel.app/icon-512.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com/">
@@ -785,7 +791,10 @@ async function flushQueue(uid) {
 const initials = name =>
   (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
 
-const todayISO = () => new Date().toISOString().split('T')[0];
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
 
 function relativeDate(dateStr) {
   if (!dateStr) return '';
