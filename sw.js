@@ -1,4 +1,4 @@
-const CACHE = 'padel-log-v1';
+const CACHE = 'padel-log-v2';
 
 // Assets cached on install — app won't work offline without these
 const REQUIRED = [
@@ -48,9 +48,26 @@ self.addEventListener('fetch', e => {
   // Skip non-http(s) requests
   if (!url.protocol.startsWith('http')) return;
 
+  // The whole app lives in index.html, so navigations are network-first:
+  // a new deploy loads immediately online, and the cached shell is the offline fallback.
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE).then(c => c.put('./index.html', clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match('./index.html').then(c => c || caches.match(e.request)))
+    );
+    return;
+  }
+
+  // Other assets (icons, CDN libs): serve from cache, refresh in background.
   e.respondWith(
     caches.match(e.request).then(cached => {
-      // Serve from cache immediately; update cache in background
       const networkFetch = fetch(e.request)
         .then(res => {
           if (res.ok) {
