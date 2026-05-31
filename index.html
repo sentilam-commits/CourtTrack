@@ -2025,9 +2025,9 @@ function ShareScreen({ student, savedOffline, savedLog, onHome }) {
     const homework = toArr(log.homework).join(', ');
 
     const lines = [`Hola! Resumen de la clase de hoy de ${firstName} 🎾`, ''];
-    if (worked)   lines.push(`Trabajamos: ${worked}`);
-    if (improved) lines.push(`Mejoró: ${improved}`);
-    if (homework) lines.push(`Tarea para casa: ${homework}`);
+    if (worked)   lines.push(`*Trabajamos:* ${worked}`);
+    if (improved) lines.push(`*Mejoró:* ${improved}`);
+    if (homework) lines.push(`*Tarea para casa:* ${homework}`);
     if (log.media_url) {
       lines.push(log.media_type === 'photo'
         ? '📸 Te dejé una foto, la ves en el link de abajo 👇'
