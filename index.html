@@ -1867,7 +1867,7 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
     });
     if (!data) { setError('Error al guardar. Intenta de nuevo.'); setLoading(false); return; }
     LS.set(draftKey, null);
-    onSaved(offline);
+    onSaved(offline, data);
   }
 
   return (
@@ -1998,7 +1998,7 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
 }
 
 // ── S6 Share ─────────────────────────────────────────────────
-function ShareScreen({ student, savedOffline, onHome }) {
+function ShareScreen({ student, savedOffline, savedLog, onHome }) {
   const base = location.origin.includes('localhost') || location.protocol === 'file:'
     ? 'https://padel-log-app.vercel.app'
     : location.origin;
@@ -2019,9 +2019,23 @@ function ShareScreen({ student, savedOffline, onHome }) {
 
   function sendWhatsApp() {
     const firstName = student.name.split(' ')[0];
-    const msg = encodeURIComponent(
-      `Hola ${firstName}, aquí tienes el reporte de tu clase de hoy.\n${publicUrl}`
-    );
+    const log = savedLog || {};
+    const worked   = toArr(log.today_focus).join(', ');
+    const improved = toArr(log.what_improved).join(', ');
+    const homework = toArr(log.homework).join(', ');
+
+    const lines = [`Hola! Resumen de la clase de hoy de ${firstName} 🎾`, ''];
+    if (worked)   lines.push(`Trabajamos: ${worked}`);
+    if (improved) lines.push(`Mejoró: ${improved}`);
+    if (homework) lines.push(`Tarea para casa: ${homework}`);
+    if (log.media_url) {
+      lines.push(log.media_type === 'photo'
+        ? '📸 Te dejé una foto, la ves en el link de abajo 👇'
+        : '📹 Te dejé un video, lo ves en el link de abajo 👇');
+    }
+    lines.push('', `Ver progreso completo 👉 ${publicUrl}`);
+
+    const msg = encodeURIComponent(lines.join('\n'));
     window.open(`https://wa.me/?text=${msg}`, '_blank', 'noopener,noreferrer');
   }
 
@@ -3101,6 +3115,7 @@ function App() {
   const [todayCount, setTodayCount]         = useState(0);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [savedOffline, setSavedOffline]     = useState(false);
+  const [savedLog, setSavedLog]             = useState(null);
   const [selectedLog, setSelectedLog]         = useState(null);
   const [isOffline, setIsOffline]           = useState(!navigator.onLine);
   const [isManaging, setIsManaging]         = useState(false);
@@ -3264,8 +3279,9 @@ function App() {
       {route?.name === 'logClass' && (
         <LogClassScreen student={selectedStudent} coachId={user.id}
           onBack={() => go(route.from === 'dashboard' || route.from === 'studentProfile' ? (route.from === 'studentProfile' ? { name: 'studentProfile', studentId: selectedStudent.id } : 'dashboard') : 'pickStudent')}
-          onSaved={offline => {
+          onSaved={(offline, log) => {
             setSavedOffline(offline);
+            setSavedLog(log);
             refreshStudents(user.id);
             go({ name: 'share', studentId: selectedStudent.id });
           }} />
@@ -3311,8 +3327,8 @@ function App() {
       )}
 
       {(route === 'share' || route?.name === 'share') && (
-        <ShareScreen student={selectedStudent} savedOffline={savedOffline}
-          onHome={() => { setSelectedStudent(null); setSavedOffline(false); LS.set('lastRoute', null); go('dashboard'); }} />
+        <ShareScreen student={selectedStudent} savedOffline={savedOffline} savedLog={savedLog}
+          onHome={() => { setSelectedStudent(null); setSavedOffline(false); setSavedLog(null); LS.set('lastRoute', null); go('dashboard'); }} />
       )}
     </>
   );
