@@ -969,7 +969,7 @@ function VisualReferenceSection({ coachId, studentId, mediaUrl, mediaType, local
     const file = e.target.files[0];
     if (!file) return;
     const isVideo = file.type.startsWith('video');
-    const maxMB = isVideo ? 80 : 15;
+    const maxMB = isVideo ? 50 : 15;
     if (file.size > maxMB * 1024 * 1024) {
       onMediaChange({ uploadError: `El archivo supera el límite de ${maxMB} MB.` });
       return;
@@ -1016,6 +1016,12 @@ function VisualReferenceSection({ coachId, studentId, mediaUrl, mediaType, local
           </svg>
           <span style={{fontSize:'0.82rem', fontWeight:500}}>Subir foto o video</span>
         </button>
+      )}
+
+      {!hasMedia && (
+        <div style={{marginTop:8, fontSize:'0.76rem', color:'var(--text-hint)', textAlign:'center', lineHeight:1.4}}>
+          Graba en 1080p y mantén cada clip en 20–25 segundos.
+        </div>
       )}
 
       {/* Preview */}
