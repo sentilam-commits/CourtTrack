@@ -454,7 +454,130 @@
     .bottom-bar .btn { flex: 1; }
 
     /* ── Log Class ── */
-    .log-content { padding-bottom: 24px; }
+    .log-content { padding: 14px 16px max(28px, env(safe-area-inset-bottom)); }
+
+    .quick-report-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; margin-bottom: 12px;
+    }
+    .quick-report-copy { min-width: 0; }
+    .quick-report-kicker {
+      font-size: 0.72rem; font-weight: 800; color: var(--green-mid);
+      margin-bottom: 4px;
+    }
+    .quick-report-title {
+      font-size: 1.28rem; font-weight: 800; line-height: 1.14;
+      color: var(--text-primary);
+    }
+    .quick-report-sub {
+      margin-top: 3px; font-size: 0.83rem; color: var(--text-secondary);
+      line-height: 1.35;
+    }
+    .quick-report-status {
+      flex-shrink: 0; padding: 7px 10px; border-radius: 999px;
+      background: var(--white); border: 1px solid var(--border);
+      color: var(--text-secondary); font-size: 0.75rem; font-weight: 800;
+      white-space: nowrap;
+    }
+    .quick-report-status--ready {
+      color: var(--green-dark); background: var(--green-soft);
+      border-color: var(--green-mid);
+    }
+    .required-section {
+      display: flex; flex-direction: column; gap: 8px;
+      margin-bottom: 14px;
+    }
+    .required-field {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 10px;
+    }
+    .required-field--open {
+      border-color: var(--green-dark);
+      box-shadow: 0 1px 0 rgba(14,42,28,0.04);
+    }
+    .required-field--complete:not(.required-field--open) {
+      border-color: rgba(79,143,95,0.45);
+      background: #FBFCFA;
+    }
+    .required-label {
+      width: 100%; display: flex; align-items: center; gap: 8px;
+      text-align: left; min-height: 34px;
+    }
+    .required-label-num {
+      width: 24px; height: 24px; border-radius: 8px;
+      background: var(--green-dark); color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.76rem; font-weight: 800; flex-shrink: 0;
+    }
+    .required-title {
+      font-size: 0.78rem; font-weight: 800; color: var(--text-primary);
+      text-transform: uppercase;
+    }
+    .required-check {
+      margin-left: auto; color: var(--green-mid);
+      font-size: 0.82rem; font-weight: 800;
+    }
+    .required-summary {
+      margin: 2px 4px 2px 32px;
+      font-size: 0.86rem; font-weight: 600; line-height: 1.35;
+      color: var(--text-primary);
+    }
+    .required-summary--empty {
+      color: var(--text-hint); font-weight: 500;
+    }
+    .required-options { padding-top: 8px; }
+    .required-section .chip-group { gap: 6px; }
+    .required-section .chips {
+      flex-wrap: wrap; overflow-x: visible; gap: 7px;
+      padding: 0; margin: 0;
+    }
+    .required-section .chip {
+      min-height: 44px; padding: 0 12px; border-radius: 12px;
+      font-size: 0.88rem; font-weight: 700; flex: 0 1 auto;
+      line-height: 1.1;
+    }
+    .required-section .chip-edit-input { height: 44px; border-radius: 12px; max-width: 148px; }
+    .required-section .chip-edit-ok { width: 34px; height: 34px; }
+    .required-section .chip-input-row { margin-top: 2px; }
+    .required-submit { margin: 4px 0 14px; }
+    .required-submit .btn { height: 58px; border-radius: 14px; font-size: 1rem; }
+    .required-hint {
+      text-align: center; font-size: 0.76rem; color: var(--text-hint);
+      margin-top: 8px;
+    }
+    .optional-panel {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden; margin-top: 12px;
+    }
+    .optional-trigger {
+      width: 100%; min-height: 58px; padding: 0 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; text-align: left;
+    }
+    .optional-trigger-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .optional-trigger-title {
+      font-size: 0.92rem; font-weight: 800; color: var(--text-primary);
+    }
+    .optional-trigger-sub {
+      font-size: 0.76rem; color: var(--text-secondary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .optional-chevron {
+      color: var(--text-secondary); font-size: 1.1rem; line-height: 1;
+      transition: transform 0.18s ease; flex-shrink: 0;
+    }
+    .optional-panel.is-open .optional-chevron { transform: rotate(180deg); }
+    .optional-body {
+      border-top: 1px solid var(--border); padding: 16px;
+      background: #FBFCFA;
+    }
+    .optional-body .log-section { margin-bottom: 20px; }
+    .optional-save { padding-top: 2px; }
+
+    @media (max-width: 380px) {
+      .quick-report-title { font-size: 1.18rem; }
+      .required-section .chip { min-height: 44px; padding: 0 10px; font-size: 0.84rem; }
+    }
 
     .student-pill {
       display: inline-flex; align-items: center; gap: 8px;
@@ -1753,6 +1876,7 @@ function AddStudentScreen({ coachId, onBack, onDone }) {
 
 const DEFAULT_FOCUS    = ['Revés','Volea','Bandeja','Globo','Pared','Smash','Saque','Posicionamiento'];
 const DEFAULT_IMPROVED = ['Volea','Reacción','Confianza','Consistencia','Técnica','Actitud','Potencia','Puntería','Juego en red'];
+const DEFAULT_CORRECTION = ['Preparar antes','Usar piernas','Distancia con la bola','Mirar la bola','Recuperar posición','Elegir mejor golpe','Bajar la pala','Terminar el gesto'];
 const DEFAULT_HOMEWORK = ['Practicar bandeja','Ver video','Ejercicio físico','Practicar saque','Ver partido','Fortalecer muñeca'];
 
 const chipCustomKey = (coachId, category) => `coach_chips:${category}:${coachId}`;
@@ -1805,16 +1929,28 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
   // If no draft, seed from last log as suggestions
   const seedFocus    = draft.focus    || (last ? toArr(last.today_focus)   : []);
   const seedImproved = draft.improved || (last ? toArr(last.what_improved) : []);
-  const seedHomework = draft.homework || (last ? toArr(last.homework)      : []);
-  const isSeeded     = !draft.focus && !!last;
+  const seedCorrection = toArr(draft.correction);
+  const seedCorrectionDetails = draft.correctionDetails || '';
+  const seedHomework = draft.homework || [];
+  const isSeeded     = !draft.focus && !draft.improved && !!last;
+  const initialRequiredStep = !seedFocus.length
+    ? 'focus'
+    : !seedImproved.length
+      ? 'improved'
+      : !seedCorrection.length
+        ? 'correction'
+        : null;
 
   const [focus, setFocus]           = useState(seedFocus);
   const [improved, setImproved]     = useState(seedImproved);
-  const [correction, setCorrection] = useState(draft.correction || '');
+  const [correction, setCorrection] = useState(seedCorrection);
+  const [correctionDetails, setCorrectionDetails] = useState(seedCorrectionDetails);
   const [homework, setHomework]     = useState(seedHomework);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
   const [seededBanner, setSeededBanner] = useState(isSeeded);
+  const [activeRequiredStep, setActiveRequiredStep] = useState(initialRequiredStep);
+  const [optionalOpen, setOptionalOpen] = useState(false);
 
   // Visual reference state
   const [mediaUrl, setMediaUrl]           = useState('');
@@ -1836,34 +1972,78 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
   }
 
   const date = todayISO();
+  const firstName = student.name.split(' ')[0];
 
-  // Progress: count completed sections (1–5)
-  const sectionsDone = [
+  const requiredDone = [
     focus.length > 0,
     improved.length > 0,
-    correction.trim().length > 0,
-    homework.length > 0,
-    !!mediaUrl || visualWhat.trim().length > 0,
+    correction.length > 0,
   ].filter(Boolean).length;
+  const requiredComplete = requiredDone === 3;
 
-  const progressPct = (sectionsDone / 5) * 100;
-  const progressColor = sectionsDone < 2 ? 'var(--border)' : sectionsDone < 5 ? 'var(--green-mid)' : 'var(--green-dark)';
+  const progressPct = (requiredDone / 3) * 100;
+  const progressColor = requiredComplete ? 'var(--green-dark)' : requiredDone > 0 ? 'var(--green-mid)' : 'var(--border)';
+
+  function nextRequiredStep(step) {
+    if (step === 'focus') return 'improved';
+    if (step === 'improved') return 'correction';
+    return null;
+  }
+
+  function updateRequiredStep(step, currentValues, nextValues, setter) {
+    const wasEmpty = currentValues.length === 0;
+    setter(nextValues);
+    setError('');
+    if (nextValues.length === 0) {
+      setActiveRequiredStep(step);
+    } else if (wasEmpty) {
+      setActiveRequiredStep(nextRequiredStep(step));
+    }
+  }
+
+  function renderRequiredField({ step, number, title, values, children }) {
+    const isOpen = activeRequiredStep === step;
+    const isComplete = values.length > 0;
+    const summary = isComplete ? values.join(' • ') : 'Pendiente';
+    return (
+      <div className={`required-field${isOpen ? ' required-field--open' : ''}${isComplete ? ' required-field--complete' : ''}`}>
+        <button
+          type="button"
+          className="required-label"
+          onClick={() => setActiveRequiredStep(isOpen ? null : step)}
+          aria-expanded={isOpen}
+        >
+          <span className="required-label-num">{number}</span>
+          <span className="required-title">{title}</span>
+          {isComplete && <span className="required-check">✓</span>}
+        </button>
+        {!isOpen && (
+          <div className={`required-summary${!isComplete ? ' required-summary--empty' : ''}`}>
+            {summary}
+          </div>
+        )}
+        {isOpen && <div className="required-options">{children}</div>}
+      </div>
+    );
+  }
 
   // Save draft to localStorage on every change
   useEffect(() => {
-    LS.set(draftKey, { focus, improved, correction, homework });
-  }, [focus, improved, correction, homework]);
+    LS.set(draftKey, { focus, improved, correction, correctionDetails, homework });
+  }, [focus, improved, correction, correctionDetails, homework]);
 
   async function save() {
+    if (!requiredComplete) { setError('Completa los 3 puntos rápidos para enviar.'); return; }
     if (mediaUploading) { setError('Espera a que termine de subir el archivo.'); return; }
     setLoading(true); setError('');
+    const correctionText = [fromArr(correction), correctionDetails.trim()].filter(Boolean).join('. ');
     const { data, offline } = await insertLog({
       student_id:        student.id,
       coach_id:          coachId,
       date,
       today_focus:       fromArr(focus),
       what_improved:     fromArr(improved),
-      main_correction:   correction.trim() || null,
+      main_correction:   correctionText || null,
       homework:          fromArr(homework),
       media_url:         mediaUrl || null,
       media_type:        mediaType || null,
@@ -1892,17 +2072,21 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
 
       <div className="screen-content log-content">
 
-        {/* Student pill + progress label */}
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:28}}>
+        <div className="quick-report-header">
+          <div className="quick-report-copy">
+            <div className="quick-report-kicker">Reporte rápido</div>
+            <h1 className="quick-report-title">3 toques y listo</h1>
+            <p className="quick-report-sub">Solo lo esencial para {firstName}.</p>
+          </div>
+          <div className={`quick-report-status${requiredComplete ? ' quick-report-status--ready' : ''}`}>
+            {requiredComplete ? 'Listo' : `${requiredDone}/3 listo`}
+          </div>
+        </div>
+
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12}}>
           <div className="student-pill" style={{marginBottom:0}}>
             <div className="student-pill-sq" />
             {student.name}
-          </div>
-          <div style={{
-            fontSize:'0.72rem', fontWeight:600, color: sectionsDone === 4 ? 'var(--green-mid)' : 'var(--text-hint)',
-            letterSpacing:'0.04em'
-          }}>
-            {sectionsDone === 5 ? '✓ Completo' : `${sectionsDone}/5 secciones`}
           </div>
         </div>
 
@@ -1911,13 +2095,13 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
           <div style={{
             display:'flex', alignItems:'center', justifyContent:'space-between',
             background:'var(--green-soft)', borderRadius:10, padding:'8px 14px',
-            marginBottom:20, gap:10
+            marginBottom:14, gap:10
           }}>
             <span style={{fontSize:'0.78rem', color:'var(--green-dark)', fontWeight:500}}>
-              💡 Preseleccionado desde la última clase
+              Preseleccionado desde la última clase
             </span>
             <button onClick={() => {
-              setFocus([]); setImproved([]); setHomework([]); setSeededBanner(false);
+              setFocus([]); setImproved([]); setActiveRequiredStep('focus'); setSeededBanner(false);
             }} style={{
               fontSize:'0.72rem', fontWeight:700, color:'var(--green-dark)',
               background:'none', border:'none', cursor:'pointer', textDecoration:'underline',
@@ -1926,78 +2110,129 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
           </div>
         )}
 
-        <div className="log-section">
-          <div className="log-section-lbl">
-            ¿QUÉ TRABAJARON HOY?
-            {focus.length > 0 && <span style={{color:'var(--green-mid)', marginLeft:6}}>✓</span>}
-          </div>
-          <ChipGroup
-            chips={getCoachChips(coachId, 'focus', DEFAULT_FOCUS)}
-            addLabel="+ Otro" values={focus} onChange={v => { setFocus(v); setSeededBanner(false); }}
-            onNewChip={chip => saveCoachChip(coachId, 'focus', chip)}
-            onEditChip={(old, nw) => editCoachChip(coachId, 'focus', old, nw)}
-            onDeleteChip={chip => deleteCoachChip(coachId, 'focus', chip)} />
-        </div>
+        <section className="required-section" aria-label="Campos requeridos">
+          {renderRequiredField({
+            step: 'focus',
+            number: 1,
+            title: 'Foco del día',
+            values: focus,
+            children: (
+            <ChipGroup
+              chips={getCoachChips(coachId, 'focus', DEFAULT_FOCUS)}
+              addLabel="+ Otro" values={focus} onChange={v => {
+                updateRequiredStep('focus', focus, v, setFocus);
+                setSeededBanner(false);
+              }}
+              onNewChip={chip => saveCoachChip(coachId, 'focus', chip)}
+              onEditChip={(old, nw) => editCoachChip(coachId, 'focus', old, nw)}
+              onDeleteChip={chip => deleteCoachChip(coachId, 'focus', chip)} />
+            )
+          })}
 
-        <div className="log-section">
-          <div className="log-section-lbl log-section-lbl--green">
-            LO QUE MEJORÓ
-            {improved.length > 0 && <span style={{marginLeft:6}}>✓</span>}
-          </div>
-          <ChipGroup
-            chips={getCoachChips(coachId, 'improved', DEFAULT_IMPROVED)}
-            addLabel="+ Escribir" values={improved} onChange={v => { setImproved(v); setSeededBanner(false); }}
-            onNewChip={chip => saveCoachChip(coachId, 'improved', chip)}
-            onEditChip={(old, nw) => editCoachChip(coachId, 'improved', old, nw)}
-            onDeleteChip={chip => deleteCoachChip(coachId, 'improved', chip)} />
-        </div>
+          {renderRequiredField({
+            step: 'improved',
+            number: 2,
+            title: 'Qué mejoró',
+            values: improved,
+            children: (
+            <ChipGroup
+              chips={getCoachChips(coachId, 'improved', DEFAULT_IMPROVED)}
+              addLabel="+ Escribir" values={improved} onChange={v => {
+                updateRequiredStep('improved', improved, v, setImproved);
+                setSeededBanner(false);
+              }}
+              onNewChip={chip => saveCoachChip(coachId, 'improved', chip)}
+              onEditChip={(old, nw) => editCoachChip(coachId, 'improved', old, nw)}
+              onDeleteChip={chip => deleteCoachChip(coachId, 'improved', chip)} />
+            )
+          })}
 
-        <div className="log-section">
-          <div style={{display:'flex', alignItems:'baseline', gap:8, marginBottom:12}}>
-            <div className="log-section-lbl log-section-lbl--orange" style={{marginBottom:0}}>
-              QUÉ NECESITA CORREGIR
-              {correction.trim() && <span style={{marginLeft:6}}>✓</span>}
+          {renderRequiredField({
+            step: 'correction',
+            number: 3,
+            title: 'Corrección principal',
+            values: correction,
+            children: (
+            <ChipGroup
+              chips={getCoachChips(coachId, 'correction', DEFAULT_CORRECTION)}
+              addLabel="+ Escribir" values={correction} onChange={v =>
+                updateRequiredStep('correction', correction, v, setCorrection)
+              }
+              onNewChip={chip => saveCoachChip(coachId, 'correction', chip)}
+              onEditChip={(old, nw) => editCoachChip(coachId, 'correction', old, nw)}
+              onDeleteChip={chip => deleteCoachChip(coachId, 'correction', chip)} />
+            )
+          })}
+
+          <div className="required-submit">
+            {error && <div className="error-msg">{error}</div>}
+            <button className="btn btn-primary" onClick={save} disabled={loading || !requiredComplete || mediaUploading}>
+              {loading ? 'Guardando...' : mediaUploading ? 'Subiendo archivo…' : 'Guardar y enviar reporte'}
+            </button>
+            {!requiredComplete && (
+              <div className="required-hint">Selecciona una opción en cada punto.</div>
+            )}
+          </div>
+        </section>
+
+        <section className={`optional-panel${optionalOpen ? ' is-open' : ''}`}>
+          <button
+            className="optional-trigger"
+            onClick={() => setOptionalOpen(s => !s)}
+            aria-expanded={optionalOpen}
+          >
+            <span className="optional-trigger-main">
+              <span className="optional-trigger-title">Agregar más detalles (opcional)</span>
+              <span className="optional-trigger-sub">Video, tarea, notas y referencia visual</span>
+            </span>
+            <span className="optional-chevron" aria-hidden="true">⌄</span>
+          </button>
+
+          {optionalOpen && (
+            <div className="optional-body">
+              <div className="log-section">
+                <div style={{display:'flex', alignItems:'baseline', gap:8, marginBottom:12}}>
+                  <div className="log-section-lbl log-section-lbl--orange" style={{marginBottom:0}}>
+                    DETALLE DE LA CORRECCIÓN
+                    {correctionDetails.trim() && <span style={{marginLeft:6}}>✓</span>}
+                  </div>
+                  <span style={{fontSize:'0.68rem', color:'var(--text-hint)', fontWeight:500}}>opcional</span>
+                </div>
+                <textarea className="log-textarea" value={correctionDetails}
+                  onChange={e => setCorrectionDetails(e.target.value)}
+                  placeholder="ej: En la bandeja, entrar menos de frente y recuperar el centro antes."
+                  rows={3} />
+              </div>
+
+              <div className="log-section">
+                <div className="log-section-lbl">
+                  TAREA PARA CASA
+                  {homework.length > 0 && <span style={{color:'var(--text-secondary)', marginLeft:6}}>✓</span>}
+                </div>
+                <ChipGroup
+                  chips={getCoachChips(coachId, 'homework', DEFAULT_HOMEWORK)}
+                  addLabel="+ Escribir" values={homework} onChange={v => { setHomework(v); setSeededBanner(false); }}
+                  onNewChip={chip => saveCoachChip(coachId, 'homework', chip)}
+                  onEditChip={(old, nw) => editCoachChip(coachId, 'homework', old, nw)}
+                  onDeleteChip={chip => deleteCoachChip(coachId, 'homework', chip)} />
+              </div>
+
+              <VisualReferenceSection
+                coachId={coachId} studentId={student.id}
+                mediaUrl={mediaUrl} mediaType={mediaType} localPreview={localPreview}
+                uploading={mediaUploading} uploadError={uploadError}
+                visualWhat={visualWhat}
+                onMediaChange={handleMediaChange} onFieldChange={handleVisualField}
+              />
+
+              <div className="optional-save">
+                <button className="btn btn-primary" onClick={save} disabled={loading || !requiredComplete || mediaUploading}>
+                  {loading ? 'Guardando...' : mediaUploading ? 'Subiendo archivo…' : 'Guardar y enviar reporte'}
+                </button>
+              </div>
             </div>
-            <span style={{fontSize:'0.68rem', color:'var(--text-hint)', fontWeight:500}}>opcional</span>
-          </div>
-          <textarea className="log-textarea" value={correction}
-            onChange={e => setCorrection(e.target.value)}
-            placeholder="ej: Mejorar el agarre en el revés, bajar más en la volea..." rows={3} />
-        </div>
-
-        <div className="log-section">
-          <div className="log-section-lbl">
-            TAREA PARA CASA
-            {homework.length > 0 && <span style={{color:'var(--text-secondary)', marginLeft:6}}>✓</span>}
-          </div>
-          <ChipGroup
-            chips={getCoachChips(coachId, 'homework', DEFAULT_HOMEWORK)}
-            addLabel="+ Escribir" values={homework} onChange={v => { setHomework(v); setSeededBanner(false); }}
-            onNewChip={chip => saveCoachChip(coachId, 'homework', chip)}
-            onEditChip={(old, nw) => editCoachChip(coachId, 'homework', old, nw)}
-            onDeleteChip={chip => deleteCoachChip(coachId, 'homework', chip)} />
-        </div>
-
-        <VisualReferenceSection
-          coachId={coachId} studentId={student.id}
-          mediaUrl={mediaUrl} mediaType={mediaType} localPreview={localPreview}
-          uploading={mediaUploading} uploadError={uploadError}
-          visualWhat={visualWhat}
-          onMediaChange={handleMediaChange} onFieldChange={handleVisualField}
-        />
-
-        {error && <div className="error-msg">{error}</div>}
-      </div>
-
-      <div className="screen-bottom">
-        <button className="btn btn-primary" onClick={save} disabled={loading || focus.length === 0 || mediaUploading}>
-          {loading ? 'Guardando...' : mediaUploading ? 'Subiendo archivo…' : 'Guardar y compartir →'}
-        </button>
-        {focus.length === 0 && (
-          <div style={{textAlign:'center', fontSize:'0.75rem', color:'var(--text-hint)', marginTop:8}}>
-            Selecciona al menos qué trabajaron hoy
-          </div>
-        )}
+          )}
+        </section>
       </div>
     </div>
   );
@@ -2026,20 +2261,23 @@ function ShareScreen({ student, savedOffline, savedLog, onHome }) {
   function sendWhatsApp() {
     const firstName = student.name.split(' ')[0];
     const log = savedLog || {};
-    const worked   = toArr(log.today_focus).join(', ');
-    const improved = toArr(log.what_improved).join(', ');
-    const homework = toArr(log.homework).join(', ');
+    const worked    = toArr(log.today_focus).join(', ');
+    const improved  = toArr(log.what_improved).join(', ');
+    const correction = toArr(log.main_correction).join(', ');
+    const homework  = toArr(log.homework).join(', ');
 
-    const lines = [`Hola! Resumen de la clase de hoy de ${firstName} 🎾`, ''];
-    if (worked)   lines.push(`*Trabajamos:* ${worked}`);
-    if (improved) lines.push(`*Mejoró:* ${improved}`);
-    if (homework) lines.push(`*Tarea para casa:* ${homework}`);
+    const lines = [`🎾 Resumen de la clase de hoy de ${firstName}`, ''];
+    if (worked) lines.push('*Trabajamos:*', worked, '');
+    if (improved) lines.push('*Mejoró:*', improved, '');
+    if (correction) lines.push('*Corrección principal:*', correction, '');
+    if (homework) lines.push('*Tarea para casa:*', homework, '');
     if (log.media_url) {
       lines.push(log.media_type === 'photo'
         ? '📸 Te dejé una foto, la ves en el link de abajo 👇'
         : '📹 Te dejé un video, lo ves en el link de abajo 👇');
+      lines.push('');
     }
-    lines.push('', `Ver progreso completo 👉 ${publicUrl}`);
+    lines.push(`Ver progreso completo 👉 ${publicUrl}`);
 
     const msg = encodeURIComponent(lines.join('\n'));
     window.open(`https://wa.me/?text=${msg}`, '_blank', 'noopener,noreferrer');
