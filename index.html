@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-03-whatsapp-format-1">
+  <meta name="app-version" content="2026-06-03-14:40-cache-fix">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-03-whatsapp-format-1">
+  <link rel="manifest" href="./manifest.json?v=2026-06-03-14:40-cache-fix">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -858,6 +858,14 @@
     /* ── Loading / empty ── */
     .loading { min-height: 100svh; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 0.9rem; }
     .empty-state { text-align: center; padding: 32px 0; color: var(--text-secondary); font-size: 0.88rem; }
+
+    .build-version-badge {
+      position: fixed; left: 8px; bottom: max(6px, env(safe-area-inset-bottom));
+      z-index: 300; padding: 4px 7px; border-radius: 999px;
+      background: rgba(14,42,28,0.72); color: white;
+      font-size: 0.58rem; font-weight: 700; letter-spacing: 0.02em;
+      pointer-events: none; opacity: 0.72;
+    }
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -3585,7 +3593,46 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-03-whatsapp-format-1';
+    const APP_VERSION = '2026-06-03-14:40-cache-fix';
+    window.PADEL_LOG_APP_VERSION = APP_VERSION;
+    console.log('Padel Log build:', APP_VERSION);
+
+    function showBuildVersion() {
+      if (document.querySelector('.build-version-badge')) return;
+      const badge = document.createElement('div');
+      badge.className = 'build-version-badge';
+      badge.textContent = `v ${APP_VERSION}`;
+      document.body.appendChild(badge);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', showBuildVersion);
+    } else {
+      showBuildVersion();
+    }
+
+    async function checkDeployedVersion() {
+      if (location.protocol === 'file:') return;
+      try {
+        const response = await fetch(`./version.json?ts=${Date.now()}`, {
+          cache: 'no-store',
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.version && data.version !== APP_VERSION) {
+          console.log('New Padel Log build found:', data.version);
+          window.location.reload();
+        }
+      } catch (_) {}
+    }
+
+    checkDeployedVersion();
+    window.addEventListener('focus', checkDeployedVersion);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) checkDeployedVersion();
+    });
+    setInterval(checkDeployedVersion, 5 * 60 * 1000);
+
     if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
 
     let refreshing = false;
