@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-03-14:40-cache-fix">
+  <meta name="app-version" content="2026-06-03-15:03-edit-flow">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-03-14:40-cache-fix">
+  <link rel="manifest" href="./manifest.json?v=2026-06-03-15:03-edit-flow">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2987,12 +2987,39 @@ function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
 
 // ── S11 Edit Log ─────────────────────────────────────────────
 function EditLogScreen({ log, student, onBack, onSaved }) {
-  const [focus, setFocus]           = useState(toArr(log.today_focus));
-  const [improved, setImproved]     = useState(toArr(log.what_improved));
-  const [correction, setCorrection] = useState(log.main_correction || '');
+  const correctionChoices = getCoachChips(log.coach_id, 'correction', DEFAULT_CORRECTION);
+  const parseCorrection = (() => {
+    const raw = (log.main_correction || '').trim();
+    if (!raw) return { values: [], details: '' };
+    const parts = raw.split(/\.\s+/);
+    const firstPart = parts[0].trim();
+    const firstValues = toArr(firstPart);
+    const firstPartLooksLikeChips = firstValues.length > 0 && firstValues.every(v => correctionChoices.includes(v));
+    if (firstPartLooksLikeChips && parts.length > 1) {
+      return { values: firstValues, details: parts.slice(1).join('. ').trim() };
+    }
+    return { values: toArr(raw), details: '' };
+  })();
+  const initialFocus = toArr(log.today_focus);
+  const initialImproved = toArr(log.what_improved);
+  const initialCorrection = parseCorrection.values;
+  const initialRequiredStep = !initialFocus.length
+    ? 'focus'
+    : !initialImproved.length
+      ? 'improved'
+      : !initialCorrection.length
+        ? 'correction'
+        : null;
+
+  const [focus, setFocus]           = useState(initialFocus);
+  const [improved, setImproved]     = useState(initialImproved);
+  const [correction, setCorrection] = useState(initialCorrection);
+  const [correctionDetails, setCorrectionDetails] = useState(parseCorrection.details);
   const [homework, setHomework]     = useState(toArr(log.homework));
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
+  const [activeRequiredStep, setActiveRequiredStep] = useState(initialRequiredStep);
+  const [optionalOpen, setOptionalOpen] = useState(false);
 
   // Visual reference state (pre-fill from existing log)
   const [mediaUrl, setMediaUrl]           = useState(log.media_url || '');
@@ -3017,15 +3044,70 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
     if (key === 'visualTask')       setVisualTask(val);
   }
 
+  const firstName = student.name.split(' ')[0];
+  const requiredDone = [
+    focus.length > 0,
+    improved.length > 0,
+    correction.length > 0,
+  ].filter(Boolean).length;
+  const requiredComplete = requiredDone === 3;
+  const progressPct = (requiredDone / 3) * 100;
+  const progressColor = requiredComplete ? 'var(--green-dark)' : requiredDone > 0 ? 'var(--green-mid)' : 'var(--border)';
+
+  function nextRequiredStep(step) {
+    if (step === 'focus') return 'improved';
+    if (step === 'improved') return 'correction';
+    return null;
+  }
+
+  function updateRequiredStep(step, currentValues, nextValues, setter) {
+    const wasEmpty = currentValues.length === 0;
+    setter(nextValues);
+    setError('');
+    if (nextValues.length === 0) {
+      setActiveRequiredStep(step);
+    } else if (wasEmpty) {
+      setActiveRequiredStep(nextRequiredStep(step));
+    }
+  }
+
+  function renderRequiredField({ step, number, title, values, children }) {
+    const isOpen = activeRequiredStep === step;
+    const isComplete = values.length > 0;
+    const summary = isComplete ? values.join(' • ') : 'Pendiente';
+    return (
+      <div className={`required-field${isOpen ? ' required-field--open' : ''}${isComplete ? ' required-field--complete' : ''}`}>
+        <button
+          type="button"
+          className="required-label"
+          onClick={() => setActiveRequiredStep(isOpen ? null : step)}
+          aria-expanded={isOpen}
+        >
+          <span className="required-label-num">{number}</span>
+          <span className="required-title">{title}</span>
+          {isComplete && <span className="required-check">✓</span>}
+        </button>
+        {!isOpen && (
+          <div className={`required-summary${!isComplete ? ' required-summary--empty' : ''}`}>
+            {summary}
+          </div>
+        )}
+        {isOpen && <div className="required-options">{children}</div>}
+      </div>
+    );
+  }
+
   async function save() {
+    if (!requiredComplete) { setError('Completa los 3 puntos rápidos para guardar.'); return; }
     if (mediaUploading) { setError('Espera a que termine de subir el archivo.'); return; }
     setLoading(true); setError('');
     try {
+      const correctionText = [fromArr(correction), correctionDetails.trim()].filter(Boolean).join('. ');
       const { data, error } = await sb.from('class_logs')
         .update({
           today_focus:       fromArr(focus),
           what_improved:     fromArr(improved),
-          main_correction:   correction.trim() || null,
+          main_correction:   correctionText || null,
           homework:          fromArr(homework),
           media_url:         mediaUrl || null,
           media_type:        mediaType || null,
@@ -3043,75 +3125,157 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
   return (
     <div className="screen">
       <Header title="Editar clase" onBack={onBack} right={formatDateEs(log.date)} />
-      <div className="screen-content log-content">
-        <div className="student-pill">
-          <div className="student-pill-sq" />
-          {student.name}
-        </div>
 
-        <div className="log-section">
-          <div className="log-section-lbl">
-            ¿QUÉ TRABAJARON HOY?
-            {focus.length > 0 && <span style={{color:'var(--green-mid)', marginLeft:6}}>✓</span>}
-          </div>
-          <ChipGroup chips={getCoachChips(log.coach_id, 'focus', DEFAULT_FOCUS)}
-            addLabel="+ Otro" values={focus} onChange={setFocus}
-            onNewChip={chip => saveCoachChip(log.coach_id, 'focus', chip)}
-            onEditChip={(old, nw) => editCoachChip(log.coach_id, 'focus', old, nw)}
-            onDeleteChip={chip => deleteCoachChip(log.coach_id, 'focus', chip)} />
-        </div>
-
-        <div className="log-section">
-          <div className="log-section-lbl log-section-lbl--green">
-            LO QUE MEJORÓ
-            {improved.length > 0 && <span style={{marginLeft:6}}>✓</span>}
-          </div>
-          <ChipGroup chips={getCoachChips(log.coach_id, 'improved', DEFAULT_IMPROVED)}
-            addLabel="+ Escribir" values={improved} onChange={setImproved}
-            onNewChip={chip => saveCoachChip(log.coach_id, 'improved', chip)}
-            onEditChip={(old, nw) => editCoachChip(log.coach_id, 'improved', old, nw)}
-            onDeleteChip={chip => deleteCoachChip(log.coach_id, 'improved', chip)} />
-        </div>
-
-        <div className="log-section">
-          <div style={{display:'flex', alignItems:'baseline', gap:8, marginBottom:12}}>
-            <div className="log-section-lbl log-section-lbl--orange" style={{marginBottom:0}}>
-              QUÉ NECESITA CORREGIR
-              {correction.trim() && <span style={{marginLeft:6}}>✓</span>}
-            </div>
-            <span style={{fontSize:'0.68rem', color:'var(--text-hint)', fontWeight:500}}>opcional</span>
-          </div>
-          <textarea className="log-textarea" value={correction}
-            onChange={e => setCorrection(e.target.value)}
-            placeholder="ej: Mejorar el agarre en el revés, bajar más en la volea..." rows={3} />
-        </div>
-
-        <div className="log-section">
-          <div className="log-section-lbl">
-            TAREA PARA CASA
-            {homework.length > 0 && <span style={{color:'var(--text-secondary)', marginLeft:6}}>✓</span>}
-          </div>
-          <ChipGroup chips={getCoachChips(log.coach_id, 'homework', DEFAULT_HOMEWORK)}
-            addLabel="+ Escribir" values={homework} onChange={setHomework}
-            onNewChip={chip => saveCoachChip(log.coach_id, 'homework', chip)}
-            onEditChip={(old, nw) => editCoachChip(log.coach_id, 'homework', old, nw)}
-            onDeleteChip={chip => deleteCoachChip(log.coach_id, 'homework', chip)} />
-        </div>
-
-        <VisualReferenceSection
-          coachId={student.coach_id} studentId={student.id}
-          mediaUrl={mediaUrl} mediaType={mediaType} localPreview={localPreview}
-          uploading={mediaUploading} uploadError={uploadError}
-          visualWhat={visualWhat}
-          onMediaChange={handleMediaChange} onFieldChange={handleVisualField}
-        />
-
-        {error && <div className="error-msg">{error}</div>}
+      <div style={{height:3, background:'var(--border)', flexShrink:0}}>
+        <div style={{
+          height:'100%', width:`${progressPct}%`,
+          background: progressColor,
+          transition:'width 0.3s ease, background 0.3s ease',
+          borderRadius:'0 2px 2px 0'
+        }} />
       </div>
-      <div className="screen-bottom">
-        <button className="btn btn-primary" onClick={save} disabled={loading || mediaUploading}>
-          {loading ? 'Guardando...' : mediaUploading ? 'Subiendo archivo…' : 'Guardar cambios'}
-        </button>
+
+      <div className="screen-content log-content">
+
+        <div className="quick-report-header">
+          <div className="quick-report-copy">
+            <div className="quick-report-kicker">Editar reporte</div>
+            <h1 className="quick-report-title">3 toques y listo</h1>
+            <p className="quick-report-sub">Ajusta solo lo esencial para {firstName}.</p>
+          </div>
+          <div className={`quick-report-status${requiredComplete ? ' quick-report-status--ready' : ''}`}>
+            {requiredComplete ? 'Listo' : `${requiredDone}/3 listo`}
+          </div>
+        </div>
+
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12}}>
+          <div className="student-pill" style={{marginBottom:0}}>
+            <div className="student-pill-sq" />
+            {student.name}
+          </div>
+        </div>
+
+        <section className="required-section" aria-label="Campos requeridos">
+          {renderRequiredField({
+            step: 'focus',
+            number: 1,
+            title: 'Foco del día',
+            values: focus,
+            children: (
+            <ChipGroup
+              chips={getCoachChips(log.coach_id, 'focus', DEFAULT_FOCUS)}
+              addLabel="+ Otro" values={focus} onChange={v =>
+                updateRequiredStep('focus', focus, v, setFocus)
+              }
+              onNewChip={chip => saveCoachChip(log.coach_id, 'focus', chip)}
+              onEditChip={(old, nw) => editCoachChip(log.coach_id, 'focus', old, nw)}
+              onDeleteChip={chip => deleteCoachChip(log.coach_id, 'focus', chip)} />
+            )
+          })}
+
+          {renderRequiredField({
+            step: 'improved',
+            number: 2,
+            title: 'Qué mejoró',
+            values: improved,
+            children: (
+            <ChipGroup
+              chips={getCoachChips(log.coach_id, 'improved', DEFAULT_IMPROVED)}
+              addLabel="+ Escribir" values={improved} onChange={v =>
+                updateRequiredStep('improved', improved, v, setImproved)
+              }
+              onNewChip={chip => saveCoachChip(log.coach_id, 'improved', chip)}
+              onEditChip={(old, nw) => editCoachChip(log.coach_id, 'improved', old, nw)}
+              onDeleteChip={chip => deleteCoachChip(log.coach_id, 'improved', chip)} />
+            )
+          })}
+
+          {renderRequiredField({
+            step: 'correction',
+            number: 3,
+            title: 'Corrección principal',
+            values: correction,
+            children: (
+            <ChipGroup
+              chips={correctionChoices}
+              addLabel="+ Escribir" values={correction} onChange={v =>
+                updateRequiredStep('correction', correction, v, setCorrection)
+              }
+              onNewChip={chip => saveCoachChip(log.coach_id, 'correction', chip)}
+              onEditChip={(old, nw) => editCoachChip(log.coach_id, 'correction', old, nw)}
+              onDeleteChip={chip => deleteCoachChip(log.coach_id, 'correction', chip)} />
+            )
+          })}
+
+          <div className="required-submit">
+            {error && <div className="error-msg">{error}</div>}
+            <button className="btn btn-primary" onClick={save} disabled={loading || !requiredComplete || mediaUploading}>
+              {loading ? 'Guardando...' : mediaUploading ? 'Subiendo archivo…' : 'Guardar cambios'}
+            </button>
+            {!requiredComplete && (
+              <div className="required-hint">Selecciona una opción en cada punto.</div>
+            )}
+          </div>
+        </section>
+
+        <section className={`optional-panel${optionalOpen ? ' is-open' : ''}`}>
+          <button
+            className="optional-trigger"
+            onClick={() => setOptionalOpen(s => !s)}
+            aria-expanded={optionalOpen}
+          >
+            <span className="optional-trigger-main">
+              <span className="optional-trigger-title">Agregar más detalles (opcional)</span>
+              <span className="optional-trigger-sub">Video, tarea, notas y referencia visual</span>
+            </span>
+            <span className="optional-chevron" aria-hidden="true">⌄</span>
+          </button>
+
+          {optionalOpen && (
+            <div className="optional-body">
+              <div className="log-section">
+                <div style={{display:'flex', alignItems:'baseline', gap:8, marginBottom:12}}>
+                  <div className="log-section-lbl log-section-lbl--orange" style={{marginBottom:0}}>
+                    DETALLE DE LA CORRECCIÓN
+                    {correctionDetails.trim() && <span style={{marginLeft:6}}>✓</span>}
+                  </div>
+                  <span style={{fontSize:'0.68rem', color:'var(--text-hint)', fontWeight:500}}>opcional</span>
+                </div>
+                <textarea className="log-textarea" value={correctionDetails}
+                  onChange={e => setCorrectionDetails(e.target.value)}
+                  placeholder="ej: En la bandeja, entrar menos de frente y recuperar el centro antes."
+                  rows={3} />
+              </div>
+
+              <div className="log-section">
+                <div className="log-section-lbl">
+                  TAREA PARA CASA
+                  {homework.length > 0 && <span style={{color:'var(--text-secondary)', marginLeft:6}}>✓</span>}
+                </div>
+                <ChipGroup
+                  chips={getCoachChips(log.coach_id, 'homework', DEFAULT_HOMEWORK)}
+                  addLabel="+ Escribir" values={homework} onChange={setHomework}
+                  onNewChip={chip => saveCoachChip(log.coach_id, 'homework', chip)}
+                  onEditChip={(old, nw) => editCoachChip(log.coach_id, 'homework', old, nw)}
+                  onDeleteChip={chip => deleteCoachChip(log.coach_id, 'homework', chip)} />
+              </div>
+
+              <VisualReferenceSection
+                coachId={student.coach_id} studentId={student.id}
+                mediaUrl={mediaUrl} mediaType={mediaType} localPreview={localPreview}
+                uploading={mediaUploading} uploadError={uploadError}
+                visualWhat={visualWhat}
+                onMediaChange={handleMediaChange} onFieldChange={handleVisualField}
+              />
+
+              <div className="optional-save">
+                <button className="btn btn-primary" onClick={save} disabled={loading || !requiredComplete || mediaUploading}>
+                  {loading ? 'Guardando...' : mediaUploading ? 'Subiendo archivo…' : 'Guardar cambios'}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
@@ -3585,7 +3749,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-03-14:40-cache-fix';
+    const APP_VERSION = '2026-06-03-15:03-edit-flow';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 
