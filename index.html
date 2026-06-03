@@ -3,9 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
+  <meta name="app-version" content="2026-06-03-whatsapp-format-1">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json">
+  <link rel="manifest" href="./manifest.json?v=2026-06-03-whatsapp-format-1">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2267,17 +2268,17 @@ function ShareScreen({ student, savedOffline, savedLog, onHome }) {
     const homework  = toArr(log.homework).join(', ');
 
     const lines = [`🎾 Resumen de la clase de hoy de ${firstName}`, ''];
-    if (worked) lines.push('*Trabajamos:*', worked, '');
-    if (improved) lines.push('*Mejoró:*', improved, '');
-    if (correction) lines.push('*Corrección principal:*', correction, '');
-    if (homework) lines.push('*Tarea para casa:*', homework, '');
+    if (worked) lines.push('*Trabajamos:*', worked);
+    if (improved) lines.push('*Mejoró:*', improved);
+    if (correction) lines.push('*Corrección principal:*', correction);
+    if (homework) lines.push('*Tarea para casa:*', homework);
     if (log.media_url) {
+      lines.push('');
       lines.push(log.media_type === 'photo'
         ? '📸 Te dejé una foto, la ves en el link de abajo 👇'
         : '📹 Te dejé un video, lo ves en el link de abajo 👇');
-      lines.push('');
     }
-    lines.push(`Ver progreso completo 👉 ${publicUrl}`);
+    lines.push('', 'Ver progreso completo 👉', publicUrl);
 
     const msg = encodeURIComponent(lines.join('\n'));
     window.open(`https://wa.me/?text=${msg}`, '_blank', 'noopener,noreferrer');
@@ -3581,15 +3582,58 @@ function App() {
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 
-<!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .catch(e => console.log('SW registration skipped:', e.message));
+  <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
+  <script>
+  (function() {
+    const APP_VERSION = '2026-06-03-whatsapp-format-1';
+    if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
+
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
     });
-  }
-</script>
+
+    navigator.serviceWorker.addEventListener('message', event => {
+      if (event.data && event.data.type === 'APP_UPDATED' && event.data.version !== APP_VERSION) {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      }
+    });
+
+    function activateWaitingWorker(registration) {
+      if (registration && registration.waiting) {
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+    }
+
+    window.addEventListener('load', async () => {
+      try {
+        const registration = await navigator.serviceWorker.register(`./sw.js?v=${APP_VERSION}`, {
+          updateViaCache: 'none',
+        });
+
+        activateWaitingWorker(registration);
+
+        registration.addEventListener('updatefound', () => {
+          const worker = registration.installing;
+          if (!worker) return;
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+              worker.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+
+        registration.update().catch(() => {});
+      } catch (e) {
+        console.log('SW registration skipped:', e.message);
+      }
+    });
+  })();
+  </script>
 
 <!-- iOS PWA safe area fix -->
 <script>
