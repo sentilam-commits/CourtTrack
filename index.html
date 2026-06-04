@@ -1080,6 +1080,25 @@ function logProfileSaveFailure(source, kind, error, extra = {}) {
   });
 }
 
+// Turns a ProfileSaveError (or raw Supabase/network error) into a clear,
+// actionable Spanish message. The RLS rejection on profiles only happens when
+// there is no authenticated session (auth.uid() is null) — typically a coach
+// who signed up but hasn't confirmed their email yet, so we guide them there
+// instead of showing a generic "try again".
+function profileSaveErrorMessage(error) {
+  const kind = error?.kind || classifyProfileSaveError(error);
+  switch (kind) {
+    case 'session-not-found':
+    case 'missing-user-id':
+    case 'rls':
+      return 'Tu sesión no está activa. Si acabas de registrarte, confirma tu email (revisa tu bandeja de entrada y la carpeta de spam) e inicia sesión. Después vuelve a guardar tu perfil.';
+    case 'network':
+      return 'No hay conexión estable. Revisa tu internet e inténtalo de nuevo.';
+    default:
+      return PROFILE_SAVE_ERROR;
+  }
+}
+
 function isMissingProfileColumn(error, columnName) {
   const text = errorText(error);
   return text.includes(`'${columnName}' column`) ||
@@ -1864,7 +1883,7 @@ function OnboardingScreen({ user, onDone }) {
       const saved = await saveOwnProfile(prof, user, 'onboarding');
       LS.set(`p:${saved.user.id}`, saved.profile);
       onDone(saved.profile, saved.user);
-    } catch(e) { setError(PROFILE_SAVE_ERROR); setLoading(false); return; }
+    } catch(e) { setError(profileSaveErrorMessage(e)); setLoading(false); return; }
   }
 
   return (
@@ -3061,7 +3080,7 @@ function EditProfileScreen({ user, profile, onBack, onSaved, onDeleted }) {
       LS.set(`p:${saved.user.id}`, saved.profile);
       setSaved(true);
       setTimeout(() => { onSaved(saved.profile, saved.user); }, 800);
-    } catch(e) { setError(PROFILE_SAVE_ERROR); setLoading(false); return; }
+    } catch(e) { setError(profileSaveErrorMessage(e)); setLoading(false); return; }
   }
 
   async function deleteAccount() {
@@ -4009,7 +4028,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-04-14:52-profile-rls-fix';
+    const APP_VERSION = '2026-06-04-17:00-confirm-session-msg';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 
