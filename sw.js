@@ -1,4 +1,4 @@
-const VERSION = '2026-06-04-14:52-profile-rls-fix';
+const VERSION = '2026-06-03-19:29-public-report';
 const CACHE = `padel-log-${VERSION}`;
 const APP_SHELL = './index.html';
 
