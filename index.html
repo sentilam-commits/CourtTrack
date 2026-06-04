@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-03-19:29-public-report">
+  <meta name="app-version" content="2026-06-04-14:52-profile-rls-fix">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-03-19:29-public-report">
+  <link rel="manifest" href="./manifest.json?v=2026-06-04-14:52-profile-rls-fix">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -57,6 +57,28 @@
     FROM public.students s WHERE s.id = public_student_id LIMIT 1;
   $$;
   GRANT EXECUTE ON FUNCTION public.get_public_student(uuid) TO anon, authenticated;
+
+  -- Profiles RLS: run once in Supabase SQL Editor.
+  -- The app writes profiles.id = auth.uid(). If your profiles table also has
+  -- user_id, the app writes user_id = auth.uid() too.
+  ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+  DROP POLICY IF EXISTS "profiles_select_own" ON public.profiles;
+  DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
+  DROP POLICY IF EXISTS "profiles_update_own" ON public.profiles;
+
+  CREATE POLICY "profiles_select_own"
+    ON public.profiles FOR SELECT TO authenticated
+    USING (id = auth.uid());
+
+  CREATE POLICY "profiles_insert_own"
+    ON public.profiles FOR INSERT TO authenticated
+    WITH CHECK (id = auth.uid());
+
+  CREATE POLICY "profiles_update_own"
+    ON public.profiles FOR UPDATE TO authenticated
+    USING (id = auth.uid())
+    WITH CHECK (id = auth.uid());
 
   -- Referencia Visual: run once in Supabase SQL Editor
   ALTER TABLE public.class_logs
@@ -997,6 +1019,219 @@ const toArr = str => {
   return str.split(',').map(s => s.trim()).filter(Boolean);
 };
 
+const PROFILE_SAVE_ERROR = 'No pudimos guardar tu perfil. Intenta nuevamente.';
+const PROFILE_LOG_PREFIX = '[ProfileSave]';
+let profileUserIdColumnSupported = null;
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+class ProfileSaveError extends Error {
+  constructor(kind, message, cause) {
+    super(message || kind);
+    this.name = 'ProfileSaveError';
+    this.kind = kind;
+    this.cause = cause;
+  }
+}
+
+function supabaseErrorInfo(error) {
+  return {
+    name: error?.name || null,
+    message: error?.message || String(error || ''),
+    code: error?.code || null,
+    status: error?.status || null,
+    details: error?.details || null,
+    hint: error?.hint || null,
+  };
+}
+
+function errorText(error) {
+  const info = supabaseErrorInfo(error);
+  return [info.name, info.message, info.code, info.status, info.details, info.hint]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function classifyProfileSaveError(error) {
+  const text = errorText(error);
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  if (error?.kind === 'session-not-found' || text.includes('session')) return 'session-not-found';
+  if (error?.kind === 'missing-user-id' || text.includes('user id')) return 'missing-user-id';
+  if (offline || text.includes('load failed') || text.includes('failed to fetch') ||
+      text.includes('network') || text.includes('fetcherror')) return 'network';
+  if (text.includes('row-level security') || text.includes('rls') || text.includes('42501')) return 'rls';
+  return 'supabase';
+}
+
+function logProfileSaveFailure(source, kind, error, extra = {}) {
+  const label = {
+    'session-not-found': 'session not found before saving profile',
+    'missing-user-id': 'authenticated user id missing before saving profile',
+    network: 'network error while saving profile',
+    rls: 'RLS blocked profile save',
+    supabase: 'Supabase error while saving profile',
+  }[kind] || 'profile save failed';
+  console.error(`${PROFILE_LOG_PREFIX} ${label}`, {
+    source,
+    kind,
+    ...extra,
+    error: supabaseErrorInfo(error),
+  });
+}
+
+function isMissingProfileColumn(error, columnName) {
+  const text = errorText(error);
+  return text.includes(`'${columnName}' column`) ||
+         text.includes(`column "${columnName}" does not exist`) ||
+         (text.includes(columnName) && text.includes('schema cache'));
+}
+
+async function getAuthenticatedUserForProfileSave(fallbackUser, source) {
+  let session = null;
+  let lastSessionError = null;
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const { data, error } = await sb.auth.getSession();
+      if (error) throw error;
+      session = data?.session || null;
+      if (session?.user?.id) break;
+      console.warn(`${PROFILE_LOG_PREFIX} session not ready`, { source, attempt });
+    } catch (e) {
+      lastSessionError = e;
+      console.warn(`${PROFILE_LOG_PREFIX} getSession failed`, {
+        source,
+        attempt,
+        error: supabaseErrorInfo(e),
+      });
+    }
+    if (attempt < 3) await sleep(180 * attempt);
+  }
+
+  if (!session?.user) {
+    logProfileSaveFailure(source, 'session-not-found', lastSessionError, {
+      fallbackUserId: fallbackUser?.id || null,
+    });
+    throw new ProfileSaveError('session-not-found', 'No auth session', lastSessionError);
+  }
+
+  if (!session.user.id) {
+    logProfileSaveFailure(source, 'missing-user-id', null, {
+      fallbackUserId: fallbackUser?.id || null,
+    });
+    throw new ProfileSaveError('missing-user-id', 'Session user id missing');
+  }
+
+  if (fallbackUser?.id && fallbackUser.id !== session.user.id) {
+    console.warn(`${PROFILE_LOG_PREFIX} prop user id differs from session user id`, {
+      source,
+      propUserId: fallbackUser.id,
+      sessionUserId: session.user.id,
+    });
+  }
+
+  let userResult;
+  try {
+    userResult = await sb.auth.getUser();
+  } catch (e) {
+    const kind = classifyProfileSaveError(e);
+    logProfileSaveFailure(source, kind, e, { sessionUserId: session.user.id });
+    throw new ProfileSaveError(kind, 'Could not verify authenticated user', e);
+  }
+
+  if (userResult.error) {
+    const kind = classifyProfileSaveError(userResult.error);
+    logProfileSaveFailure(source, kind, userResult.error, { sessionUserId: session.user.id });
+    throw new ProfileSaveError(kind, 'Could not verify authenticated user', userResult.error);
+  }
+
+  const verifiedUser = userResult.data?.user || null;
+  if (!verifiedUser?.id) {
+    logProfileSaveFailure(source, 'missing-user-id', null, { sessionUserId: session.user.id });
+    throw new ProfileSaveError('missing-user-id', 'Verified user id missing');
+  }
+
+  if (verifiedUser.id !== session.user.id) {
+    console.warn(`${PROFILE_LOG_PREFIX} verified user id differs from session user id`, {
+      source,
+      verifiedUserId: verifiedUser.id,
+      sessionUserId: session.user.id,
+    });
+  }
+
+  console.info(`${PROFILE_LOG_PREFIX} authenticated user verified`, {
+    source,
+    userId: verifiedUser.id,
+  });
+  return verifiedUser;
+}
+
+async function upsertOwnProfile(profileFields, authUser, source) {
+  const basePayload = { id: authUser.id, ...profileFields };
+  const attempts = profileUserIdColumnSupported === false
+    ? [{ payload: basePayload, hasUserId: false }]
+    : [
+        { payload: { ...basePayload, user_id: authUser.id }, hasUserId: true },
+        { payload: basePayload, hasUserId: false },
+      ];
+
+  for (const attempt of attempts) {
+    console.info(`${PROFILE_LOG_PREFIX} upserting own profile`, {
+      source,
+      userId: authUser.id,
+      hasUserId: attempt.hasUserId,
+    });
+
+    let result;
+    try {
+      result = await sb.from('profiles').upsert(attempt.payload, { onConflict: 'id' });
+    } catch (e) {
+      const kind = classifyProfileSaveError(e);
+      logProfileSaveFailure(source, kind, e, {
+        userId: authUser.id,
+        hasUserId: attempt.hasUserId,
+      });
+      throw new ProfileSaveError(kind, 'Profile upsert failed', e);
+    }
+
+    if (!result.error) {
+      profileUserIdColumnSupported = attempt.hasUserId;
+      console.info(`${PROFILE_LOG_PREFIX} profile saved`, {
+        source,
+        userId: authUser.id,
+        hasUserId: attempt.hasUserId,
+      });
+      return attempt.payload;
+    }
+
+    if (attempt.hasUserId && isMissingProfileColumn(result.error, 'user_id')) {
+      profileUserIdColumnSupported = false;
+      console.info(`${PROFILE_LOG_PREFIX} profiles.user_id not found; retrying with id only`, {
+        source,
+        userId: authUser.id,
+        error: supabaseErrorInfo(result.error),
+      });
+      continue;
+    }
+
+    const kind = classifyProfileSaveError(result.error);
+    logProfileSaveFailure(source, kind, result.error, {
+      userId: authUser.id,
+      hasUserId: attempt.hasUserId,
+    });
+    throw new ProfileSaveError(kind, 'Profile upsert failed', result.error);
+  }
+
+  throw new ProfileSaveError('supabase', 'Profile upsert did not run');
+}
+
+async function saveOwnProfile(profileFields, fallbackUser, source) {
+  const authUser = await getAuthenticatedUserForProfileSave(fallbackUser, source);
+  const savedProfile = await upsertOwnProfile(profileFields, authUser, source);
+  return { user: authUser, profile: savedProfile };
+}
+
 // ── Data access (network → localStorage fallback) ─────────────
 async function fetchProfile(uid) {
   try {
@@ -1434,8 +1669,10 @@ function translateError(msg) {
     return 'El email no es válido.';
   if (m.includes('email rate limit exceeded') || m.includes('rate limit'))
     return 'Demasiados intentos. Espera unos minutos e intenta de nuevo.';
-  if (m.includes('network') || m.includes('fetch'))
+  if (m.includes('network') || m.includes('fetch') || m.includes('load failed'))
     return 'Error de conexión. Verifica tu internet e intenta de nuevo.';
+  if (m.includes('row-level security') || m.includes('rls') || m.includes('42501'))
+    return 'No pudimos guardar los cambios. Intenta nuevamente.';
   return msg;
 }
 
@@ -1622,21 +1859,12 @@ function OnboardingScreen({ user, onDone }) {
     if (!displayName.trim()) { setError('El nombre es obligatorio.'); return; }
     setLoading(true); setError('');
 
-    // Refresh session so the JWT is current when Supabase evaluates RLS
-    let uid = user?.id;
-    try {
-      const { data: { session } } = await sb.auth.getSession();
-      if (session?.user) uid = session.user.id;
-    } catch(_) {}
-    if (!uid) { setError('Sesión expirada. Por favor inicia sesión de nuevo.'); setLoading(false); return; }
-
     const prof = { display_name: displayName.trim(), club_name: clubName.trim() || null };
     try {
-      const { error } = await sb.from('profiles').upsert({ id: uid, ...prof });
-      if (error) throw error;
-    } catch(e) { setError(translateError(e.message)); setLoading(false); return; }
-    LS.set(`p:${uid}`, { id: uid, ...prof });
-    onDone(prof);
+      const saved = await saveOwnProfile(prof, user, 'onboarding');
+      LS.set(`p:${saved.user.id}`, saved.profile);
+      onDone(saved.profile, saved.user);
+    } catch(e) { setError(PROFILE_SAVE_ERROR); setLoading(false); return; }
   }
 
   return (
@@ -2829,12 +3057,11 @@ function EditProfileScreen({ user, profile, onBack, onSaved, onDeleted }) {
     setLoading(true); setError('');
     const prof = { display_name: displayName.trim(), club_name: clubName.trim() || null };
     try {
-      const { error } = await sb.from('profiles').upsert({ id: user.id, ...prof });
-      if (error) throw error;
-    } catch(e) { setError(translateError(e.message)); setLoading(false); return; }
-    LS.set(`p:${user.id}`, { id: user.id, ...prof });
-    setSaved(true);
-    setTimeout(() => { onSaved(prof); }, 800);
+      const saved = await saveOwnProfile(prof, user, 'editProfile');
+      LS.set(`p:${saved.user.id}`, saved.profile);
+      setSaved(true);
+      setTimeout(() => { onSaved(saved.profile, saved.user); }, 800);
+    } catch(e) { setError(PROFILE_SAVE_ERROR); setLoading(false); return; }
   }
 
   async function deleteAccount() {
@@ -3664,7 +3891,13 @@ function App() {
 
       {route === 'onboarding' && (
         <OnboardingScreen user={user}
-          onDone={prof => { setProfile(prof); refreshStudents(user.id); go('dashboard'); }} />
+          onDone={(prof, authUser) => {
+            const savedUser = authUser || user;
+            if (authUser) setUser(authUser);
+            setProfile(prof);
+            if (savedUser?.id) refreshStudents(savedUser.id);
+            go('dashboard');
+          }} />
       )}
 
       {route === 'dashboard' && (
@@ -3758,7 +3991,7 @@ function App() {
 
       {route === 'editProfile' && (
         <EditProfileScreen user={user} profile={profile} onBack={() => go('dashboard')}
-          onSaved={prof => { setProfile(prof); go('dashboard'); }}
+          onSaved={(prof, authUser) => { if (authUser) setUser(authUser); setProfile(prof); go('dashboard'); }}
           onDeleted={() => { setUser(null); setProfile(null); go('auth'); }} />
       )}
 
@@ -3776,7 +4009,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-03-19:29-public-report';
+    const APP_VERSION = '2026-06-04-14:52-profile-rls-fix';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 
