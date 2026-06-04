@@ -2,7 +2,7 @@
   "name": "Padel Log",
   "short_name": "PadelLog",
   "description": "App de clases para coaches de pádel",
-  "start_url": "./index.html?v=2026-06-03-19:29-public-report",
+  "start_url": "./index.html?v=2026-06-04-14:52-profile-rls-fix",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
