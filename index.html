@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-03-15:03-edit-flow">
+  <meta name="app-version" content="2026-06-03-19:29-public-report">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-03-15:03-edit-flow">
+  <link rel="manifest" href="./manifest.json?v=2026-06-03-19:29-public-report">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -661,10 +661,14 @@
     .dot--green  { background: var(--green-mid); }
     .dot--orange { background: var(--orange); }
     .dot--dark   { background: var(--text-primary); }
+    .dot--blue   { background: var(--blue-slate); }
 
     .pub-sec-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; }
+    .pub-sec-title--worked { color: var(--green-dark); }
     .pub-sec-title--green  { color: var(--green-mid); }
     .pub-sec-title--orange { color: var(--orange); }
+    .pub-sec-title--tarea  { color: var(--blue-slate); }
+    .pub-sec-title--visual { color: var(--green-mid); }
     .pub-sec-body { font-size: 0.95rem; color: var(--text-primary); line-height: 1.55; }
 
     .pub-hist-lbl { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; color: var(--text-secondary); margin: 24px 0 12px; }
@@ -689,6 +693,7 @@
     .hist-field-lbl--correct { color: var(--orange); }
     .hist-field-lbl--tarea   { color: var(--blue-slate); }
     .hist-field-lbl--visual  { color: var(--green-mid); }
+    .hist-field-lbl--video   { color: var(--green-dark); }
     .hist-field-val {
       font-size: 0.88rem; color: var(--text-primary); line-height: 1.5;
     }
@@ -2562,7 +2567,14 @@ function VideoPlayer({ src, maxHeight = 300, loop = false }) {
 function HistCard({ log }) {
   const [expanded, setExpanded] = useState(false);
   const fArr = toArr(log.today_focus);
-  const hasExtra = log.today_focus || log.what_improved || log.main_correction || log.homework || log.visual_what || log.media_url;
+  const workedText = fArr.join(', ');
+  const improvedText = toArr(log.what_improved).join(', ');
+  const correctionText = (log.main_correction || '').trim();
+  const homeworkText = toArr(log.homework).join(', ');
+  const visualText = (log.visual_what || '').trim();
+  const hasMedia = !!log.media_url;
+  const mediaLabel = log.media_type === 'video' ? 'VIDEO' : 'IMAGEN';
+  const hasExtra = workedText || improvedText || correctionText || homeworkText || visualText || hasMedia;
   return (
     <div className="hist-card">
       <div className="hist-card-header">
@@ -2581,34 +2593,40 @@ function HistCard({ log }) {
       )}
       {expanded && (
         <div className="hist-card-body">
-          {fArr.length > 0 && (
+          {workedText && (
             <div>
               <div className="hist-field-lbl hist-field-lbl--worked">TRABAJARON</div>
-              <div className="hist-field-val">{fArr.join(', ')}</div>
+              <div className="hist-field-val">{linkify(workedText)}</div>
             </div>
           )}
-          {log.what_improved && (
+          {improvedText && (
             <div>
               <div className="hist-field-lbl hist-field-lbl--improved">MEJORÓ</div>
-              <div className="hist-field-val">{log.what_improved}</div>
+              <div className="hist-field-val">{linkify(improvedText)}</div>
             </div>
           )}
-          {log.main_correction && (
+          {correctionText && (
             <div>
               <div className="hist-field-lbl hist-field-lbl--correct">CORREGIR</div>
-              <div className="hist-field-val">{log.main_correction}</div>
+              <div className="hist-field-val">{linkify(correctionText)}</div>
             </div>
           )}
-          {log.homework && (
+          {homeworkText && (
             <div>
               <div className="hist-field-lbl hist-field-lbl--tarea">TAREA</div>
-              <div className="hist-field-val">{toArr(log.homework).join(', ')}</div>
+              <div className="hist-field-val">{linkify(homeworkText)}</div>
             </div>
           )}
-          {(log.visual_what || log.media_url) && (
+          {visualText && (
             <div>
-              <div className="hist-field-lbl hist-field-lbl--visual">REFERENCIA VISUAL</div>
-              {log.media_url && log.media_type === 'video' && (
+              <div className="hist-field-lbl hist-field-lbl--visual">VISUAL</div>
+              <div className="hist-field-val">{linkify(visualText)}</div>
+            </div>
+          )}
+          {hasMedia && (
+            <div>
+              <div className={`hist-field-lbl ${log.media_type === 'video' ? 'hist-field-lbl--video' : 'hist-field-lbl--visual'}`}>{mediaLabel}</div>
+              {log.media_type === 'video' && (
                 <div>
                   <VideoPlayer src={log.media_url} maxHeight={400} loop />
                   <button className="dl-btn" onClick={() => downloadMedia(log.media_url, 'video')}>
@@ -2619,7 +2637,7 @@ function HistCard({ log }) {
                   </button>
                 </div>
               )}
-              {log.media_url && log.media_type !== 'video' && (
+              {log.media_type !== 'video' && (
                 <div>
                   <img src={log.media_url} className="hist-media" alt="referencia visual" />
                   <button className="dl-btn" onClick={() => downloadMedia(log.media_url, 'image')}>
@@ -2629,9 +2647,6 @@ function HistCard({ log }) {
                     Guardar foto
                   </button>
                 </div>
-              )}
-              {log.visual_what && (
-                <div className="hist-field-val" style={{marginTop: log.media_url ? 8 : 0}}>{log.visual_what}</div>
               )}
             </div>
           )}
@@ -2662,10 +2677,16 @@ function PublicReportScreen({ studentId }) {
   const latest  = logs?.[0];
   const history = logs?.slice(1, 11) || [];
 
+  const focusArr      = toArr(latest?.today_focus);
   const improvedArr   = toArr(latest?.what_improved);
   const homeworkArr   = toArr(latest?.homework);
-  const correction    = latest?.main_correction || '';
-  const hasVisual     = latest?.media_url || latest?.visual_what || latest?.visual_correction || latest?.visual_task;
+  const worked        = focusArr.join(', ');
+  const improved      = improvedArr.join(', ');
+  const homework      = homeworkArr.join(', ');
+  const correction    = (latest?.main_correction || '').trim();
+  const visualNote    = (latest?.visual_what || '').trim();
+  const hasMedia      = !!latest?.media_url;
+  const mediaLabel    = latest?.media_type === 'video' ? 'VIDEO' : 'IMAGEN';
 
   return (
     <div className="pub-screen">
@@ -2682,13 +2703,23 @@ function PublicReportScreen({ studentId }) {
         <div className="pub-student-name">{student.name}</div>
         {latest && <div className="pub-date">{formatFullDateEs(latest.date)}</div>}
 
-        {improvedArr.length > 0 && (
+        {worked && (
+          <div className="pub-section">
+            <div className="pub-sec-hdr">
+              <span className="dot dot--dark" />
+              <span className="pub-sec-title pub-sec-title--worked">TRABAJARON</span>
+            </div>
+            <p className="pub-sec-body">{linkify(worked)}</p>
+          </div>
+        )}
+
+        {improved && (
           <div className="pub-section">
             <div className="pub-sec-hdr">
               <span className="dot dot--green" />
-              <span className="pub-sec-title pub-sec-title--green">LO QUE MEJORÓ</span>
+              <span className="pub-sec-title pub-sec-title--green">MEJORÓ</span>
             </div>
-            <p className="pub-sec-body">{linkify(improvedArr.join(', '))}.</p>
+            <p className="pub-sec-body">{linkify(improved)}</p>
           </div>
         )}
 
@@ -2696,23 +2727,33 @@ function PublicReportScreen({ studentId }) {
           <div className="pub-section">
             <div className="pub-sec-hdr">
               <span className="dot dot--orange" />
-              <span className="pub-sec-title pub-sec-title--orange">QUÉ CORREGIR</span>
+              <span className="pub-sec-title pub-sec-title--orange">CORREGIR</span>
             </div>
             <p className="pub-sec-body">{linkify(correction)}</p>
           </div>
         )}
 
-        {homeworkArr.length > 0 && (
+        {homework && (
           <div className="pub-section">
             <div className="pub-sec-hdr">
-              <span className="dot dot--dark" />
-              <span className="pub-sec-title">TAREA PARA CASA</span>
+              <span className="dot dot--blue" />
+              <span className="pub-sec-title pub-sec-title--tarea">TAREA</span>
             </div>
-            <p className="pub-sec-body">{linkify(homeworkArr.join(', '))}.</p>
+            <p className="pub-sec-body">{linkify(homework)}</p>
           </div>
         )}
 
-        {hasVisual && (
+        {visualNote && (
+          <div className="pub-section">
+            <div className="pub-sec-hdr">
+              <span className="dot dot--green" />
+              <span className="pub-sec-title pub-sec-title--visual">VISUAL</span>
+            </div>
+            <p className="pub-sec-body">{linkify(visualNote)}</p>
+          </div>
+        )}
+
+        {hasMedia && (
           <div style={{
             background: '#000', border: '1px solid var(--border)',
             borderRadius: 16, overflow: 'hidden', margin: '8px 0 4px'
@@ -2727,49 +2768,35 @@ function PublicReportScreen({ studentId }) {
                 <circle cx="12" cy="13" r="3"/>
               </svg>
               <span style={{fontSize:'0.72rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--green-soft)'}}>
-                REFERENCIA VISUAL
+                {mediaLabel}
               </span>
             </div>
 
             {/* Media */}
-            {latest.media_url && (
-              <div style={{lineHeight:0}}>
-                {latest.media_type === 'video'
-                  ? <div>
-                      <VideoPlayer src={latest.media_url} maxHeight={400} loop />
-                      <button className="dl-btn" style={{borderRadius:0, margin:0, width:'100%', padding:'13px 16px'}}
-                        onClick={() => downloadMedia(latest.media_url, 'video')}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                        Guardar video
-                      </button>
-                    </div>
-                  : <div>
-                      <img src={latest.media_url} alt="Referencia visual" style={{width:'100%', maxHeight:300, objectFit:'cover', display:'block'}} />
-                      <button className="dl-btn" style={{borderRadius:0, margin:0, width:'100%', padding:'13px 16px'}}
-                        onClick={() => downloadMedia(latest.media_url, 'image')}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                        Guardar foto
-                      </button>
-                    </div>
-                }
-              </div>
-            )}
-          </div>
-        )}
-
-        {hasVisual && latest.visual_what && (
-          <div style={{
-            background:'var(--white)', border:'1px solid var(--border)',
-            borderRadius:14, padding:'14px 16px', marginTop:8
-          }}>
-            <div style={{fontSize:'0.65rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--green-mid)', marginBottom:5}}>
-              NOTA DEL COACH
+            <div style={{lineHeight:0}}>
+              {latest.media_type === 'video'
+                ? <div>
+                    <VideoPlayer src={latest.media_url} maxHeight={400} loop />
+                    <button className="dl-btn" style={{borderRadius:0, margin:0, width:'100%', padding:'13px 16px'}}
+                      onClick={() => downloadMedia(latest.media_url, 'video')}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
+                      Guardar video
+                    </button>
+                  </div>
+                : <div>
+                    <img src={latest.media_url} alt="Referencia visual" style={{width:'100%', maxHeight:300, objectFit:'cover', display:'block'}} />
+                    <button className="dl-btn" style={{borderRadius:0, margin:0, width:'100%', padding:'13px 16px'}}
+                      onClick={() => downloadMedia(latest.media_url, 'image')}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
+                      Guardar foto
+                    </button>
+                  </div>
+              }
             </div>
-            <div style={{fontSize:'0.92rem', color:'var(--text-primary)', lineHeight:1.5}}>{linkify(latest.visual_what)}</div>
           </div>
         )}
 
@@ -3749,7 +3776,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-03-15:03-edit-flow';
+    const APP_VERSION = '2026-06-03-19:29-public-report';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 
