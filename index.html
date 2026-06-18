@@ -149,6 +149,10 @@
   END;
   $$;
   GRANT EXECUTE ON FUNCTION public.delete_my_account() TO authenticated;
+
+  -- Habilidades del alumno: run once in Supabase SQL Editor.
+  ALTER TABLE public.students
+    ADD COLUMN IF NOT EXISTS skills jsonb;
   -->
 
   <style>
@@ -3166,21 +3170,33 @@ function EditProfileScreen({ user, profile, onBack, onSaved, onDeleted }) {
 
 
 // ── S10 Edit Student ─────────────────────────────────────────
+const SKILL_DEFS = [
+  { key: 'defensa',         label: 'Defensa'         },
+  { key: 'volea',           label: 'Volea'           },
+  { key: 'posicionamiento', label: 'Posicionamiento' },
+  { key: 'confianza',       label: 'Confianza'       },
+];
+
 function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
   const [name, setName]     = useState(student.name || '');
   const [level, setLevel]   = useState(student.level || '');
+  const [skills, setSkills] = useState(student.skills || {});
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting]     = useState(false);
   const levels = ['Principiante', 'Intermedio', 'Avanzado'];
 
+  function setSkill(key, val) {
+    setSkills(s => ({ ...s, [key]: Math.min(10, Math.max(1, val)) }));
+  }
+
   async function save() {
     if (!name.trim()) { setError('El nombre es obligatorio.'); return; }
     setLoading(true); setError('');
     try {
       const { data, error } = await sb.from('students')
-        .update({ name: name.trim(), level: level || null })
+        .update({ name: name.trim(), level: level || null, skills: Object.keys(skills).length ? skills : null })
         .eq('id', student.id)
         .select().single();
       if (error) throw error;
@@ -3218,6 +3234,46 @@ function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
               <Chip key={l} label={l} on={level === l}
                 onClick={() => setLevel(level === l ? '' : l)} />
             ))}
+          </div>
+        </div>
+
+        {/* Skill scores */}
+        <div className="form-field" style={{marginTop:24}}>
+          <label className="field-label">Evaluación de habilidades</label>
+          <p style={{fontSize:'0.78rem', color:'var(--text-secondary)', marginTop:2, marginBottom:12, lineHeight:1.4}}>
+            Puntuación del 1 al 10. Se muestra al alumno en su sección de progreso.
+          </p>
+          <div style={{display:'flex', flexDirection:'column', gap:10}}>
+            {SKILL_DEFS.map(({ key, label }) => {
+              const val = skills[key];
+              return (
+                <div key={key} style={{
+                  display:'flex', alignItems:'center',
+                  background:'var(--white)', border:'1px solid var(--border)',
+                  borderRadius:12, padding:'10px 14px',
+                }}>
+                  <span style={{flex:1, fontSize:'0.88rem', fontWeight:600, color:'var(--text-primary)'}}>{label}</span>
+                  <div style={{display:'flex', alignItems:'center', gap:0}}>
+                    <button onClick={() => setSkill(key, (val || 5) - 1)} style={{
+                      width:34, height:34, borderRadius:8, border:'1.5px solid var(--border)',
+                      background:'var(--bg)', fontSize:'1.1rem', fontWeight:500,
+                      color:'var(--text-secondary)', cursor:'pointer', lineHeight:1,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                    }}>−</button>
+                    <span style={{
+                      width:36, textAlign:'center', fontSize:'1rem', fontWeight:800,
+                      color: val ? 'var(--green-dark)' : 'var(--text-hint)',
+                    }}>{val || '—'}</span>
+                    <button onClick={() => setSkill(key, (val || 4) + 1)} style={{
+                      width:34, height:34, borderRadius:8, border:'1.5px solid var(--border)',
+                      background:'var(--bg)', fontSize:'1.1rem', fontWeight:500,
+                      color:'var(--text-secondary)', cursor:'pointer', lineHeight:1,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                    }}>+</button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -3587,19 +3643,19 @@ function ManageStudentsScreen({ students, onBack, onEditStudent }) {
 }
 
 
-// ── Progress Section (simulated data) ────────────────────────
-const PROGRESS_SKILLS = [
-  { name: 'Defensa',         score: 8, status: 'Mejorando' },
-  { name: 'Volea',           score: 6, status: 'A trabajar' },
-  { name: 'Posicionamiento', score: 7, status: 'Mejorando'  },
-  { name: 'Confianza',       score: 8, status: 'Mejorando'  },
-];
+// ── Progress Section ──────────────────────────────────────────
 const PROGRESS_SPARKLINE = [5.2, 6.0, 6.5, 7.1, 7.4];
 const PROGRESS_HISTORY = [
   { label: 'Clase 1', skill: 'Defensa',    from: 6, to: 7 },
   { label: 'Clase 2', skill: 'Volea',      from: 5, to: 6 },
   { label: 'Clase 3', skill: 'Confianza',  from: 7, to: 8 },
 ];
+
+function skillStatus(score) {
+  if (score >= 7) return 'Mejorando';
+  if (score >= 5) return 'Estable';
+  return 'A trabajar';
+}
 
 function StatusBadge({ status }) {
   const map = {
@@ -3637,9 +3693,16 @@ function Sparkline({ points }) {
   );
 }
 
-function ProgressSection() {
-  const overall = PROGRESS_SPARKLINE[PROGRESS_SPARKLINE.length - 1];
-  const delta = (overall - PROGRESS_SPARKLINE[0]).toFixed(1);
+function ProgressSection({ student }) {
+  const raw = student?.skills || {};
+  const scored = SKILL_DEFS.filter(d => raw[d.key] != null);
+
+  if (scored.length === 0) return null;
+
+  const overall = (scored.reduce((s, d) => s + raw[d.key], 0) / scored.length).toFixed(1);
+  const sparkline = [...PROGRESS_SPARKLINE.slice(0, -1), parseFloat(overall)];
+  const delta = (parseFloat(overall) - sparkline[0]).toFixed(1);
+
   return (
     <div style={{marginBottom: 24}}>
       <div className="section-label" style={{marginBottom: 10}}>TU PROGRESO</div>
@@ -3658,42 +3721,47 @@ function ProgressSection() {
             {overall}
           </div>
           <div style={{fontSize:'0.78rem', color:'rgba(255,255,255,0.65)', display:'flex', alignItems:'center', gap:4}}>
-            <span style={{color:'#7DEFA1', fontWeight:700}}>+{delta}</span>
-            desde tu primera clase
+            {parseFloat(delta) >= 0
+              ? <span style={{color:'#7DEFA1', fontWeight:700}}>+{delta}</span>
+              : <span style={{color:'#f4a261', fontWeight:700}}>{delta}</span>}
+            promedio de habilidades
           </div>
         </div>
         <div style={{paddingBottom: 4}}>
-          <Sparkline points={PROGRESS_SPARKLINE} />
+          <Sparkline points={sparkline} />
         </div>
       </div>
 
       {/* Skill cards — 2 col grid */}
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10}}>
-        {PROGRESS_SKILLS.map(skill => (
-          <div key={skill.name} style={{
-            background:'var(--white)', border:'1px solid var(--border)',
-            borderRadius:14, padding:'14px 14px 12px',
-          }}>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
-              <div style={{fontSize:'0.78rem', fontWeight:700, color:'var(--text-primary)'}}>{skill.name}</div>
-              <div style={{fontSize:'0.78rem', fontWeight:800, color:'var(--green-dark)'}}>
-                {skill.score}<span style={{fontSize:'0.65rem', color:'var(--text-hint)', fontWeight:600}}>/10</span>
+        {SKILL_DEFS.map(({ key, label }) => {
+          const score = raw[key];
+          if (score == null) return null;
+          return (
+            <div key={key} style={{
+              background:'var(--white)', border:'1px solid var(--border)',
+              borderRadius:14, padding:'14px 14px 12px',
+            }}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
+                <div style={{fontSize:'0.78rem', fontWeight:700, color:'var(--text-primary)'}}>{label}</div>
+                <div style={{fontSize:'0.78rem', fontWeight:800, color:'var(--green-dark)'}}>
+                  {score}<span style={{fontSize:'0.65rem', color:'var(--text-hint)', fontWeight:600}}>/10</span>
+                </div>
               </div>
+              <div style={{height:5, borderRadius:99, background:'var(--border)', marginBottom:8, overflow:'hidden'}}>
+                <div style={{
+                  height:'100%', borderRadius:99, width:`${score * 10}%`,
+                  background: score >= 7 ? 'var(--green-mid)' : score >= 5 ? 'var(--orange)' : '#c0392b',
+                  transition:'width 0.6s ease',
+                }} />
+              </div>
+              <StatusBadge status={skillStatus(score)} />
             </div>
-            <div style={{height:5, borderRadius:99, background:'var(--border)', marginBottom:8, overflow:'hidden'}}>
-              <div style={{
-                height:'100%', borderRadius:99,
-                width:`${skill.score * 10}%`,
-                background: skill.score >= 7 ? 'var(--green-mid)' : skill.score >= 5 ? 'var(--orange)' : '#c0392b',
-                transition:'width 0.6s ease',
-              }} />
-            </div>
-            <StatusBadge status={skill.status} />
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Últimas clases */}
+      {/* Últimas clases — simuladas */}
       <div style={{background:'var(--white)', border:'1px solid var(--border)', borderRadius:14, padding:'14px 16px'}}>
         <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--text-secondary)', marginBottom:10}}>
           ÚLTIMAS CLASES
@@ -3809,7 +3877,7 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
           </div>
         </div>
 
-        <ProgressSection />
+        <ProgressSection student={student} />
 
         {/* Class history */}
         <div className="section-label">HISTORIAL DE CLASES</div>
