@@ -2944,12 +2944,22 @@ function PublicReportScreen({ studentId }) {
       <div className="pub-header">
         <Logo />
         <div className="pub-coach-block">
-          <div className="pub-coach-tag">REPORTE DE CLASE{student.level && <span style={{marginLeft:6, opacity:0.75}}>· {student.level}</span>}</div>
+          <div className="pub-coach-tag">REPORTE DE CLASE</div>
           <div className="pub-coach-name">{coach?.display_name || 'Tu coach'}</div>
           {coach?.club_name && <div className="pub-coach-club">{coach.club_name}</div>}
         </div>
       </div>
       <div className="pub-body">
+        {student.level && (
+          <div style={{
+            display:'inline-block', fontSize:'0.68rem', fontWeight:700,
+            letterSpacing:'0.09em', color:'var(--green-dark)',
+            background:'var(--green-soft)', borderRadius:20,
+            padding:'4px 12px', marginBottom:16
+          }}>
+            {student.level.toUpperCase()}
+          </div>
+        )}
         <div className="pub-report-for">Reporte para</div>
         <div className="pub-student-name">{student.name}</div>
         {latest && <div className="pub-date">{formatFullDateEs(latest.date)}</div>}
