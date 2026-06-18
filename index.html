@@ -4125,7 +4125,7 @@ function App() {
           onSelectStudent={s => { setSelectedStudent(s); go({ name: 'studentProfile', studentId: s.id }); }}
           onSignOut={() => { LS.set('lastRoute', null); sb.auth.signOut(); }}
           onEditProfile={() => go('editProfile')}
-          onEditStudent={s => { setSelectedStudent(s); go('editStudent'); }}
+          onEditStudent={s => { setSelectedStudent(s); go({ name: 'editStudent', studentId: s.id }); }}
           onEditLog={(s, log) => { setSelectedStudent(s); setSelectedLog(log); go({ name: 'editLog', studentId: s.id, logId: log.id }); }}
           onManageStudents={() => go('manageStudents')}
           onQuickLog={s => { setSelectedStudent(s); go({ name: 'logClass', from: 'dashboard', studentId: s.id }); }}
@@ -4141,7 +4141,7 @@ function App() {
               student={s}
               coachId={user.id}
               onBack={() => go('dashboard')}
-              onEdit={() => { setSelectedStudent(s); go({ name: 'editStudent', from: 'studentProfile' }); }}
+              onEdit={() => { setSelectedStudent(s); go({ name: 'editStudent', from: 'studentProfile', studentId: s.id }); }}
               onRegisterClass={() => { setSelectedStudent(s); go({ name: 'logClass', from: 'studentProfile', studentId: s.id }); }}
               onLogDeleted={() => refreshStudents(user.id)} />
           ) : null;
@@ -4176,7 +4176,7 @@ function App() {
 
       {route === 'manageStudents' && (
         <ManageStudentsScreen students={students} onBack={() => go('dashboard')}
-          onEditStudent={s => { setSelectedStudent(s); go('editStudent'); }} />
+          onEditStudent={s => { setSelectedStudent(s); go({ name: 'editStudent', studentId: s.id }); }} />
       )}
 
       {(route === 'editStudent' || route?.name === 'editStudent') && selectedStudent && (
