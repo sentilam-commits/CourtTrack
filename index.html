@@ -2950,10 +2950,17 @@ function PublicReportScreen({ studentId }) {
         </div>
       </div>
       <div className="pub-body">
-        <div className="pub-report-for">
-          Reporte para{student.level && <span style={{marginLeft:6, color:'var(--green-dark)', fontWeight:700}}>· {student.level}</span>}
+        <div className="pub-report-for">Reporte para</div>
+        <div style={{display:'flex', alignItems:'baseline', gap:10, flexWrap:'wrap'}}>
+          <div className="pub-student-name" style={{marginBottom:0}}>{student.name}</div>
+          {student.level && (
+            <span style={{fontSize:'0.72rem', fontWeight:700, letterSpacing:'0.07em',
+              color:'var(--green-dark)', border:'1.5px solid var(--green-dark)',
+              borderRadius:20, padding:'2px 9px', whiteSpace:'nowrap'}}>
+              {student.level.toUpperCase()}
+            </span>
+          )}
         </div>
-        <div className="pub-student-name">{student.name}</div>
         {latest && <div className="pub-date">{formatFullDateEs(latest.date)}</div>}
 
         {worked && (
