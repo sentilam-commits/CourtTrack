@@ -245,13 +245,14 @@
 
     .header-back {
       color: white;
-      font-size: 1.4rem;
       line-height: 1;
-      padding: 8px;
+      padding: 8px 10px;
       margin-left: -8px;
       min-width: 44px;
       display: flex;
       align-items: center;
+      background: rgba(255,255,255,0.12);
+      border-radius: 10px;
     }
 
     .header-title { flex: 1; text-align: center; font-weight: 600; font-size: 0.95rem; }
@@ -1480,7 +1481,11 @@ function Header({ title, onBack, right }) {
   return (
     <header className="app-header">
       {onBack
-        ? <button className="header-back" onClick={onBack}>←</button>
+        ? <button className="header-back" onClick={onBack}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
         : <div className="header-spacer" />}
       <div className="header-title">{title}</div>
       <div className="header-right">{right}</div>
