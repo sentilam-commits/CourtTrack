@@ -2086,7 +2086,7 @@ function AddStudentScreen({ coachId, onBack, onDone }) {
   const [level, setLevel]   = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError]   = useState('');
-  const levels = ['Principiante', 'Intermedio', 'Avanzado'];
+  const levels = ['Iniciación', 'Básico', 'Intermedio', 'Avanzado'];
 
   async function save() {
     if (!name.trim()) { setError('El nombre es obligatorio.'); return; }
@@ -3185,7 +3185,7 @@ function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
   const [error, setError]           = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting]     = useState(false);
-  const levels = ['Principiante', 'Intermedio', 'Avanzado'];
+  const levels = ['Iniciación', 'Básico', 'Intermedio', 'Avanzado'];
 
   function setSkill(key, val) {
     setSkills(s => ({ ...s, [key]: Math.min(10, Math.max(1, val)) }));
