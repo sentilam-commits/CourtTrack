@@ -3195,8 +3195,21 @@ function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
     if (!name.trim()) { setError('El nombre es obligatorio.'); return; }
     setLoading(true); setError('');
     try {
+      const hasSkills = Object.keys(skills).length > 0;
+      const newSkillsVal = hasSkills ? skills : null;
+
+      // Append snapshot to skill_history only when skills change
+      let newHistory = student.skill_history || [];
+      if (hasSkills) {
+        const last = newHistory[newHistory.length - 1];
+        const changed = !last || JSON.stringify(last.skills) !== JSON.stringify(skills);
+        if (changed) {
+          newHistory = [...newHistory, { date: new Date().toISOString().slice(0, 10), skills }];
+        }
+      }
+
       const { data, error } = await sb.from('students')
-        .update({ name: name.trim(), level: level || null, skills: Object.keys(skills).length ? skills : null })
+        .update({ name: name.trim(), level: level || null, skills: newSkillsVal, skill_history: newHistory })
         .eq('id', student.id)
         .select().single();
       if (error) throw error;
@@ -3644,12 +3657,6 @@ function ManageStudentsScreen({ students, onBack, onEditStudent }) {
 
 
 // ── Progress Section ──────────────────────────────────────────
-const PROGRESS_SPARKLINE = [5.2, 6.0, 6.5, 7.1, 7.4];
-const PROGRESS_HISTORY = [
-  { label: 'Clase 1', skill: 'Defensa',    from: 6, to: 7 },
-  { label: 'Clase 2', skill: 'Volea',      from: 5, to: 6 },
-  { label: 'Clase 3', skill: 'Confianza',  from: 7, to: 8 },
-];
 
 function skillStatus(score) {
   if (score >= 7) return 'Mejorando';
@@ -3693,15 +3700,35 @@ function Sparkline({ points }) {
   );
 }
 
+function historyAvg(entry) {
+  const keys = SKILL_DEFS.filter(d => entry.skills[d.key] != null);
+  if (!keys.length) return 0;
+  return parseFloat((keys.reduce((s, d) => s + entry.skills[d.key], 0) / keys.length).toFixed(1));
+}
+
 function ProgressSection({ student }) {
   const raw = student?.skills || {};
+  const history = student?.skill_history || [];
   const scored = SKILL_DEFS.filter(d => raw[d.key] != null);
 
   if (scored.length === 0) return null;
 
   const overall = (scored.reduce((s, d) => s + raw[d.key], 0) / scored.length).toFixed(1);
-  const sparkline = [...PROGRESS_SPARKLINE.slice(0, -1), parseFloat(overall)];
-  const delta = (parseFloat(overall) - sparkline[0]).toFixed(1);
+
+  // Sparkline only when there are 2+ history entries
+  const sparkPoints = history.length >= 2 ? history.map(historyAvg) : null;
+  const delta = sparkPoints ? (parseFloat(overall) - sparkPoints[0]).toFixed(1) : null;
+
+  // Last 3 entries, newest first
+  const recentHistory = history.slice().reverse().slice(0, 3);
+
+  const arrowSvg = (color) => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="5" y1="12" x2="19" y2="12"/>
+      <polyline points="12 5 19 12 12 19"/>
+    </svg>
+  );
 
   return (
     <div style={{marginBottom: 24}}>
@@ -3721,15 +3748,23 @@ function ProgressSection({ student }) {
             {overall}
           </div>
           <div style={{fontSize:'0.78rem', color:'rgba(255,255,255,0.65)', display:'flex', alignItems:'center', gap:4}}>
-            {parseFloat(delta) >= 0
-              ? <span style={{color:'#7DEFA1', fontWeight:700}}>+{delta}</span>
-              : <span style={{color:'#f4a261', fontWeight:700}}>{delta}</span>}
-            promedio de habilidades
+            {delta != null ? (
+              <>
+                {parseFloat(delta) >= 0
+                  ? <span style={{color:'#7DEFA1', fontWeight:700}}>+{delta}</span>
+                  : <span style={{color:'#f4a261', fontWeight:700}}>{delta}</span>}
+                promedio de habilidades
+              </>
+            ) : (
+              <span>primera evaluación</span>
+            )}
           </div>
         </div>
-        <div style={{paddingBottom: 4}}>
-          <Sparkline points={sparkline} />
-        </div>
+        {sparkPoints && (
+          <div style={{paddingBottom: 4}}>
+            <Sparkline points={sparkPoints} />
+          </div>
+        )}
       </div>
 
       {/* Skill cards — 2 col grid */}
@@ -3761,25 +3796,67 @@ function ProgressSection({ student }) {
         })}
       </div>
 
-      {/* Últimas clases — simuladas */}
-      <div style={{background:'var(--white)', border:'1px solid var(--border)', borderRadius:14, padding:'14px 16px'}}>
-        <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--text-secondary)', marginBottom:10}}>
-          ÚLTIMAS CLASES
+      {/* Últimas clases — desde historial real */}
+      {history.length > 0 && (
+        <div style={{background:'var(--white)', border:'1px solid var(--border)', borderRadius:14, padding:'14px 16px'}}>
+          <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--text-secondary)', marginBottom:10}}>
+            ÚLTIMAS CLASES
+          </div>
+          <div style={{display:'flex', flexDirection:'column', gap:8}}>
+            {recentHistory.map((entry, i) => {
+              const classNum = history.length - i;
+              const prevEntry = i < recentHistory.length - 1 ? recentHistory[i + 1] : null;
+
+              if (!prevEntry) {
+                // Primera entrada — mostrar habilidad con puntuación más alta
+                const topSkill = SKILL_DEFS
+                  .filter(d => entry.skills[d.key] != null)
+                  .sort((a, b) => entry.skills[b.key] - entry.skills[a.key])[0];
+                if (!topSkill) return null;
+                return (
+                  <div key={i} style={{display:'flex', alignItems:'center'}}>
+                    <div style={{fontSize:'0.8rem', color:'var(--text-secondary)', minWidth:54}}>Clase {classNum}</div>
+                    <div style={{flex:1, fontSize:'0.82rem', color:'var(--text-primary)', fontWeight:600}}>{topSkill.label}</div>
+                    <div style={{display:'flex', alignItems:'center', gap:5}}>
+                      <span style={{fontSize:'0.82rem', color:'var(--text-hint)'}}>Inicio</span>
+                      {arrowSvg('var(--green-mid)')}
+                      <span style={{fontSize:'0.82rem', fontWeight:800, color:'var(--green-mid)'}}>{entry.skills[topSkill.key]}</span>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Mostrar el cambio más grande respecto a la clase anterior
+              const changes = SKILL_DEFS
+                .filter(d => entry.skills[d.key] != null && prevEntry.skills[d.key] != null)
+                .map(d => ({ label: d.label, from: prevEntry.skills[d.key], to: entry.skills[d.key], diff: Math.abs(entry.skills[d.key] - prevEntry.skills[d.key]) }))
+                .filter(c => c.diff > 0)
+                .sort((a, b) => b.diff - a.diff);
+
+              if (changes.length === 0) return (
+                <div key={i} style={{display:'flex', alignItems:'center'}}>
+                  <div style={{fontSize:'0.8rem', color:'var(--text-secondary)', minWidth:54}}>Clase {classNum}</div>
+                  <div style={{flex:1, fontSize:'0.82rem', color:'var(--text-hint)'}}>Sin cambios</div>
+                </div>
+              );
+
+              const top = changes[0];
+              const improved = top.to > top.from;
+              return (
+                <div key={i} style={{display:'flex', alignItems:'center'}}>
+                  <div style={{fontSize:'0.8rem', color:'var(--text-secondary)', minWidth:54}}>Clase {classNum}</div>
+                  <div style={{flex:1, fontSize:'0.82rem', color:'var(--text-primary)', fontWeight:600}}>{top.label}</div>
+                  <div style={{display:'flex', alignItems:'center', gap:5}}>
+                    <span style={{fontSize:'0.82rem', color:'var(--text-hint)'}}>{top.from}</span>
+                    {arrowSvg(improved ? 'var(--green-mid)' : '#c0392b')}
+                    <span style={{fontSize:'0.82rem', fontWeight:800, color: improved ? 'var(--green-mid)' : '#c0392b'}}>{top.to}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-        <div style={{display:'flex', flexDirection:'column', gap:8}}>
-          {PROGRESS_HISTORY.map((item, i) => (
-            <div key={i} style={{display:'flex', alignItems:'center'}}>
-              <div style={{fontSize:'0.8rem', color:'var(--text-secondary)', minWidth:54}}>{item.label}</div>
-              <div style={{flex:1, fontSize:'0.82rem', color:'var(--text-primary)', fontWeight:600}}>{item.skill}</div>
-              <div style={{display:'flex', alignItems:'center', gap:5}}>
-                <span style={{fontSize:'0.82rem', color:'var(--text-hint)'}}>{item.from}</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--green-mid)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-                <span style={{fontSize:'0.82rem', fontWeight:800, color:'var(--green-mid)'}}>{item.to}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
