@@ -2950,15 +2950,10 @@ function PublicReportScreen({ studentId }) {
         </div>
       </div>
       <div className="pub-body">
-        <div className="pub-report-for">Reporte para</div>
+        <div className="pub-report-for">
+          Reporte para{student.level && <span style={{marginLeft:6, color:'var(--green-dark)', fontWeight:700}}>· {student.level}</span>}
+        </div>
         <div className="pub-student-name">{student.name}</div>
-        {student.level && (
-          <div style={{display:'inline-block', fontSize:'0.72rem', fontWeight:700, letterSpacing:'0.07em',
-            color:'var(--green-dark)', background:'var(--green-soft)', borderRadius:20,
-            padding:'3px 10px', marginBottom:6}}>
-            {student.level.toUpperCase()}
-          </div>
-        )}
         {latest && <div className="pub-date">{formatFullDateEs(latest.date)}</div>}
 
         {worked && (
@@ -3740,7 +3735,7 @@ function ProgressSection({ student }) {
   );
 
   return (
-    <div style={{marginBottom: 24}}>
+    <div style={{marginTop: 32, marginBottom: 24}}>
       <div className="section-label" style={{marginBottom: 10}}>TU PROGRESO</div>
 
       {/* Main card */}
