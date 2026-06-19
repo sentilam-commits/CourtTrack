@@ -3779,6 +3779,16 @@ function Sparkline({ points, dates, milestones }) {
         <text key={`ms${i}`} x={x} y={ys[i] - 7}
           textAnchor="middle" fontSize="9" fill="#FFD700" fontFamily="inherit">★</text>
       ) : null)}
+      {dates && <>
+        <text x={xs[0]} y={h + 12} textAnchor="start"
+          fontSize="7" fill={aIdx === 0 ? 'rgba(255,255,255,0)' : 'rgba(255,255,255,0.45)'} fontFamily="inherit">
+          {fmtSparkDate(dates[0])}
+        </text>
+        <text x={xs[xs.length - 1]} y={h + 12} textAnchor="end"
+          fontSize="7" fill={aIdx === xs.length - 1 ? 'rgba(255,255,255,0)' : 'rgba(255,255,255,0.45)'} fontFamily="inherit">
+          {fmtSparkDate(dates[dates.length - 1])}
+        </text>
+      </>}
       {aIdx != null && <>
         <line x1={xs[aIdx]} y1={pad} x2={xs[aIdx]} y2={h}
           stroke="rgba(255,255,255,0.4)" strokeWidth="1" strokeDasharray="2,3" />
