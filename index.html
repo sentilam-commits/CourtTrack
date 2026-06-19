@@ -3739,6 +3739,8 @@ function fmtSparkDate(d) {
 }
 
 function Sparkline({ points, dates, milestones }) {
+  const [activeIdx, setActiveIdx] = useState(null);
+  const svgRef = useRef(null);
   const w = 120, h = 32, pad = 4;
   const min = Math.min(...points), max = Math.max(...points);
   const range = max - min || 1;
@@ -3746,25 +3748,45 @@ function Sparkline({ points, dates, milestones }) {
   const ys = points.map(v => h - pad - ((v - min) / range) * (h - pad * 2));
   const d = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x},${ys[i]}`).join(' ');
   const fill = `${d} L${xs[xs.length-1]},${h} L${xs[0]},${h} Z`;
+
+  function getNearestIdx(touch) {
+    const rect = svgRef.current.getBoundingClientRect();
+    const relX = (touch.clientX - rect.left) / rect.width * w;
+    let best = 0, bestDist = Infinity;
+    xs.forEach((x, i) => { const dist = Math.abs(x - relX); if (dist < bestDist) { bestDist = dist; best = i; } });
+    return best;
+  }
+
+  function onTouchStart(e) { e.preventDefault(); setActiveIdx(getNearestIdx(e.touches[0])); }
+  function onTouchMove(e)  { e.preventDefault(); setActiveIdx(getNearestIdx(e.touches[0])); }
+  function onTouchEnd()    { setActiveIdx(null); }
+
+  const aIdx = activeIdx;
+  const dateAnchor = aIdx === 0 ? 'start' : aIdx === xs.length - 1 ? 'end' : 'middle';
+
   return (
-    <svg width={w} height={h + 14} viewBox={`0 0 ${w} ${h + 14}`} style={{overflow:'visible'}}>
+    <svg ref={svgRef} width={w} height={h + 14} viewBox={`0 0 ${w} ${h + 14}`}
+      style={{overflow:'visible', touchAction:'none'}}
+      onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       <path d={fill} fill="rgba(255,255,255,0.12)" />
       <path d={d} fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       {xs.map((x, i) => (
-        <circle key={i} cx={x} cy={ys[i]} r={i === xs.length - 1 ? 4 : 2.5}
-          fill={i === xs.length - 1 ? '#fff' : 'rgba(255,255,255,0.55)'} />
-      ))}
-      {dates && xs.map((x, i) => (
-        <text key={`d${i}`} x={x} y={h + 12}
-          textAnchor={i === 0 ? 'start' : i === xs.length - 1 ? 'end' : 'middle'}
-          fontSize="7" fill="rgba(255,255,255,0.45)" fontFamily="inherit">
-          {fmtSparkDate(dates[i])}
-        </text>
+        <circle key={i} cx={x} cy={ys[i]}
+          r={aIdx === i ? 5 : i === xs.length - 1 ? 4 : 2.5}
+          fill={aIdx === i ? '#fff' : i === xs.length - 1 ? '#fff' : 'rgba(255,255,255,0.55)'} />
       ))}
       {milestones && xs.map((x, i) => milestones.has(i) ? (
         <text key={`ms${i}`} x={x} y={ys[i] - 7}
           textAnchor="middle" fontSize="9" fill="#FFD700" fontFamily="inherit">★</text>
       ) : null)}
+      {aIdx != null && <>
+        <line x1={xs[aIdx]} y1={pad} x2={xs[aIdx]} y2={h}
+          stroke="rgba(255,255,255,0.4)" strokeWidth="1" strokeDasharray="2,3" />
+        <text x={xs[aIdx]} y={h + 12} textAnchor={dateAnchor}
+          fontSize="7" fill="rgba(255,255,255,0.9)" fontFamily="inherit" fontWeight="700">
+          {dates ? fmtSparkDate(dates[aIdx]) : ''}
+        </text>
+      </>}
     </svg>
   );
 }
