@@ -40,6 +40,9 @@
    SQL — Run once in your Supabase SQL Editor
   ══════════════════════════════════════════════
 
+  -- Próxima clase: run once in Supabase SQL Editor
+  ALTER TABLE public.students ADD COLUMN IF NOT EXISTS next_class DATE;
+
   -- Update get_public_student to include coach profile:
   CREATE OR REPLACE FUNCTION public.get_public_student(public_student_id uuid)
   RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
@@ -2969,6 +2972,21 @@ function PublicReportScreen({ studentId }) {
         <div className="pub-student-name">{student.name}</div>
         {latest && <div className="pub-date">{formatFullDateEs(latest.date)}</div>}
 
+        {student.next_class && (
+          <div style={{
+            display:'inline-flex', alignItems:'center', gap:8,
+            background:'var(--green-soft)', borderRadius:12,
+            padding:'8px 14px', marginBottom:20
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green-dark)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span style={{fontSize:'0.82rem', color:'var(--green-dark)', fontWeight:600}}>
+              Próxima clase: {formatFullDateEs(student.next_class)}
+            </span>
+          </div>
+        )}
+
         {worked && (
           <div className="pub-section">
             <div className="pub-sec-hdr">
@@ -3195,9 +3213,10 @@ const SKILL_DEFS = [
 ];
 
 function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
-  const [name, setName]     = useState(student.name || '');
-  const [level, setLevel]   = useState(student.level || '');
-  const [skills, setSkills] = useState(student.skills || {});
+  const [name, setName]         = useState(student.name || '');
+  const [level, setLevel]       = useState(student.level || '');
+  const [skills, setSkills]     = useState(student.skills || {});
+  const [nextClass, setNextClass] = useState(student.next_class || '');
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -3226,7 +3245,7 @@ function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
       }
 
       const { data, error } = await sb.from('students')
-        .update({ name: name.trim(), level: level || null, skills: newSkillsVal, skill_history: newHistory })
+        .update({ name: name.trim(), level: level || null, skills: newSkillsVal, skill_history: newHistory, next_class: nextClass || null })
         .eq('id', student.id)
         .select().single();
       if (error) throw error;
@@ -3265,6 +3284,14 @@ function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
                 onClick={() => setLevel(level === l ? '' : l)} />
             ))}
           </div>
+        </div>
+        <div className="form-field">
+          <label className="field-label">
+            Próxima clase
+            <span style={{color:'var(--text-hint)', fontWeight:400, textTransform:'none', letterSpacing:0}}> · opcional</span>
+          </label>
+          <input type="date" className="field-input" value={nextClass}
+            onChange={e => setNextClass(e.target.value)} />
         </div>
 
         {/* Skill scores */}
