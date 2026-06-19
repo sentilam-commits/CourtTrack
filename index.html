@@ -3813,14 +3813,9 @@ function ProgressSection({ student }) {
             }}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
                 <div style={{fontSize:'0.78rem', fontWeight:700, color:'var(--text-primary)'}}>{label}</div>
-                <div style={{display:'flex', alignItems:'baseline', gap:4}}>
-                  {delta > 0 && (
-                    <span style={{fontSize:'0.68rem', fontWeight:800, color:'#2E7A4B'}}>+{delta}</span>
-                  )}
-                  <span style={{fontSize:'0.78rem', fontWeight:800, color:'var(--green-dark)'}}>
-                    {score}<span style={{fontSize:'0.65rem', color:'var(--text-hint)', fontWeight:600}}>/10</span>
-                  </span>
-                </div>
+                <span style={{fontSize:'0.78rem', fontWeight:800, color:'var(--green-dark)'}}>
+                  {score}<span style={{fontSize:'0.65rem', color:'var(--text-hint)', fontWeight:600}}>/10</span>
+                </span>
               </div>
               <div style={{height:5, borderRadius:99, background:'var(--border)', marginBottom:8, overflow:'hidden'}}>
                 <div style={{
@@ -3829,7 +3824,12 @@ function ProgressSection({ student }) {
                   transition:'width 0.6s ease',
                 }} />
               </div>
-              <StatusBadge status={skillStatus(score)} />
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <StatusBadge status={skillStatus(score)} />
+                {delta > 0 && (
+                  <span style={{fontSize:'0.72rem', fontWeight:700, color:'#2E7A4B'}}>↑ +{delta}</span>
+                )}
+              </div>
             </div>
           );
         });
