@@ -3782,7 +3782,7 @@ function Sparkline({ points, dates, milestones }) {
 
   return (
     <svg ref={svgRef} width={w} height={h + 14} viewBox={`0 0 ${w} ${h + 14}`}
-      style={{overflow:'visible', touchAction:'none'}}
+      style={{overflow:'visible', touchAction:'none', userSelect:'none', WebkitUserSelect:'none'}}
       onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       <path d={fill} fill="rgba(255,255,255,0.12)" />
       <path d={d} fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -3798,7 +3798,7 @@ function Sparkline({ points, dates, milestones }) {
         </circle>
       )}
       {milestones && xs.map((x, i) => milestones.has(i) ? (
-        <text key={`ms${i}`} x={x} y={ys[i] - 7}
+        <text key={`ms${i}`} x={x} y={ys[i] - 7} pointerEvents="none"
           textAnchor="middle" fontSize="9" fill="#FFD700" fontFamily="inherit">★</text>
       ) : null)}
       {dates && hinted && <>
