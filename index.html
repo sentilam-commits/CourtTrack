@@ -3697,7 +3697,14 @@ function StatusBadge({ status }) {
   );
 }
 
-function Sparkline({ points }) {
+function fmtSparkDate(d) {
+  if (!d) return '';
+  const [, m, day] = d.split('-');
+  const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return `${parseInt(day)}-${months[parseInt(m)-1]}`;
+}
+
+function Sparkline({ points, dates }) {
   const w = 120, h = 32, pad = 4;
   const min = Math.min(...points), max = Math.max(...points);
   const range = max - min || 1;
@@ -3706,12 +3713,19 @@ function Sparkline({ points }) {
   const d = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x},${ys[i]}`).join(' ');
   const fill = `${d} L${xs[xs.length-1]},${h} L${xs[0]},${h} Z`;
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{overflow:'visible'}}>
+    <svg width={w} height={h + 14} viewBox={`0 0 ${w} ${h + 14}`} style={{overflow:'visible'}}>
       <path d={fill} fill="rgba(255,255,255,0.12)" />
       <path d={d} fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       {xs.map((x, i) => (
         <circle key={i} cx={x} cy={ys[i]} r={i === xs.length - 1 ? 4 : 2.5}
           fill={i === xs.length - 1 ? '#fff' : 'rgba(255,255,255,0.55)'} />
+      ))}
+      {dates && xs.map((x, i) => (
+        <text key={`d${i}`} x={x} y={h + 12}
+          textAnchor={i === 0 ? 'start' : i === xs.length - 1 ? 'end' : 'middle'}
+          fontSize="7" fill="rgba(255,255,255,0.45)" fontFamily="inherit">
+          {fmtSparkDate(dates[i])}
+        </text>
       ))}
     </svg>
   );
@@ -3779,16 +3793,19 @@ function ProgressSection({ student }) {
         </div>
         {sparkPoints && (
           <div style={{paddingBottom: 4}}>
-            <Sparkline points={sparkPoints} />
+            <Sparkline points={sparkPoints} dates={history.map(h => h.date)} />
           </div>
         )}
       </div>
 
       {/* Skill cards — 2 col grid */}
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10}}>
-        {SKILL_DEFS.map(({ key, label }) => {
+        {(() => {
+          const prevSkills = history.length >= 2 ? history[history.length - 2].skills : null;
+          return SKILL_DEFS.map(({ key, label }) => {
           const score = raw[key];
           if (score == null) return null;
+          const delta = prevSkills?.[key] != null ? score - prevSkills[key] : null;
           return (
             <div key={key} style={{
               background:'var(--white)', border:'1px solid var(--border)',
@@ -3796,8 +3813,13 @@ function ProgressSection({ student }) {
             }}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
                 <div style={{fontSize:'0.78rem', fontWeight:700, color:'var(--text-primary)'}}>{label}</div>
-                <div style={{fontSize:'0.78rem', fontWeight:800, color:'var(--green-dark)'}}>
-                  {score}<span style={{fontSize:'0.65rem', color:'var(--text-hint)', fontWeight:600}}>/10</span>
+                <div style={{display:'flex', alignItems:'baseline', gap:4}}>
+                  {delta > 0 && (
+                    <span style={{fontSize:'0.68rem', fontWeight:800, color:'#2E7A4B'}}>+{delta}</span>
+                  )}
+                  <span style={{fontSize:'0.78rem', fontWeight:800, color:'var(--green-dark)'}}>
+                    {score}<span style={{fontSize:'0.65rem', color:'var(--text-hint)', fontWeight:600}}>/10</span>
+                  </span>
                 </div>
               </div>
               <div style={{height:5, borderRadius:99, background:'var(--border)', marginBottom:8, overflow:'hidden'}}>
@@ -3810,7 +3832,8 @@ function ProgressSection({ student }) {
               <StatusBadge status={skillStatus(score)} />
             </div>
           );
-        })}
+        });
+        })()}
       </div>
 
       {/* Últimas clases — desde historial real */}
