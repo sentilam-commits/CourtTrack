@@ -3225,12 +3225,89 @@ function EditProfileScreen({ user, profile, onBack, onSaved, onDeleted }) {
 
 
 // ── S10 Edit Student ─────────────────────────────────────────
-const SKILL_DEFS = [
-  { key: 'defensa',         label: 'Defensa'         },
-  { key: 'volea',           label: 'Volea'           },
-  { key: 'posicionamiento', label: 'Posicionamiento' },
-  { key: 'confianza',       label: 'Confianza'       },
+const SKILL_CATALOG = [
+  { cat: 'Fundamentos', aspects: [
+    { key: 'saque',          label: 'Saque' },
+    { key: 'resto',          label: 'Resto' },
+    { key: 'derecha_fondo',  label: 'Derecha de fondo' },
+    { key: 'reves_fondo',    label: 'Revés de fondo' },
+    { key: 'defensa_pared',  label: 'Defensa / salida de pared' },
+  ]},
+  { cat: 'Red y voleas', aspects: [
+    { key: 'volea_derecha',  label: 'Volea de derecha' },
+    { key: 'volea_reves',    label: 'Volea de revés' },
+    { key: 'dejada',         label: 'Dejada' },
+    { key: 'chiquita',       label: 'Chiquita' },
+  ]},
+  { cat: 'Ataque', aspects: [
+    { key: 'bandeja',            label: 'Bandeja' },
+    { key: 'remate',             label: 'Remate' },
+    { key: 'vibora',             label: 'Víbora' },
+    { key: 'bandeja_tres_cuatro',label: 'Bandeja por tres / cuatro' },
+    { key: 'remate_cristal',     label: 'Remate por cristal' },
+    { key: 'rulo',               label: 'Rulo' },
+    { key: 'saque_efecto',       label: 'Saque con efecto' },
+  ]},
+  { cat: 'Defensa y paredes', aspects: [
+    { key: 'globo',        label: 'Globo (lob)' },
+    { key: 'contrapared',  label: 'Contrapared' },
+    { key: 'uso_paredes',  label: 'Uso de paredes' },
+  ]},
+  { cat: 'Táctica y juego en pareja', aspects: [
+    { key: 'posicion_cancha',   label: 'Posición en cancha' },
+    { key: 'juego_pareja',      label: 'Juego en pareja (bloque)' },
+    { key: 'transiciones',      label: 'Transiciones defensa-ataque' },
+    { key: 'cuando_globear',    label: 'Cuándo globear vs. pegar' },
+    { key: 'construccion_punto',label: 'Construcción del punto' },
+    { key: 'atacar_debil',      label: 'Atacar al más débil' },
+    { key: 'lectura_rival',     label: 'Lectura del rival' },
+    { key: 'comunicacion',      label: 'Comunicación constante' },
+    { key: 'bola_medio',        label: 'Bola del medio' },
+    { key: 'cubrir_companero',  label: 'Cubrir al compañero' },
+  ]},
+  { cat: 'Físico', aspects: [
+    { key: 'juego_pies',   label: 'Juego de pies' },
+    { key: 'agilidad',     label: 'Agilidad y cambios de dirección' },
+    { key: 'resistencia',  label: 'Resistencia' },
+  ]},
+  { cat: 'Mental', aspects: [
+    { key: 'concentracion',   label: 'Concentración punto a punto' },
+    { key: 'manejo_error',    label: 'Manejo del error y frustración' },
+    { key: 'gestion_presion', label: 'Gestión de presión' },
+  ]},
+  { cat: 'Reglas', aspects: [
+    { key: 'puntuacion',   label: 'Puntuación' },
+    { key: 'reglas_saque', label: 'Reglas del saque' },
+  ]},
 ];
+
+// Legacy keys from the original 4-skill model — kept so existing students render.
+const LEGACY_LABELS = { defensa:'Defensa', volea:'Volea', posicionamiento:'Posicionamiento', confianza:'Confianza' };
+
+const ASPECT_LABELS = (() => {
+  const m = { ...LEGACY_LABELS };
+  SKILL_CATALOG.forEach(c => c.aspects.forEach(a => { m[a.key] = a.label; }));
+  return m;
+})();
+
+const CATALOG_ORDER = (() => {
+  const order = [];
+  SKILL_CATALOG.forEach(c => c.aspects.forEach(a => order.push(a.key)));
+  Object.keys(LEGACY_LABELS).forEach(k => order.push(k));
+  return order;
+})();
+
+function labelFor(key) { return ASPECT_LABELS[key] || key; }
+
+// Ordered list of {key,label} for the aspects a student actually has scored.
+function scoredAspects(skills) {
+  if (!skills) return [];
+  const seen = new Set();
+  const out = [];
+  CATALOG_ORDER.forEach(k => { if (skills[k] != null) { out.push({ key: k, label: labelFor(k) }); seen.add(k); } });
+  Object.keys(skills).forEach(k => { if (!seen.has(k) && skills[k] != null) out.push({ key: k, label: labelFor(k) }); });
+  return out;
+}
 
 function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
   const [name, setName]         = useState(student.name || '');
@@ -3241,10 +3318,24 @@ function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
   const [error, setError]           = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting]     = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [customName, setCustomName] = useState('');
   const levels = ['Iniciación', 'Básico', 'Intermedio', 'Avanzado'];
 
   function setSkill(key, val) {
     setSkills(s => ({ ...s, [key]: Math.min(10, Math.max(1, val)) }));
+  }
+  function addSkill(key) {
+    setSkills(s => s[key] != null ? s : ({ ...s, [key]: 5 }));
+  }
+  function removeSkill(key) {
+    setSkills(s => { const n = { ...s }; delete n[key]; return n; });
+  }
+  function addCustom() {
+    const k = customName.trim();
+    if (!k) return;
+    addSkill(k);
+    setCustomName('');
   }
 
   async function save() {
@@ -3318,17 +3409,22 @@ function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
         <div className="form-field" style={{marginTop:24}}>
           <label className="field-label">Evaluación de habilidades</label>
           <p style={{fontSize:'0.78rem', color:'var(--text-secondary)', marginTop:2, marginBottom:12, lineHeight:1.4}}>
-            Puntuación del 1 al 10. Se muestra al alumno en su sección de progreso.
+            Puntuación del 1 al 10. Solo los aspectos que añadas aquí se le muestran al alumno.
           </p>
           <div style={{display:'flex', flexDirection:'column', gap:10}}>
-            {SKILL_DEFS.map(({ key, label }) => {
+            {scoredAspects(skills).map(({ key, label }) => {
               const val = skills[key];
               return (
                 <div key={key} style={{
-                  display:'flex', alignItems:'center',
+                  display:'flex', alignItems:'center', gap:8,
                   background:'var(--white)', border:'1px solid var(--border)',
                   borderRadius:12, padding:'10px 14px',
                 }}>
+                  <button onClick={() => removeSkill(key)} aria-label={`Quitar ${label}`} style={{
+                    width:24, height:24, borderRadius:6, border:'none', flexShrink:0,
+                    background:'var(--bg)', color:'var(--text-hint)', cursor:'pointer',
+                    fontSize:'1rem', lineHeight:1, display:'flex', alignItems:'center', justifyContent:'center',
+                  }}>×</button>
                   <span style={{flex:1, fontSize:'0.88rem', fontWeight:600, color:'var(--text-primary)'}}>{label}</span>
                   <div style={{display:'flex', alignItems:'center', gap:0}}>
                     <button onClick={() => setSkill(key, (val || 5) - 1)} style={{
@@ -3351,7 +3447,64 @@ function EditStudentScreen({ student, onBack, onSaved, onDeleted }) {
                 </div>
               );
             })}
+            {scoredAspects(skills).length === 0 && (
+              <p style={{fontSize:'0.82rem', color:'var(--text-hint)', textAlign:'center', padding:'8px 0'}}>
+                Aún no has añadido aspectos.
+              </p>
+            )}
           </div>
+
+          {!pickerOpen ? (
+            <button onClick={() => setPickerOpen(true)} style={{
+              marginTop:12, width:'100%', padding:'11px', borderRadius:12,
+              border:'1.5px dashed var(--border)', background:'var(--bg)',
+              color:'var(--green-dark)', fontSize:'0.88rem', fontWeight:700, cursor:'pointer',
+            }}>+ Añadir aspecto</button>
+          ) : (
+            <div style={{marginTop:12, border:'1px solid var(--border)', borderRadius:14, padding:'14px', background:'var(--bg)'}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
+                <span style={{fontSize:'0.82rem', fontWeight:700, color:'var(--text-primary)'}}>Catálogo de aspectos</span>
+                <button onClick={() => setPickerOpen(false)} aria-label="Cerrar" style={{
+                  background:'none', border:'none', color:'var(--text-secondary)', cursor:'pointer',
+                  fontSize:'1.1rem', lineHeight:1, padding:0,
+                }}>×</button>
+              </div>
+              <div style={{display:'flex', flexDirection:'column', gap:14, maxHeight:320, overflowY:'auto'}}>
+                {SKILL_CATALOG.map(({ cat, aspects }) => (
+                  <div key={cat}>
+                    <div style={{fontSize:'0.68rem', fontWeight:700, letterSpacing:'0.06em', color:'var(--text-secondary)', textTransform:'uppercase', marginBottom:6}}>{cat}</div>
+                    <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
+                      {aspects.map(({ key, label }) => {
+                        const added = skills[key] != null;
+                        return (
+                          <button key={key} disabled={added} onClick={() => addSkill(key)} style={{
+                            fontSize:'0.78rem', fontWeight:600, padding:'6px 11px', borderRadius:100,
+                            cursor: added ? 'default' : 'pointer',
+                            border: added ? '1px solid var(--green-mid)' : '1px solid var(--border)',
+                            background: added ? 'var(--green-soft)' : 'var(--white)',
+                            color: added ? 'var(--green-dark)' : 'var(--text-primary)',
+                          }}>{added ? '✓ ' : '+ '}{label}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginTop:14, paddingTop:14, borderTop:'1px solid var(--border)'}}>
+                <div style={{fontSize:'0.68rem', fontWeight:700, letterSpacing:'0.06em', color:'var(--text-secondary)', textTransform:'uppercase', marginBottom:6}}>Escribir uno propio</div>
+                <div style={{display:'flex', gap:8}}>
+                  <input className="field-input" value={customName} placeholder="Ej: Salida en x"
+                    onChange={e => setCustomName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustom())}
+                    style={{flex:1}} />
+                  <button onClick={addCustom} style={{
+                    padding:'0 16px', borderRadius:10, border:'none', background:'var(--green-dark)',
+                    color:'white', fontSize:'0.85rem', fontWeight:700, cursor:'pointer', whiteSpace:'nowrap',
+                  }}>Añadir</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Delete student section */}
@@ -3853,10 +4006,36 @@ function AnimatedScore({ value, delay = 0, start = true, decimals = 0 }) {
   return <>{decimals > 0 ? display.toFixed(decimals) : display}</>;
 }
 
-function historyAvg(entry) {
-  const keys = SKILL_DEFS.filter(d => entry.skills[d.key] != null);
-  if (!keys.length) return 0;
-  return parseFloat((keys.reduce((s, d) => s + entry.skills[d.key], 0) / keys.length).toFixed(1));
+// A+C progress: each history point averages only the aspects that were
+// "established" at that time. An aspect counts once it's in the original
+// baseline (history[0]) OR has improved at least once since it was added —
+// so adding a new low-scored aspect never drops the headline or the graph.
+function computeProgress(student) {
+  const current = student?.skills || {};
+  const history = student?.skill_history || [];
+  const keysNow = Object.keys(current).filter(k => current[k] != null);
+  if (!keysNow.length) return null;
+
+  const firstVal = {};
+  history.forEach(snap => Object.keys(snap.skills || {}).forEach(k => {
+    if (firstVal[k] == null) firstVal[k] = snap.skills[k];
+  }));
+  keysNow.forEach(k => { if (firstVal[k] == null) firstVal[k] = current[k]; });
+  const baseline = new Set(history.length ? Object.keys(history[0].skills || {}) : keysNow);
+
+  const isEstablished = (k, val) => baseline.has(k) || val > firstVal[k];
+
+  const avgEstablished = (skills) => {
+    const all = Object.keys(skills).filter(k => skills[k] != null);
+    const est = all.filter(k => isEstablished(k, skills[k]));
+    const use = est.length ? est : all;
+    if (!use.length) return 0;
+    return parseFloat((use.reduce((s, k) => s + skills[k], 0) / use.length).toFixed(1));
+  };
+
+  const overall = avgEstablished(current);
+  const sparkPoints = history.length >= 2 ? history.map(snap => avgEstablished(snap.skills || {})) : null;
+  return { overall, sparkPoints, isEstablished };
 }
 
 function ProgressSection({ student }) {
@@ -3886,15 +4065,15 @@ function ProgressSection({ student }) {
   }, []);
   const raw = student?.skills || {};
   const history = student?.skill_history || [];
-  const scored = SKILL_DEFS.filter(d => raw[d.key] != null);
+  const prog = computeProgress(student);
 
-  if (scored.length === 0) return null;
+  if (!prog) return null;
 
-  const overall = (scored.reduce((s, d) => s + raw[d.key], 0) / scored.length).toFixed(1);
+  const { overall, sparkPoints, isEstablished } = prog;
+  const overallStr = overall.toFixed(1);
+  const aspects = scoredAspects(raw);
 
-  // Sparkline only when there are 2+ history entries
-  const sparkPoints = history.length >= 2 ? history.map(historyAvg) : null;
-  const delta = sparkPoints ? (parseFloat(overall) - sparkPoints[0]).toFixed(1) : null;
+  const delta = sparkPoints ? (overall - sparkPoints[0]).toFixed(1) : null;
   const milestones = sparkPoints ? (() => {
     const s = new Set();
     for (let i = 1; i < sparkPoints.length; i++) {
@@ -3930,7 +4109,7 @@ function ProgressSection({ student }) {
             PROGRESO GENERAL
           </div>
           <div style={{fontSize:'3rem', fontWeight:800, color:'#fff', lineHeight:1, marginBottom:4}}>
-            <AnimatedScore value={parseFloat(overall)} decimals={1} start={overallStart} />
+            <AnimatedScore value={overall} decimals={1} start={overallStart} />
           </div>
           <div style={{fontSize:'0.78rem', color:'rgba(255,255,255,0.65)', display:'flex', alignItems:'center', gap:4}}>
             {delta != null ? (
@@ -3956,10 +4135,11 @@ function ProgressSection({ student }) {
       <div ref={gridRef} style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10}}>
         {(() => {
           const prevSkills = history.length >= 2 ? history[history.length - 2].skills : null;
-          return SKILL_DEFS.map(({ key, label }, idx) => {
+          return aspects.map(({ key, label }, idx) => {
           const score = raw[key];
           if (score == null) return null;
           const delta = prevSkills?.[key] != null ? score - prevSkills[key] : null;
+          const isNew = !isEstablished(key, score);
           const delay = idx * 180;
           return (
             <div key={key} style={{
@@ -3968,7 +4148,10 @@ function ProgressSection({ student }) {
               animation:`card-in 0.35s ease-out ${delay}ms both`,
             }}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
-                <div style={{fontSize:'0.78rem', fontWeight:700, color:'var(--text-primary)'}}>{label}</div>
+                <div style={{fontSize:'0.78rem', fontWeight:700, color:'var(--text-primary)', display:'flex', alignItems:'center', gap:5, flexWrap:'wrap'}}>
+                  {label}
+                  {isNew && <span style={{fontSize:'0.58rem', fontWeight:800, letterSpacing:'0.05em', color:'var(--blue-slate)', background:'#DCE9F1', borderRadius:20, padding:'1px 6px'}}>NUEVO</span>}
+                </div>
                 <span style={{fontSize:'0.78rem', fontWeight:800, color: score >= 10 ? 'var(--blue-slate)' : 'var(--green-dark)'}}>
                   <AnimatedScore value={score} delay={delay} start={barFill} />
                   <span style={{fontSize:'0.65rem', color:'var(--text-hint)', fontWeight:600}}>/10</span>
@@ -4008,8 +4191,9 @@ function ProgressSection({ student }) {
 
               if (!prevEntry) {
                 // Primera entrada — mostrar habilidad con puntuación más alta
-                const topSkill = SKILL_DEFS
-                  .filter(d => entry.skills[d.key] != null)
+                const topSkill = Object.keys(entry.skills || {})
+                  .filter(k => entry.skills[k] != null)
+                  .map(k => ({ key: k, label: labelFor(k) }))
                   .sort((a, b) => entry.skills[b.key] - entry.skills[a.key])[0];
                 if (!topSkill) return null;
                 return (
@@ -4026,9 +4210,9 @@ function ProgressSection({ student }) {
               }
 
               // Mostrar el cambio más grande respecto a la clase anterior
-              const changes = SKILL_DEFS
-                .filter(d => entry.skills[d.key] != null && prevEntry.skills[d.key] != null)
-                .map(d => ({ label: d.label, from: prevEntry.skills[d.key], to: entry.skills[d.key], diff: Math.abs(entry.skills[d.key] - prevEntry.skills[d.key]) }))
+              const changes = Object.keys(entry.skills || {})
+                .filter(k => entry.skills[k] != null && prevEntry.skills[k] != null)
+                .map(k => ({ label: labelFor(k), from: prevEntry.skills[k], to: entry.skills[k], diff: Math.abs(entry.skills[k] - prevEntry.skills[k]) }))
                 .filter(c => c.diff > 0)
                 .sort((a, b) => b.diff - a.diff);
 
