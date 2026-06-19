@@ -3831,13 +3831,14 @@ function Sparkline({ points, dates, milestones }) {
   );
 }
 
-function AnimatedScore({ value, delay = 0 }) {
+function AnimatedScore({ value, delay = 0, start = true }) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
+    if (!start) return;
     const t = setTimeout(() => {
-      const start = Date.now(), dur = 600;
+      const begin = Date.now(), dur = 1000;
       function tick() {
-        const progress = Math.min((Date.now() - start) / dur, 1);
+        const progress = Math.min((Date.now() - begin) / dur, 1);
         const eased = 1 - Math.pow(1 - progress, 3);
         setDisplay(Math.round(eased * value));
         if (progress < 1) requestAnimationFrame(tick);
@@ -3845,7 +3846,7 @@ function AnimatedScore({ value, delay = 0 }) {
       requestAnimationFrame(tick);
     }, delay);
     return () => clearTimeout(t);
-  }, [value, delay]);
+  }, [value, delay, start]);
   return <>{display}</>;
 }
 
@@ -3857,7 +3858,17 @@ function historyAvg(entry) {
 
 function ProgressSection({ student }) {
   const [barFill, setBarFill] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setBarFill(true), 60); return () => clearTimeout(t); }, []);
+  const gridRef = useRef(null);
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    if (!('IntersectionObserver' in window)) { setBarFill(true); return; }
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) { setBarFill(true); obs.disconnect(); }
+    }, { threshold: 0.25 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
   const raw = student?.skills || {};
   const history = student?.skill_history || [];
   const scored = SKILL_DEFS.filter(d => raw[d.key] != null);
@@ -3927,7 +3938,7 @@ function ProgressSection({ student }) {
       </div>
 
       {/* Skill cards — 2 col grid */}
-      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10}}>
+      <div ref={gridRef} style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10}}>
         {(() => {
           const prevSkills = history.length >= 2 ? history[history.length - 2].skills : null;
           return SKILL_DEFS.map(({ key, label }, idx) => {
@@ -3944,7 +3955,7 @@ function ProgressSection({ student }) {
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
                 <div style={{fontSize:'0.78rem', fontWeight:700, color:'var(--text-primary)'}}>{label}</div>
                 <span style={{fontSize:'0.78rem', fontWeight:800, color:'var(--green-dark)'}}>
-                  <AnimatedScore value={score} delay={delay} />
+                  <AnimatedScore value={score} delay={delay} start={barFill} />
                   <span style={{fontSize:'0.65rem', color:'var(--text-hint)', fontWeight:600}}>/10</span>
                 </span>
               </div>
@@ -3953,14 +3964,14 @@ function ProgressSection({ student }) {
                   height:'100%', borderRadius:99,
                   width: barFill ? `${score * 10}%` : '0%',
                   background: score >= 7 ? 'var(--green-mid)' : score >= 5 ? 'var(--orange)' : '#c0392b',
-                  transition: `width 0.6s ease-out ${delay}ms`,
+                  transition: `width 1s cubic-bezier(0.25,0.8,0.3,1) ${delay}ms`,
                 }} />
               </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                 <StatusBadge status={skillStatus(score)} />
-                {delta > 0 && (
+                {delta > 0 && barFill && (
                   <span style={{fontSize:'0.72rem', fontWeight:700, color:'#2E7A4B',
-                    animation:`pop-in 0.3s ease-out ${delay + 400}ms both`}}>↑ +{delta}</span>
+                    animation:`pop-in 0.3s ease-out ${delay + 700}ms both`}}>↑ +{delta}</span>
                 )}
               </div>
             </div>
