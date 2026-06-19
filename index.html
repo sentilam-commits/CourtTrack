@@ -2617,21 +2617,46 @@ function ShareScreen({ student, savedOffline, savedLog, onHome }) {
 // ── S7 Public Report ─────────────────────────────────────────
 async function downloadMedia(url, type) {
   const fileName = type === 'video' ? 'video-padel.mp4' : 'foto-padel.jpg';
+
+  function anchorDownload(blobUrl) {
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+  }
+
   try {
     const res = await fetch(url);
     const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
     const file = new File([blob], fileName, { type: blob.type });
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'Padel Log' });
-    } else {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = fileName;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(a.href);
+
+    // iOS Safari / Android: Web Share API con archivo
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'Padel Log' });
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+        return;
+      } catch(shareErr) {
+        // AbortError = alumno canceló el share sheet → no hacer nada
+        if (shareErr.name === 'AbortError') {
+          URL.revokeObjectURL(blobUrl);
+          return;
+        }
+        // Cualquier otro error → intentar descarga directa
+        anchorDownload(blobUrl);
+        return;
+      }
     }
-  } catch(e) {
+
+    // Desktop / Android Chrome: descarga directa
+    anchorDownload(blobUrl);
+
+  } catch {
+    // fetch falló (sin conexión o WebView bloqueado) → abrir URL directa
     window.open(url, '_blank');
   }
 }
