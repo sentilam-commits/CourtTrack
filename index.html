@@ -3833,23 +3833,24 @@ function Sparkline({ points, dates, milestones }) {
   );
 }
 
-function AnimatedScore({ value, delay = 0, start = true }) {
+function AnimatedScore({ value, delay = 0, start = true, decimals = 0 }) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
     if (!start) return;
+    const factor = Math.pow(10, decimals);
     const t = setTimeout(() => {
       const begin = Date.now(), dur = 1400;
       function tick() {
         const progress = Math.min((Date.now() - begin) / dur, 1);
         const eased = 1 - Math.pow(1 - progress, 3);
-        setDisplay(Math.round(eased * value));
+        setDisplay(Math.round(eased * value * factor) / factor);
         if (progress < 1) requestAnimationFrame(tick);
       }
       requestAnimationFrame(tick);
     }, delay);
     return () => clearTimeout(t);
-  }, [value, delay, start]);
-  return <>{display}</>;
+  }, [value, delay, start, decimals]);
+  return <>{decimals > 0 ? display.toFixed(decimals) : display}</>;
 }
 
 function historyAvg(entry) {
@@ -3860,7 +3861,9 @@ function historyAvg(entry) {
 
 function ProgressSection({ student }) {
   const [barFill, setBarFill] = useState(false);
+  const [overallStart, setOverallStart] = useState(false);
   const gridRef = useRef(null);
+  const headerRef = useRef(null);
   useEffect(() => {
     const el = gridRef.current;
     if (!el) return;
@@ -3868,6 +3871,16 @@ function ProgressSection({ student }) {
     const obs = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting) { setBarFill(true); obs.disconnect(); }
     }, { threshold: 0.25 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    if (!('IntersectionObserver' in window)) { setOverallStart(true); return; }
+    const obs = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) { setOverallStart(true); obs.disconnect(); }
+    }, { threshold: 0.5 });
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
@@ -3907,7 +3920,7 @@ function ProgressSection({ student }) {
       <div className="section-label" style={{marginBottom: 10}}>TU PROGRESO</div>
 
       {/* Main card */}
-      <div style={{
+      <div ref={headerRef} style={{
         background: 'var(--green-dark)', borderRadius: 18,
         padding: '20px 20px 16px', marginBottom: 10,
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
@@ -3917,7 +3930,7 @@ function ProgressSection({ student }) {
             PROGRESO GENERAL
           </div>
           <div style={{fontSize:'3rem', fontWeight:800, color:'#fff', lineHeight:1, marginBottom:4}}>
-            {overall}
+            <AnimatedScore value={parseFloat(overall)} decimals={1} start={overallStart} />
           </div>
           <div style={{fontSize:'0.78rem', color:'rgba(255,255,255,0.65)', display:'flex', alignItems:'center', gap:4}}>
             {delta != null ? (
