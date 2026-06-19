@@ -708,6 +708,8 @@
       background: var(--white); border: 1px solid var(--border);
       border-radius: 14px; padding: 16px;
     }
+    .hist-card--clickable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .hist-card--clickable:active { background: var(--bg); }
     .hist-card-header {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
     }
@@ -2835,21 +2837,27 @@ function HistCard({ log }) {
   const mediaLabel = log.media_type === 'video' ? 'VIDEO' : 'IMAGEN';
   const hasExtra = workedText || improvedText || correctionText || homeworkText || visualText || hasMedia;
   return (
-    <div className="hist-card">
+    <div
+      className={`hist-card${hasExtra ? ' hist-card--clickable' : ''}`}
+      onClick={hasExtra ? () => setExpanded(e => !e) : undefined}
+    >
       <div className="hist-card-header">
         <div>
           <div className="hist-date">{shortDateEs(log.date)}</div>
           <div className="hist-title">{fArr.join(' y ') || 'Clase'}</div>
         </div>
-        {fArr[0] && <div className="hist-tag">✓ {fArr[0]}</div>}
+        <div style={{display:'flex', alignItems:'center', gap:8}}>
+          {fArr[0] && <div className="hist-tag">✓ {fArr[0]}</div>}
+          {hasExtra && (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="var(--text-secondary)" strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round"
+              style={{flexShrink:0, transition:'transform 0.2s', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)'}}>
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          )}
+        </div>
       </div>
-      {hasExtra && (
-        <button className="hist-ver-mas" onClick={() => setExpanded(e => !e)}>
-          {expanded
-            ? <><span>▲</span> Ver menos</>
-            : <><span>▼</span> Ver más</>}
-        </button>
-      )}
       {expanded && (
         <div className="hist-card-body">
           {workedText && (
