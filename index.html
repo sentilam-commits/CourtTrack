@@ -3738,7 +3738,7 @@ function fmtSparkDate(d) {
   return `${parseInt(day)}-${months[parseInt(m)-1]}`;
 }
 
-function Sparkline({ points, dates }) {
+function Sparkline({ points, dates, milestones }) {
   const w = 120, h = 32, pad = 4;
   const min = Math.min(...points), max = Math.max(...points);
   const range = max - min || 1;
@@ -3761,6 +3761,10 @@ function Sparkline({ points, dates }) {
           {fmtSparkDate(dates[i])}
         </text>
       ))}
+      {milestones && xs.map((x, i) => milestones.has(i) ? (
+        <text key={`ms${i}`} x={x} y={ys[i] - 7}
+          textAnchor="middle" fontSize="9" fill="#FFD700" fontFamily="inherit">★</text>
+      ) : null)}
     </svg>
   );
 }
@@ -3783,6 +3787,14 @@ function ProgressSection({ student }) {
   // Sparkline only when there are 2+ history entries
   const sparkPoints = history.length >= 2 ? history.map(historyAvg) : null;
   const delta = sparkPoints ? (parseFloat(overall) - sparkPoints[0]).toFixed(1) : null;
+  const milestones = sparkPoints ? (() => {
+    const s = new Set();
+    for (let i = 1; i < sparkPoints.length; i++) {
+      const prev = sparkPoints[i - 1], curr = sparkPoints[i];
+      if ((prev < 7 && curr >= 7) || (prev < 5 && curr >= 5)) s.add(i);
+    }
+    return s.size > 0 ? s : null;
+  })() : null;
 
   // Last 3 entries, newest first
   const recentHistory = history.slice().reverse().slice(0, 3);
@@ -3827,7 +3839,7 @@ function ProgressSection({ student }) {
         </div>
         {sparkPoints && (
           <div style={{paddingBottom: 4}}>
-            <Sparkline points={sparkPoints} dates={history.map(h => h.date)} />
+            <Sparkline points={sparkPoints} dates={history.map(h => h.date)} milestones={milestones} />
           </div>
         )}
       </div>
