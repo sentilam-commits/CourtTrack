@@ -710,6 +710,18 @@
     }
     .hist-card--clickable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
     .hist-card--clickable:active { background: var(--bg); }
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes bar-fill {
+      from { width: 0; }
+      to   { width: var(--bar-w); }
+    }
+    @keyframes pop-in {
+      from { opacity: 0; transform: scale(0.5); }
+      to   { opacity: 1; transform: scale(1); }
+    }
     .hist-card-header {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
     }
@@ -2825,7 +2837,7 @@ function VideoPlayer({ src, maxHeight = 300, loop = false }) {
 }
 
 
-function HistCard({ log }) {
+function HistCard({ log, idx = 0 }) {
   const [expanded, setExpanded] = useState(false);
   const fArr = toArr(log.today_focus);
   const workedText = fArr.join(', ');
@@ -2840,6 +2852,7 @@ function HistCard({ log }) {
     <div
       className={`hist-card${hasExtra ? ' hist-card--clickable' : ''}`}
       onClick={hasExtra ? () => setExpanded(e => !e) : undefined}
+      style={{animation:`card-in 0.35s ease-out ${idx * 70}ms both`}}
     >
       <div className="hist-card-header">
         <div>
@@ -3097,7 +3110,7 @@ function PublicReportScreen({ studentId }) {
           <>
             <div className="pub-hist-lbl">HISTORIAL</div>
             <div className="hist-list">
-              {history.map(log => <HistCard key={log.id} log={log} />)}
+              {history.map((log, i) => <HistCard key={log.id} log={log} idx={i} />)}
             </div>
           </>
         )}
@@ -3818,6 +3831,24 @@ function Sparkline({ points, dates, milestones }) {
   );
 }
 
+function AnimatedScore({ value, delay = 0 }) {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const start = Date.now(), dur = 600;
+      function tick() {
+        const progress = Math.min((Date.now() - start) / dur, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setDisplay(Math.round(eased * value));
+        if (progress < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }, delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return <>{display}</>;
+}
+
 function historyAvg(entry) {
   const keys = SKILL_DEFS.filter(d => entry.skills[d.key] != null);
   if (!keys.length) return 0;
@@ -3897,32 +3928,37 @@ function ProgressSection({ student }) {
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10}}>
         {(() => {
           const prevSkills = history.length >= 2 ? history[history.length - 2].skills : null;
-          return SKILL_DEFS.map(({ key, label }) => {
+          return SKILL_DEFS.map(({ key, label }, idx) => {
           const score = raw[key];
           if (score == null) return null;
           const delta = prevSkills?.[key] != null ? score - prevSkills[key] : null;
+          const delay = idx * 100;
           return (
             <div key={key} style={{
               background:'var(--white)', border:'1px solid var(--border)',
               borderRadius:14, padding:'14px 14px 12px',
+              animation:`card-in 0.35s ease-out ${delay}ms both`,
             }}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
                 <div style={{fontSize:'0.78rem', fontWeight:700, color:'var(--text-primary)'}}>{label}</div>
                 <span style={{fontSize:'0.78rem', fontWeight:800, color:'var(--green-dark)'}}>
-                  {score}<span style={{fontSize:'0.65rem', color:'var(--text-hint)', fontWeight:600}}>/10</span>
+                  <AnimatedScore value={score} delay={delay} />
+                  <span style={{fontSize:'0.65rem', color:'var(--text-hint)', fontWeight:600}}>/10</span>
                 </span>
               </div>
               <div style={{height:5, borderRadius:99, background:'var(--border)', marginBottom:8, overflow:'hidden'}}>
                 <div style={{
-                  height:'100%', borderRadius:99, width:`${score * 10}%`,
+                  height:'100%', borderRadius:99,
                   background: score >= 7 ? 'var(--green-mid)' : score >= 5 ? 'var(--orange)' : '#c0392b',
-                  transition:'width 0.6s ease',
+                  animation:`bar-fill 0.6s ease-out ${delay + 80}ms both`,
+                  ['--bar-w']: `${score * 10}%`,
                 }} />
               </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                 <StatusBadge status={skillStatus(score)} />
                 {delta > 0 && (
-                  <span style={{fontSize:'0.72rem', fontWeight:700, color:'#2E7A4B'}}>↑ +{delta}</span>
+                  <span style={{fontSize:'0.72rem', fontWeight:700, color:'#2E7A4B',
+                    animation:`pop-in 0.3s ease-out ${delay + 400}ms both`}}>↑ +{delta}</span>
                 )}
               </div>
             </div>
