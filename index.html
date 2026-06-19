@@ -3723,6 +3723,7 @@ function ManageStudentsScreen({ students, onBack, onEditStudent }) {
 // ── Progress Section ──────────────────────────────────────────
 
 function skillStatus(score) {
+  if (score >= 10) return 'Dominado';
   if (score >= 7) return 'Mejorando';
   if (score >= 5) return 'Estable';
   return 'A trabajar';
@@ -3730,6 +3731,7 @@ function skillStatus(score) {
 
 function StatusBadge({ status }) {
   const map = {
+    'Dominado':   { bg: '#DCE9F1', color: '#3D6B8A' },
     'Mejorando':  { bg: '#D6EFE0', color: '#2E7A4B' },
     'Estable':    { bg: '#E8EDEC', color: '#5A7570' },
     'A trabajar': { bg: '#FDE8D4', color: '#B35A18' },
