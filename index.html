@@ -2522,7 +2522,7 @@ function ShareScreen({ student, savedOffline, savedLog, onHome }) {
   const base = location.origin.includes('localhost') || location.protocol === 'file:'
     ? 'https://padel-log-app.vercel.app'
     : location.origin;
-  const publicUrl = `${base}/#/p/${student.id}`;
+  const publicUrl = `${base}/p/${student.id}`;
   const [copied, setCopied] = useState(false);
 
   function copyLink() {
@@ -4254,7 +4254,7 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
   const shareBase = location.origin.includes('localhost') || location.protocol === 'file:'
     ? 'https://padel-log-app.vercel.app'
     : location.origin;
-  const shareUrl = `${shareBase}/#/p/${student.id}`;
+  const shareUrl = `${shareBase}/p/${student.id}`;
 
   function shareStudent() {
     if (navigator.share) {
@@ -4470,8 +4470,10 @@ function App() {
   };
 
   const publicMatch = () => {
-    const m = location.hash.match(/^#\/p\/([0-9a-f-]{36})$/i);
-    return m ? m[1] : null;
+    const pm = location.pathname.match(/^\/p\/([0-9a-f-]{36})$/i);
+    if (pm) return pm[1];
+    const hm = location.hash.match(/^#\/p\/([0-9a-f-]{36})$/i);
+    return hm ? hm[1] : null;
   };
 
   // Online/offline detection + queue flush
