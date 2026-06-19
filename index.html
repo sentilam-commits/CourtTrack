@@ -3956,7 +3956,7 @@ function ProgressSection({ student }) {
             }}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
                 <div style={{fontSize:'0.78rem', fontWeight:700, color:'var(--text-primary)'}}>{label}</div>
-                <span style={{fontSize:'0.78rem', fontWeight:800, color:'var(--green-dark)'}}>
+                <span style={{fontSize:'0.78rem', fontWeight:800, color: score >= 10 ? 'var(--blue-slate)' : 'var(--green-dark)'}}>
                   <AnimatedScore value={score} delay={delay} start={barFill} />
                   <span style={{fontSize:'0.65rem', color:'var(--text-hint)', fontWeight:600}}>/10</span>
                 </span>
@@ -3965,7 +3965,7 @@ function ProgressSection({ student }) {
                 <div style={{
                   height:'100%', borderRadius:99,
                   width: barFill ? `${score * 10}%` : '0%',
-                  background: score >= 7 ? 'var(--green-mid)' : score >= 5 ? 'var(--orange)' : '#c0392b',
+                  background: score >= 10 ? 'var(--blue-slate)' : score >= 7 ? 'var(--green-mid)' : score >= 5 ? 'var(--orange)' : '#c0392b',
                   transition: `width 1.4s cubic-bezier(0.25,0.8,0.3,1) ${delay}ms`,
                 }} />
               </div>
