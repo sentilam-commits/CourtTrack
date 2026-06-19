@@ -3856,6 +3856,8 @@ function historyAvg(entry) {
 }
 
 function ProgressSection({ student }) {
+  const [barFill, setBarFill] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setBarFill(true), 60); return () => clearTimeout(t); }, []);
   const raw = student?.skills || {};
   const history = student?.skill_history || [];
   const scored = SKILL_DEFS.filter(d => raw[d.key] != null);
@@ -3949,9 +3951,9 @@ function ProgressSection({ student }) {
               <div style={{height:5, borderRadius:99, background:'var(--border)', marginBottom:8, overflow:'hidden'}}>
                 <div style={{
                   height:'100%', borderRadius:99,
-                  width:`${score * 10}%`, transformOrigin:'left',
+                  width: barFill ? `${score * 10}%` : '0%',
                   background: score >= 7 ? 'var(--green-mid)' : score >= 5 ? 'var(--orange)' : '#c0392b',
-                  animation:`bar-fill 0.6s ease-out ${delay + 80}ms both`,
+                  transition: `width 0.6s ease-out ${delay}ms`,
                 }} />
               </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
