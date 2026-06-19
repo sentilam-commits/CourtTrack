@@ -3740,6 +3740,7 @@ function fmtSparkDate(d) {
 
 function Sparkline({ points, dates, milestones }) {
   const [activeIdx, setActiveIdx] = useState(null);
+  const [hinted, setHinted] = useState(false);
   const svgRef = useRef(null);
   const w = 120, h = 32, pad = 4;
   const min = Math.min(...points), max = Math.max(...points);
@@ -3748,6 +3749,7 @@ function Sparkline({ points, dates, milestones }) {
   const ys = points.map(v => h - pad - ((v - min) / range) * (h - pad * 2));
   const d = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x},${ys[i]}`).join(' ');
   const fill = `${d} L${xs[xs.length-1]},${h} L${xs[0]},${h} Z`;
+  const last = xs.length - 1;
 
   function getNearestIdx(touch) {
     const rect = svgRef.current.getBoundingClientRect();
@@ -3757,12 +3759,13 @@ function Sparkline({ points, dates, milestones }) {
     return best;
   }
 
-  function onTouchStart(e) { e.preventDefault(); setActiveIdx(getNearestIdx(e.touches[0])); }
+  function onTouchStart(e) { e.preventDefault(); setHinted(true); setActiveIdx(getNearestIdx(e.touches[0])); }
   function onTouchMove(e)  { e.preventDefault(); setActiveIdx(getNearestIdx(e.touches[0])); }
   function onTouchEnd()    { setActiveIdx(null); }
 
   const aIdx = activeIdx;
-  const dateAnchor = aIdx === 0 ? 'start' : aIdx === xs.length - 1 ? 'end' : 'middle';
+  const pillW = 40, pillH = 14;
+  const pillX = aIdx != null ? Math.max(0, Math.min(xs[aIdx] - pillW / 2, w - pillW)) : 0;
 
   return (
     <svg ref={svgRef} width={w} height={h + 14} viewBox={`0 0 ${w} ${h + 14}`}
@@ -3772,28 +3775,42 @@ function Sparkline({ points, dates, milestones }) {
       <path d={d} fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       {xs.map((x, i) => (
         <circle key={i} cx={x} cy={ys[i]}
-          r={aIdx === i ? 5 : i === xs.length - 1 ? 4 : 2.5}
-          fill={aIdx === i ? '#fff' : i === xs.length - 1 ? '#fff' : 'rgba(255,255,255,0.55)'} />
+          r={aIdx === i ? 5 : i === last ? 4 : 2.5}
+          fill={aIdx === i ? '#fff' : i === last ? '#fff' : 'rgba(255,255,255,0.55)'} />
       ))}
+      {aIdx == null && (
+        <circle cx={xs[last]} cy={ys[last]} r="4" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5">
+          <animate attributeName="r" from="4" to="13" dur="1.8s" repeatCount="indefinite" />
+          <animate attributeName="opacity" from="0.55" to="0" dur="1.8s" repeatCount="indefinite" />
+        </circle>
+      )}
       {milestones && xs.map((x, i) => milestones.has(i) ? (
         <text key={`ms${i}`} x={x} y={ys[i] - 7}
           textAnchor="middle" fontSize="9" fill="#FFD700" fontFamily="inherit">★</text>
       ) : null)}
-      {dates && <>
+      {dates && hinted && <>
         <text x={xs[0]} y={h + 12} textAnchor="start"
-          fontSize="7" fill={aIdx === 0 ? 'rgba(255,255,255,0)' : 'rgba(255,255,255,0.45)'} fontFamily="inherit">
+          fontSize="7" fill="rgba(255,255,255,0.45)" fontFamily="inherit">
           {fmtSparkDate(dates[0])}
         </text>
-        <text x={xs[xs.length - 1]} y={h + 12} textAnchor="end"
-          fontSize="7" fill={aIdx === xs.length - 1 ? 'rgba(255,255,255,0)' : 'rgba(255,255,255,0.45)'} fontFamily="inherit">
+        <text x={xs[last]} y={h + 12} textAnchor="end"
+          fontSize="7" fill="rgba(255,255,255,0.45)" fontFamily="inherit">
           {fmtSparkDate(dates[dates.length - 1])}
         </text>
       </>}
+      {!hinted && (
+        <text x={w / 2} y={h + 12} textAnchor="middle"
+          fontSize="6.5" fill="rgba(255,255,255,0.38)" fontFamily="inherit" fontStyle="italic">
+          desliza
+        </text>
+      )}
       {aIdx != null && <>
         <line x1={xs[aIdx]} y1={pad} x2={xs[aIdx]} y2={h}
           stroke="rgba(255,255,255,0.4)" strokeWidth="1" strokeDasharray="2,3" />
-        <text x={xs[aIdx]} y={h + 12} textAnchor={dateAnchor}
-          fontSize="7" fill="rgba(255,255,255,0.9)" fontFamily="inherit" fontWeight="700">
+        <rect x={pillX} y={-22} width={pillW} height={pillH} rx="7"
+          fill="rgba(0,0,0,0.32)" />
+        <text x={pillX + pillW / 2} y={-22 + pillH - 3} textAnchor="middle"
+          fontSize="7" fill="rgba(255,255,255,0.95)" fontFamily="inherit" fontWeight="700">
           {dates ? fmtSparkDate(dates[aIdx]) : ''}
         </text>
       </>}
