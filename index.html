@@ -3836,7 +3836,7 @@ function AnimatedScore({ value, delay = 0, start = true }) {
   useEffect(() => {
     if (!start) return;
     const t = setTimeout(() => {
-      const begin = Date.now(), dur = 1000;
+      const begin = Date.now(), dur = 1400;
       function tick() {
         const progress = Math.min((Date.now() - begin) / dur, 1);
         const eased = 1 - Math.pow(1 - progress, 3);
@@ -3945,7 +3945,7 @@ function ProgressSection({ student }) {
           const score = raw[key];
           if (score == null) return null;
           const delta = prevSkills?.[key] != null ? score - prevSkills[key] : null;
-          const delay = idx * 100;
+          const delay = idx * 180;
           return (
             <div key={key} style={{
               background:'var(--white)', border:'1px solid var(--border)',
@@ -3964,14 +3964,14 @@ function ProgressSection({ student }) {
                   height:'100%', borderRadius:99,
                   width: barFill ? `${score * 10}%` : '0%',
                   background: score >= 7 ? 'var(--green-mid)' : score >= 5 ? 'var(--orange)' : '#c0392b',
-                  transition: `width 1s cubic-bezier(0.25,0.8,0.3,1) ${delay}ms`,
+                  transition: `width 1.4s cubic-bezier(0.25,0.8,0.3,1) ${delay}ms`,
                 }} />
               </div>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                 <StatusBadge status={skillStatus(score)} />
                 {delta > 0 && barFill && (
                   <span style={{fontSize:'0.72rem', fontWeight:700, color:'#2E7A4B',
-                    animation:`pop-in 0.3s ease-out ${delay + 700}ms both`}}>↑ +{delta}</span>
+                    animation:`pop-in 0.3s ease-out ${delay + 1100}ms both`}}>↑ +{delta}</span>
                 )}
               </div>
             </div>
