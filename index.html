@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-22-12:00-pin-cdn-versions">
+  <meta name="app-version" content="2026-06-22-13:00-fix-mark-viewed">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-22-12:00-pin-cdn-versions">
+  <link rel="manifest" href="./manifest.json?v=2026-06-22-13:00-fix-mark-viewed">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2986,7 +2986,7 @@ function PublicReportScreen({ studentId }) {
           const latestLog = data.class_logs?.[0];
           if (latestLog) {
             sb.auth.getSession().then(({ data: { session } }) => {
-              if (!session) sb.rpc('mark_log_viewed', { log_id: latestLog.id });
+              if (!session) sb.rpc('mark_log_viewed', { log_id: latestLog.id }).then(() => {}, () => {});
             });
           }
         }
@@ -4745,7 +4745,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-22-12:00-pin-cdn-versions';
+    const APP_VERSION = '2026-06-22-13:00-fix-mark-viewed';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 
