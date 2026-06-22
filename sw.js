@@ -1,4 +1,4 @@
-const VERSION = '2026-06-04-17:00-confirm-session-msg';
+const VERSION = '2026-06-22-12:00-pin-cdn-versions';
 const CACHE = `padel-log-${VERSION}`;
 const APP_SHELL = './index.html';
 
@@ -11,10 +11,10 @@ const PRECACHE = [
 ];
 
 const CDN = [
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
-  'https://unpkg.com/react@18/umd/react.production.min.js',
-  'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
-  'https://unpkg.com/@babel/standalone/babel.min.js',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.108.2/dist/umd/supabase.min.js',
+  'https://unpkg.com/react@18.3.1/umd/react.production.min.js',
+  'https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js',
+  'https://unpkg.com/@babel/standalone@7.26.4/babel.min.js',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
 ];
 
