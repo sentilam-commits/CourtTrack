@@ -1,4 +1,4 @@
-const VERSION = '2026-06-23-share-card';
+const VERSION = '2026-06-23-share-public';
 const CACHE = `padel-log-${VERSION}`;
 const APP_SHELL = './index.html';
 
