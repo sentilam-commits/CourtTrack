@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-23-coach-dashboard">
+  <meta name="app-version" content="2026-06-23-dashboard-semana">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-23-coach-dashboard">
+  <link rel="manifest" href="./manifest.json?v=2026-06-23-dashboard-semana">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1960,120 +1960,43 @@ function OnboardingScreen({ user, onDone }) {
 }
 
 // ── S3 Dashboard ─────────────────────────────────────────────
-// ── Panel de inicio del coach (Capa 1: solo lectura, aditivo) ──
-// Señales accionables del día. Calcula próximas/enfriándose/progreso desde los
-// `students` ya cargados (con lastLog y skill_history); una sola query aislada para
-// "tareas sin abrir". Si esa query falla, el resto del panel sigue funcionando.
-function CoachDashboardPanel({ students, coachId, onSelectStudent }) {
-  const [tareas, setTareas] = useState(null);
-  const [tareasCount, setTareasCount] = useState(0);
+// ── Panel de inicio del coach: clases de esta semana ──────────
+// Solo lo que le importa al coach: qué clases tiene agendadas en los próximos 7 días.
+// Solo lectura, desde `students` ya cargados (next_class). Sin queries ni migraciones.
+function CoachDashboardPanel({ students, onSelectStudent }) {
   const today = todayISO();
-  const dayMs = 86400000;
-
-  useEffect(() => {
-    if (!coachId) { setTareas([]); return; }
-    let cancelled = false;
-    sb.from('class_logs')
-      .select('id, student_id, date, homework, next_focus', { count: 'exact' })
-      .eq('coach_id', coachId)
-      .is('deleted_at', null)
-      .is('viewed_at', null)
-      .not('homework', 'is', null)
-      .neq('homework', '')
-      .order('date', { ascending: false })
-      .limit(15)
-      .then(({ data, count, error }) => {
-        if (cancelled) return;
-        if (error) { setTareas([]); setTareasCount(0); }
-        else { setTareas(data || []); setTareasCount(count || 0); }
-      }, () => { if (!cancelled) { setTareas([]); setTareasCount(0); } });
-    return () => { cancelled = true; };
-  }, [coachId]);
-
-  const ahead = (d) => Math.round((new Date(d) - new Date(today)) / dayMs);
-  const ago   = (d) => Math.round((new Date(today) - new Date(d)) / dayMs);
-  const studentById = (id) => students.find(s => s.id === id);
+  const ahead = (d) => Math.round((new Date(d) - new Date(today)) / 86400000);
   const open = (s) => { if (s && onSelectStudent) onSelectStudent(s); };
 
-  const proximas = students
-    .filter(s => s.next_class && s.next_class >= today)
-    .sort((a, b) => a.next_class.localeCompare(b.next_class))
-    .slice(0, 8);
-  const prox7d = proximas.filter(s => ahead(s.next_class) < 7).length;
-
-  const enfriandose = students
-    .filter(s => { const d = s.lastLog?.date; return !d || ago(d) > 21; })
-    .sort((a, b) => (a.lastLog?.date || '').localeCompare(b.lastLog?.date || ''))
-    .slice(0, 8);
-
-  const progreso = students
-    .map(s => {
-      const p = computeProgress(s);
-      if (!p || !p.sparkPoints || p.sparkPoints.length < 2) return null;
-      const sp = p.sparkPoints;
-      const recent = Math.round((sp[sp.length - 1] - sp[sp.length - 2]) * 10) / 10;
-      return recent > 0 ? { s, overall: p.overall, recent } : null;
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.recent - a.recent)
-    .slice(0, 5);
-
-  const stat = (num, lbl, color) => (
-    <div style={{flex:1, background:'var(--white)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 8px', textAlign:'center'}}>
-      <div style={{fontSize:'1.5rem', fontWeight:800, color: color || 'var(--green-dark)', lineHeight:1}}>{num}</div>
-      <div style={{fontSize:'0.6rem', fontWeight:700, letterSpacing:'0.03em', color:'var(--text-secondary)', marginTop:5}}>{lbl}</div>
-    </div>
-  );
-  const row = (key, name, right, onClick, rightColor) => (
-    <button key={key} onClick={onClick} style={{
-      width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10,
-      background:'none', border:'none', borderTop:'1px solid var(--border)', padding:'10px 0',
-      cursor:'pointer', textAlign:'left',
-    }}>
-      <span style={{fontSize:'0.85rem', fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{name}</span>
-      <span style={{flexShrink:0, fontSize:'0.78rem', fontWeight:600, color: rightColor || 'var(--text-secondary)'}}>{right}</span>
-    </button>
-  );
-  const card = (title, children) => (
-    <div style={{background:'var(--white)', border:'1px solid var(--border)', borderRadius:14, padding:'14px 16px 6px', marginBottom:10}}>
-      <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--text-secondary)', marginBottom:2}}>{title}</div>
-      {children}
-    </div>
-  );
-
-  const nothing = proximas.length === 0 && enfriandose.length === 0 && progreso.length === 0 && tareasCount === 0;
+  const semana = students
+    .filter(s => s.next_class && s.next_class >= today && ahead(s.next_class) < 7)
+    .sort((a, b) => a.next_class.localeCompare(b.next_class));
 
   return (
     <div style={{marginBottom: 24}}>
-      <div className="section-label" style={{marginBottom: 10}}>RESUMEN</div>
-      <div style={{display:'flex', gap:8, marginBottom: nothing ? 0 : 12}}>
-        {stat(prox7d, 'PRÓX. 7 DÍAS')}
-        {stat(tareas == null ? '·' : tareasCount, 'TAREAS S/ABRIR', tareasCount > 0 ? 'var(--orange)' : null)}
-        {stat(enfriandose.length, 'ENFRIÁNDOSE', enfriandose.length > 0 ? '#c0392b' : null)}
-      </div>
-
-      {nothing && (
-        <div style={{fontSize:'0.85rem', color:'var(--text-secondary)', textAlign:'center', padding:'6px 0 2px'}}>Todo al día ✨</div>
+      <div className="section-label" style={{marginBottom: 10}}>CLASES DE ESTA SEMANA</div>
+      {semana.length === 0 ? (
+        <div style={{background:'var(--white)', border:'1px solid var(--border)', borderRadius:14, padding:'16px', fontSize:'0.85rem', color:'var(--text-secondary)', textAlign:'center'}}>
+          No hay clases agendadas para los próximos 7 días.
+        </div>
+      ) : (
+        <div style={{background:'var(--white)', border:'1px solid var(--border)', borderRadius:14, padding:'2px 16px'}}>
+          {semana.map((s, i) => {
+            const d = ahead(s.next_class);
+            const when = d === 0 ? 'Hoy' : d === 1 ? 'Mañana' : formatDateEs(s.next_class);
+            return (
+              <button key={s.id} onClick={() => open(s)} style={{
+                width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10,
+                background:'none', border:'none', borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                padding:'13px 0', cursor:'pointer', textAlign:'left',
+              }}>
+                <span style={{fontSize:'0.9rem', fontWeight:600, color:'var(--text-primary)'}}>{s.name}</span>
+                <span style={{flexShrink:0, fontSize:'0.82rem', fontWeight:700, color: d <= 1 ? 'var(--green-mid)' : 'var(--text-secondary)'}}>{when}</span>
+              </button>
+            );
+          })}
+        </div>
       )}
-
-      {proximas.length > 0 && card('PRÓXIMAS CLASES', proximas.map(s => {
-        const d = ahead(s.next_class);
-        const when = d === 0 ? 'Hoy' : d === 1 ? 'Mañana' : formatDateEs(s.next_class);
-        return row(s.id, s.name, when, () => open(s), d <= 1 ? 'var(--green-mid)' : null);
-      }))}
-
-      {tareas && tareas.length > 0 && card('TAREAS SIN ABRIR POR EL ALUMNO', tareas.map(t =>
-        row(t.id, studentById(t.student_id)?.name || 'Alumno', shortDateEs(t.date), () => open(studentById(t.student_id)))
-      ))}
-
-      {enfriandose.length > 0 && card('PARA RETOMAR · +21 DÍAS', enfriandose.map(s => {
-        const d = s.lastLog?.date;
-        return row(s.id, s.name, d ? `hace ${ago(d)}d` : 'sin clases', () => open(s), '#c0392b');
-      }))}
-
-      {progreso.length > 0 && card('PROGRESO RECIENTE', progreso.map(({ s, overall, recent }) =>
-        row(s.id, s.name, `${overall.toFixed(1)} · ↑ +${recent}`, () => open(s), 'var(--green-mid)')
-      ))}
     </div>
   );
 }
@@ -2162,7 +2085,7 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
             </div>}
           </button>
         </div>
-        {!managingStudents && <CoachDashboardPanel students={students} coachId={profile?.id} onSelectStudent={onSelectStudent} />}
+        {!managingStudents && <CoachDashboardPanel students={students} onSelectStudent={onSelectStudent} />}
         <div className="section-label">{managingStudents ? 'GESTIONAR ALUMNOS' : 'ALUMNOS'}</div>
         <div className="student-list">
           {students.length === 0
@@ -5312,7 +5235,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-23-coach-dashboard';
+    const APP_VERSION = '2026-06-23-dashboard-semana';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 
