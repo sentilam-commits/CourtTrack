@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-22-13:00-fix-mark-viewed">
+  <meta name="app-version" content="2026-06-22-14:00-group-class-features">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-22-13:00-fix-mark-viewed">
+  <link rel="manifest" href="./manifest.json?v=2026-06-22-14:00-group-class-features">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -156,6 +156,11 @@
   -- Habilidades del alumno: run once in Supabase SQL Editor.
   ALTER TABLE public.students
     ADD COLUMN IF NOT EXISTS skills jsonb;
+
+  -- Nota del coach por clase: run once in Supabase SQL Editor.
+  -- get_public_student usa to_jsonb(cl), así que la nota se expone sola (sin tocar el RPC).
+  ALTER TABLE public.class_logs
+    ADD COLUMN IF NOT EXISTS coach_note text;
   -->
 
   <style>
@@ -987,6 +992,11 @@ async function flushQueue(uid) {
         if (error || !data) { failed.push(op); continue; }
         const logs = (LS.get(`l:${uid}`) || []).map(l => l._tmp === op._ts ? data : l);
         LS.set(`l:${uid}`, logs);
+      } else if (op.type === 'student_update') {
+        const { data, error } = await sb.from('students').update(op.data).eq('id', op.id).select().single();
+        if (error || !data) { failed.push(op); continue; }
+        const studs = (LS.get(`s:${uid}`) || []).map(s => s.id === op.id ? data : s);
+        LS.set(`s:${uid}`, studs);
       }
     } catch (e) { failed.push(op); }
   }
@@ -1347,6 +1357,37 @@ async function insertLog(payload) {
   LS.set(`l:${coach_id}`, logs);
   LS.queue.push({ type: 'log', data: payload, _ts: ts });
   return { data: tmp, offline: true };
+}
+
+// Append a dated snapshot to skill_history, only when the skills actually changed.
+// Mirrors the logic in EditStudentScreen so history stays consistent.
+function appendSkillSnapshot(student, newSkills) {
+  let history = student.skill_history || [];
+  const last = history[history.length - 1];
+  const changed = !last || JSON.stringify(last.skills) !== JSON.stringify(newSkills);
+  if (changed) history = [...history, { date: new Date().toISOString().slice(0, 10), skills: newSkills }];
+  return history;
+}
+
+// Update a student's skills + skill_history. Online-first, with offline queue fallback.
+// Keeps the local students cache in sync either way.
+async function updateStudentSkills(student, newSkills, newHistory) {
+  const coach_id = student.coach_id;
+  const patch = { skills: newSkills, skill_history: newHistory };
+  try {
+    const { data, error } = await sb.from('students').update(patch).eq('id', student.id).select().single();
+    if (!error && data) {
+      const studs = (LS.get(`s:${coach_id}`) || []).map(s => s.id === student.id ? data : s);
+      LS.set(`s:${coach_id}`, studs);
+      return { data, offline: false };
+    }
+  } catch (e) {}
+  // Offline: update cache optimistically + queue
+  const optimistic = { ...student, ...patch };
+  const studs = (LS.get(`s:${coach_id}`) || []).map(s => s.id === student.id ? optimistic : s);
+  LS.set(`s:${coach_id}`, studs);
+  LS.queue.push({ type: 'student_update', id: student.id, coach_id, data: patch });
+  return { data: optimistic, offline: true };
 }
 
 // ── Linkify ──────────────────────────────────────────────────
@@ -1955,7 +1996,7 @@ function OnboardingScreen({ user, onDone }) {
 }
 
 // ── S3 Dashboard ─────────────────────────────────────────────
-function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog, managing, onManagingChange }) {
+function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog, onGroupLog, managing, onManagingChange }) {
   const [showMenu, setShowMenu]         = useState(false);
   const managingStudents = managing;
   const setManaging = onManagingChange;
@@ -2084,6 +2125,19 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
                 </div>
               ))}
         </div>
+        {!managingStudents && students.length >= 2 && (
+          <button onClick={onGroupLog} style={{
+            width:'100%', marginTop:12, padding:'12px', borderRadius:12,
+            border:'1.5px dashed var(--green-mid)', background:'var(--green-soft)',
+            color:'var(--green-dark)', fontWeight:700, fontSize:'0.9rem', cursor:'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            Clase grupal
+          </button>
+        )}
         <div style={{height: 16}} />
       </div>
       <div className="bottom-bar">
@@ -2236,6 +2290,7 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
   const [correction, setCorrection] = useState(seedCorrection);
   const [correctionDetails, setCorrectionDetails] = useState(seedCorrectionDetails);
   const [homework, setHomework]     = useState(seedHomework);
+  const [coachNote, setCoachNote]   = useState(draft.coachNote || '');
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
   const [seededBanner, setSeededBanner] = useState(isSeeded);
@@ -2319,8 +2374,8 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
 
   // Save draft to localStorage on every change
   useEffect(() => {
-    LS.set(draftKey, { focus, improved, correction, correctionDetails, homework });
-  }, [focus, improved, correction, correctionDetails, homework]);
+    LS.set(draftKey, { focus, improved, correction, correctionDetails, homework, coachNote });
+  }, [focus, improved, correction, correctionDetails, homework, coachNote]);
 
   async function save() {
     if (!requiredComplete) { setError('Completa los 3 puntos rápidos para enviar.'); return; }
@@ -2335,6 +2390,7 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
       what_improved:     fromArr(improved),
       main_correction:   correctionText || null,
       homework:          fromArr(homework),
+      coach_note:        coachNote.trim() || null,
       media_url:         mediaUrl || null,
       media_type:        mediaType || null,
       visual_what:       visualWhat.trim() || null,
@@ -2480,6 +2536,23 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
 
           {optionalOpen && (
             <div className="optional-body">
+              <div className="log-section">
+                <div style={{display:'flex', alignItems:'baseline', gap:8, marginBottom:12}}>
+                  <div className="log-section-lbl" style={{marginBottom:0}}>
+                    NOTA DE TU COACH
+                    {coachNote.trim() && <span style={{color:'var(--text-secondary)', marginLeft:6}}>✓</span>}
+                  </div>
+                  <span style={{fontSize:'0.68rem', color:'var(--text-hint)', fontWeight:500}}>opcional</span>
+                </div>
+                <textarea className="log-textarea" value={coachNote}
+                  onChange={e => setCoachNote(e.target.value.slice(0, 280))}
+                  placeholder="ej: Gran actitud hoy. Seguí con la bandeja, vas muy bien."
+                  rows={3} maxLength={280} />
+                <div style={{textAlign:'right', fontSize:'0.68rem', color:'var(--text-hint)', marginTop:4}}>
+                  {coachNote.length}/280
+                </div>
+              </div>
+
               <div className="log-section">
                 <div style={{display:'flex', alignItems:'baseline', gap:8, marginBottom:12}}>
                   <div className="log-section-lbl log-section-lbl--orange" style={{marginBottom:0}}>
@@ -3000,6 +3073,7 @@ function PublicReportScreen({ studentId }) {
   const { student, class_logs: logs, coach } = data;
   const latest  = logs?.[0];
   const history = logs?.slice(1, 11) || [];
+  const achievement = weeklyAchievement(student);
 
   const focusArr      = toArr(latest?.today_focus);
   const improvedArr   = toArr(latest?.what_improved);
@@ -3036,6 +3110,39 @@ function PublicReportScreen({ studentId }) {
         <div className="pub-report-for">Reporte para</div>
         <div className="pub-student-name">{student.name}</div>
         {latest && <div className="pub-date">{formatFullDateEs(latest.date)}</div>}
+
+        {achievement && (
+          <div style={{
+            display:'flex', alignItems:'center', gap:12,
+            background:'linear-gradient(135deg, var(--green-dark), var(--green-mid))',
+            borderRadius:16, padding:'14px 18px', margin:'14px 0 4px', color:'#fff'
+          }}>
+            <div style={{fontSize:'1.7rem', lineHeight:1}}>🏆</div>
+            <div>
+              <div style={{fontSize:'0.62rem', fontWeight:800, letterSpacing:'0.12em', color:'rgba(255,255,255,0.7)', marginBottom:2}}>
+                LOGRO DE LA SEMANA
+              </div>
+              <div style={{fontSize:'1.05rem', fontWeight:800, color:'#fff'}}>
+                {achievement.label} <span style={{color:'#7DEFA1'}}>+{Math.round(achievement.diff)}</span> esta semana
+              </div>
+            </div>
+          </div>
+        )}
+
+        {latest?.coach_note && (
+          <div style={{
+            background:'var(--green-soft)', borderRadius:16,
+            padding:'16px 18px', margin:'14px 0 4px',
+            borderLeft:'4px solid var(--green-mid)'
+          }}>
+            <div style={{fontSize:'0.66rem', fontWeight:800, letterSpacing:'0.08em', color:'var(--green-mid)', marginBottom:6}}>
+              NOTA DE TU COACH · CLASE {logs.length}
+            </div>
+            <p style={{fontSize:'0.95rem', lineHeight:1.5, color:'var(--green-dark)', fontWeight:500}}>
+              {linkify(latest.coach_note)}
+            </p>
+          </div>
+        )}
 
         {worked && (
           <div className="pub-section">
@@ -3323,6 +3430,16 @@ const SKILL_CATALOG = [
     { key: 'puntuacion',   label: 'Puntuación' },
     { key: 'reglas_saque', label: 'Reglas del saque' },
   ]},
+];
+
+// ── Niveles para el aro de "próxima meta" ────────────────────
+// Editá libremente. Cada nivel se alcanza cuando el PROMEDIO GENERAL llega a `min`
+// (mismo promedio que muestra "PROGRESO GENERAL": aspectos nuevos "en rodaje" excluidos).
+// Mantené la lista ordenada de menor a mayor `min`.
+const LEVELS = [
+  { name: 'Básico',     min: 0 },
+  { name: 'Intermedio', min: 8 },
+  { name: 'Avanzado',   min: 9 },
 ];
 
 // Legacy keys from the original 4-skill model — kept so existing students render.
@@ -3619,6 +3736,7 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
   const [correction, setCorrection] = useState(initialCorrection);
   const [correctionDetails, setCorrectionDetails] = useState(parseCorrection.details);
   const [homework, setHomework]     = useState(toArr(log.homework));
+  const [coachNote, setCoachNote]   = useState(log.coach_note || '');
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
   const [activeRequiredStep, setActiveRequiredStep] = useState(initialRequiredStep);
@@ -3712,6 +3830,7 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
           what_improved:     fromArr(improved),
           main_correction:   correctionText || null,
           homework:          fromArr(homework),
+          coach_note:        coachNote.trim() || null,
           media_url:         mediaUrl || null,
           media_type:        mediaType || null,
           visual_what:       visualWhat.trim() || null,
@@ -3836,6 +3955,23 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
 
           {optionalOpen && (
             <div className="optional-body">
+              <div className="log-section">
+                <div style={{display:'flex', alignItems:'baseline', gap:8, marginBottom:12}}>
+                  <div className="log-section-lbl" style={{marginBottom:0}}>
+                    NOTA DE TU COACH
+                    {coachNote.trim() && <span style={{color:'var(--text-secondary)', marginLeft:6}}>✓</span>}
+                  </div>
+                  <span style={{fontSize:'0.68rem', color:'var(--text-hint)', fontWeight:500}}>opcional</span>
+                </div>
+                <textarea className="log-textarea" value={coachNote}
+                  onChange={e => setCoachNote(e.target.value.slice(0, 280))}
+                  placeholder="ej: Gran actitud hoy. Seguí con la bandeja, vas muy bien."
+                  rows={3} maxLength={280} />
+                <div style={{textAlign:'right', fontSize:'0.68rem', color:'var(--text-hint)', marginTop:4}}>
+                  {coachNote.length}/280
+                </div>
+              </div>
+
               <div className="log-section">
                 <div style={{display:'flex', alignItems:'baseline', gap:8, marginBottom:12}}>
                   <div className="log-section-lbl log-section-lbl--orange" style={{marginBottom:0}}>
@@ -4082,6 +4218,99 @@ function computeProgress(student) {
   return { overall, sparkPoints, isEstablished };
 }
 
+// Logro de la semana: mayor mejora positiva por aspecto en los últimos 7 días.
+// Devuelve {key,label,diff} o null (datos insuficientes o sin mejora → banner oculto).
+function weeklyAchievement(student) {
+  const history = student?.skill_history || [];
+  const current = student?.skills || {};
+  if (history.length < 2) return null;
+
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const weekAgoStr = weekAgo.toISOString().slice(0, 10);
+
+  // Baseline = snapshot más reciente con fecha <= hace 7 días; si no hay, el más antiguo.
+  let baseline = null;
+  history.forEach(snap => { if (snap.date <= weekAgoStr) baseline = snap; });
+  if (!baseline) baseline = history[0];
+  const base = baseline.skills || {};
+
+  let best = null;
+  Object.keys(current).forEach(k => {
+    if (current[k] == null || base[k] == null) return;
+    const diff = current[k] - base[k];
+    if (diff > 0 && (!best || diff > best.diff)) best = { key: k, label: labelFor(k), diff };
+  });
+  return best;
+}
+
+// Aro de "próxima meta": promedio actual sobre el siguiente umbral de LEVELS,
+// + estimación de cuántas clases faltan al ritmo reciente (oculta si <2 snapshots).
+function NextGoalSection({ overall, sparkPoints }) {
+  if (overall == null) return null;
+
+  // Nivel actual = el más alto cuyo min <= overall; siguiente = el de arriba.
+  let curIdx = 0;
+  for (let i = 0; i < LEVELS.length; i++) { if (overall >= LEVELS[i].min) curIdx = i; }
+  const current = LEVELS[curIdx];
+  const next = LEVELS[curIdx + 1] || null;
+
+  const r = 34, C = 2 * Math.PI * r;
+  const frac = next
+    ? Math.max(0, Math.min(1, (overall - current.min) / (next.min - current.min)))
+    : 1;
+  const dash = C * frac;
+  const remaining = next ? Math.max(0, next.min - overall) : 0;
+
+  // Estimación: ganancia media por snapshot reciente (ventana de hasta 4).
+  let estimate = null;
+  if (next && sparkPoints && sparkPoints.length >= 2) {
+    const w = sparkPoints.slice(-4);
+    const perStep = (w[w.length - 1] - w[0]) / (w.length - 1);
+    if (perStep > 0 && remaining > 0) estimate = Math.ceil(remaining / perStep);
+  }
+
+  return (
+    <div style={{
+      display:'flex', alignItems:'center', gap:16,
+      background:'var(--white)', border:'1px solid var(--border)',
+      borderRadius:16, padding:'16px 18px', marginBottom:10
+    }}>
+      <svg width="84" height="84" viewBox="0 0 84 84" style={{flexShrink:0}}>
+        <circle cx="42" cy="42" r={r} fill="none" stroke="var(--border)" strokeWidth="7" />
+        <circle cx="42" cy="42" r={r} fill="none" stroke="var(--green-mid)" strokeWidth="7"
+          strokeLinecap="round" strokeDasharray={`${dash} ${C}`} transform="rotate(-90 42 42)" />
+        <text x="42" y="48" textAnchor="middle" fontSize="20" fontWeight="800" fill="var(--green-dark)">{overall.toFixed(1)}</text>
+      </svg>
+      <div style={{flex:1}}>
+        <div style={{fontSize:'0.66rem', fontWeight:800, letterSpacing:'0.1em', color:'var(--green-mid)', marginBottom:3}}>
+          PRÓXIMA META
+        </div>
+        {next ? (
+          <>
+            <div style={{fontSize:'1.05rem', fontWeight:800, color:'var(--green-dark)', marginBottom:3}}>
+              {next.name}
+            </div>
+            <div style={{fontSize:'0.8rem', color:'var(--text-secondary)', lineHeight:1.4}}>
+              Te faltan <b style={{color:'var(--green-dark)'}}>{remaining.toFixed(1)}</b> puntos para {next.name}
+              {estimate != null && (
+                <span style={{color:'var(--green-mid)', fontWeight:700}}> · ~{estimate} {estimate === 1 ? 'clase' : 'clases'} a este ritmo</span>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{fontSize:'1.05rem', fontWeight:800, color:'var(--green-dark)', marginBottom:3}}>
+              {current.name}
+            </div>
+            <div style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>¡Nivel máximo alcanzado! 🎉</div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProgressSection({ student }) {
   const [barFill, setBarFill] = useState(false);
   const [overallStart, setOverallStart] = useState(false);
@@ -4174,6 +4403,8 @@ function ProgressSection({ student }) {
           </div>
         )}
       </div>
+
+      <NextGoalSection overall={overall} sparkPoints={sparkPoints} />
 
       {/* Skill cards — 2 col grid */}
       <div ref={gridRef} style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10}}>
@@ -4461,9 +4692,15 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
                     </div>
                   )}
                   {homeworkArr.length > 0 && (
-                    <div style={{marginBottom: (log.media_url || log.visual_what) ? 8 : 0}}>
+                    <div style={{marginBottom: (log.coach_note || log.media_url || log.visual_what) ? 8 : 0}}>
                       <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--blue-slate)', marginBottom:4}}>TAREA</div>
                       <div style={{fontSize:'0.88rem'}}>{homeworkArr.join(', ')}</div>
+                    </div>
+                  )}
+                  {log.coach_note && (
+                    <div style={{marginBottom: (log.media_url || log.visual_what) ? 8 : 0}}>
+                      <div style={{fontSize:'0.7rem', fontWeight:700, letterSpacing:'0.08em', color:'var(--green-mid)', marginBottom:4}}>NOTA</div>
+                      <div style={{fontSize:'0.88rem', fontStyle:'italic'}}>{log.coach_note}</div>
                     </div>
                   )}
                   {(log.media_url || log.visual_what) && (
@@ -4498,6 +4735,205 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
           </div>
         )}
         <div style={{height:16}} />
+      </div>
+    </div>
+  );
+}
+
+// ── Group class logging ──────────────────────────────────────
+function Stepper({ value, onChange, min = 1, max = 10 }) {
+  const btn = {
+    width: 36, height: 36, border: 'none', background: 'var(--green-soft)',
+    color: 'var(--green-dark)', fontSize: '1.2rem', fontWeight: 700,
+    cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  };
+  return (
+    <div style={{display:'flex', alignItems:'center', border:'1.5px solid var(--border)', borderRadius:10, overflow:'hidden'}}>
+      <button type="button" onClick={() => onChange(Math.max(min, value - 1))} style={btn} aria-label="Menos">−</button>
+      <div style={{minWidth:36, textAlign:'center', fontWeight:800, fontSize:'0.95rem', color:'var(--green-dark)'}}>{value}</div>
+      <button type="button" onClick={() => onChange(Math.min(max, value + 1))} style={btn} aria-label="Más">+</button>
+    </div>
+  );
+}
+
+function GroupLogScreen({ students, coachId, onBack, onSaved }) {
+  const [selectedIds, setSelectedIds]   = useState([]);
+  const [skillKey, setSkillKey]         = useState('');
+  const [baseScore, setBaseScore]       = useState(7);
+  const [scores, setScores]             = useState({});        // id -> score
+  const [sharedNote, setSharedNote]     = useState('');
+  const [noteOverrides, setNoteOverrides] = useState({});      // id -> note
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState('');
+
+  const selectedStudents = students.filter(s => selectedIds.includes(s.id));
+  const skillLabel = skillKey ? labelFor(skillKey) : '';
+  const canSave = selectedStudents.length >= 2 && !!skillKey;
+
+  function toggleStudent(s) {
+    if (selectedIds.includes(s.id)) {
+      setSelectedIds(prev => prev.filter(id => id !== s.id));
+    } else {
+      setSelectedIds(prev => [...prev, s.id]);
+      setScores(sc => (sc[s.id] != null ? sc : { ...sc, [s.id]: baseScore }));
+    }
+    setError('');
+  }
+  function setStudentScore(id, val) {
+    setScores(sc => ({ ...sc, [id]: Math.max(1, Math.min(10, val)) }));
+  }
+  function applyBaseToAll() {
+    setScores(sc => {
+      const next = { ...sc };
+      selectedIds.forEach(id => { next[id] = baseScore; });
+      return next;
+    });
+  }
+  function toggleNoteOverride(id) {
+    setNoteOverrides(prev => {
+      if (id in prev) { const n = { ...prev }; delete n[id]; return n; }
+      return { ...prev, [id]: sharedNote };
+    });
+  }
+
+  async function save() {
+    if (selectedStudents.length < 2) { setError('Elegí al menos 2 alumnos.'); return; }
+    if (!skillKey) { setError('Elegí la habilidad trabajada.'); return; }
+    setLoading(true); setError('');
+    try {
+      let anyOffline = false;
+      for (const stu of selectedStudents) {
+        const score = scores[stu.id] != null ? scores[stu.id] : baseScore;
+        const newSkills = { ...(stu.skills || {}), [skillKey]: score };
+        const newHistory = appendSkillSnapshot(stu, newSkills);
+        const r1 = await updateStudentSkills(stu, newSkills, newHistory);
+        const note = ((stu.id in noteOverrides ? noteOverrides[stu.id] : sharedNote) || '').trim();
+        const r2 = await insertLog({
+          student_id: stu.id, coach_id: coachId, date: todayISO(),
+          today_focus: skillLabel, what_improved: null, main_correction: null,
+          homework: null, coach_note: note || null,
+          media_url: null, media_type: null, visual_what: null,
+          visual_correction: null, visual_task: null,
+        });
+        if (r1.offline || r2.offline) anyOffline = true;
+      }
+      setLoading(false);
+      onSaved(anyOffline, selectedStudents.length);
+    } catch (e) {
+      setLoading(false);
+      setError('No se pudieron guardar todos los reportes. Revisá tu conexión e intentá de nuevo.');
+    }
+  }
+
+  const selectStyle = {
+    width:'100%', padding:'12px 14px', borderRadius:12, border:'1.5px solid var(--border)',
+    background:'var(--white)', fontSize:'0.95rem', color:'var(--text-primary)', fontWeight:600,
+    appearance:'none', WebkitAppearance:'none',
+  };
+
+  return (
+    <div className="screen">
+      <Header title="Clase grupal" onBack={onBack} />
+      <div className="screen-content">
+        <p style={{fontSize:'0.88rem', color:'var(--text-secondary)', marginBottom:18, lineHeight:1.4}}>
+          Un registro, progreso individual. Guarda un reporte propio para cada alumno.
+        </p>
+
+        {/* 1 · Alumnos */}
+        <div className="section-label" style={{marginBottom:8}}>
+          ALUMNOS {selectedIds.length > 0 && <span style={{color:'var(--green-mid)'}}>· {selectedIds.length}</span>}
+        </div>
+        <div style={{display:'flex', flexWrap:'wrap', gap:8, marginBottom:22}}>
+          {students.map(s => {
+            const on = selectedIds.includes(s.id);
+            return (
+              <button key={s.id} type="button" onClick={() => toggleStudent(s)} style={{
+                display:'flex', alignItems:'center', gap:8, padding:'8px 14px', borderRadius:99,
+                border: on ? '1.5px solid var(--green-dark)' : '1.5px solid var(--border)',
+                background: on ? 'var(--green-dark)' : 'var(--white)',
+                color: on ? '#fff' : 'var(--text-primary)', fontWeight:700, fontSize:'0.85rem', cursor:'pointer',
+              }}>
+                {on && <span style={{lineHeight:1}}>✓</span>}
+                {s.name}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 2 · Habilidad */}
+        <div className="section-label" style={{marginBottom:8}}>HABILIDAD TRABAJADA</div>
+        <select value={skillKey} onChange={e => { setSkillKey(e.target.value); setError(''); }} style={selectStyle}>
+          <option value="">Elegí una habilidad…</option>
+          {SKILL_CATALOG.map(c => (
+            <optgroup key={c.cat} label={c.cat}>
+              {c.aspects.map(a => <option key={a.key} value={a.key}>{a.label}</option>)}
+            </optgroup>
+          ))}
+        </select>
+
+        {/* 3 · Puntaje base */}
+        <div className="section-label" style={{marginTop:22, marginBottom:8}}>PUNTAJE BASE</div>
+        <div style={{display:'flex', alignItems:'center', gap:12}}>
+          <Stepper value={baseScore} onChange={setBaseScore} />
+          <button type="button" onClick={applyBaseToAll} disabled={selectedIds.length === 0} style={{
+            fontSize:'0.8rem', fontWeight:700, color:'var(--green-dark)', background:'var(--green-soft)',
+            border:'none', borderRadius:10, padding:'9px 14px', cursor: selectedIds.length ? 'pointer' : 'default',
+            opacity: selectedIds.length ? 1 : 0.5,
+          }}>Aplicar a todos</button>
+        </div>
+
+        {/* 4 · Nota para el grupo */}
+        <div className="section-label" style={{marginTop:22, marginBottom:8}}>NOTA PARA EL GRUPO <span style={{color:'var(--text-hint)', fontWeight:500}}>· opcional</span></div>
+        <textarea className="log-textarea" value={sharedNote}
+          onChange={e => setSharedNote(e.target.value.slice(0, 280))}
+          placeholder="ej: Buen trabajo de bandeja hoy. Seguimos la próxima."
+          rows={3} maxLength={280} />
+        <div style={{textAlign:'right', fontSize:'0.68rem', color:'var(--text-hint)', marginTop:4}}>{sharedNote.length}/280</div>
+
+        {/* 5 · Ajuste por alumno */}
+        {selectedStudents.length > 0 && skillKey && (
+          <>
+            <div className="section-label" style={{marginTop:22, marginBottom:8}}>AJUSTE POR ALUMNO</div>
+            <div style={{display:'flex', flexDirection:'column', gap:8, marginBottom:8}}>
+              {selectedStudents.map(stu => {
+                const prev = stu.skills?.[skillKey];
+                const score = scores[stu.id] != null ? scores[stu.id] : baseScore;
+                const hasOverride = stu.id in noteOverrides;
+                return (
+                  <div key={stu.id} style={{border:'1px solid var(--border)', borderRadius:12, padding:'12px 14px'}}>
+                    <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:10}}>
+                      <div style={{minWidth:0}}>
+                        <div style={{fontWeight:700, fontSize:'0.9rem', color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{stu.name}</div>
+                        <div style={{fontSize:'0.72rem', color:'var(--text-hint)'}}>
+                          {prev != null ? `${skillLabel}: ${prev} → ${score}` : `${skillLabel}: nuevo · ${score}`}
+                        </div>
+                      </div>
+                      <Stepper value={score} onChange={v => setStudentScore(stu.id, v)} />
+                    </div>
+                    <button type="button" onClick={() => toggleNoteOverride(stu.id)} style={{
+                      marginTop:10, fontSize:'0.74rem', fontWeight:700, color:'var(--green-mid)',
+                      background:'none', border:'none', cursor:'pointer', padding:0,
+                    }}>{hasOverride ? '✕ Usar nota del grupo' : '✎ Nota propia'}</button>
+                    {hasOverride && (
+                      <textarea className="log-textarea" value={noteOverrides[stu.id]}
+                        onChange={e => setNoteOverrides(prev => ({ ...prev, [stu.id]: e.target.value.slice(0, 280) }))}
+                        placeholder="Nota solo para este alumno…" rows={2} maxLength={280}
+                        style={{marginTop:8}} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        <div style={{height: 12}} />
+        {error && <div className="error-msg" style={{marginBottom:10}}>{error}</div>}
+      </div>
+      <div className="bottom-bar">
+        <button className="btn btn-primary" onClick={save} disabled={loading || !canSave} style={{width:'100%'}}>
+          {loading ? 'Guardando…' : canSave ? `Guardar ${selectedStudents.length} reportes` : 'Elegí 2+ alumnos y la habilidad'}
+        </button>
       </div>
     </div>
   );
@@ -4647,8 +5083,18 @@ function App() {
           onEditLog={(s, log) => { setSelectedStudent(s); setSelectedLog(log); go({ name: 'editLog', studentId: s.id, logId: log.id }); }}
           onManageStudents={() => go('manageStudents')}
           onQuickLog={s => { setSelectedStudent(s); go({ name: 'logClass', from: 'dashboard', studentId: s.id }); }}
+          onGroupLog={() => go('groupLog')}
           managing={isManaging}
           onManagingChange={setIsManaging} />
+      )}
+
+      {route === 'groupLog' && (
+        <GroupLogScreen students={students} coachId={user.id}
+          onBack={() => go('dashboard')}
+          onSaved={(offline, count) => {
+            refreshStudents(user.id);
+            go('dashboard');
+          }} />
       )}
 
       {route?.name === 'studentProfile' && (
@@ -4745,7 +5191,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-22-13:00-fix-mark-viewed';
+    const APP_VERSION = '2026-06-22-14:00-group-class-features';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 

@@ -1,4 +1,4 @@
-const VERSION = '2026-06-22-12:00-pin-cdn-versions';
+const VERSION = '2026-06-22-14:00-group-class-features';
 const CACHE = `padel-log-${VERSION}`;
 const APP_SHELL = './index.html';
 
