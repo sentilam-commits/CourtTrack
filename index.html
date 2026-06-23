@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-22-16:00-streaks-sparklines-foco">
+  <meta name="app-version" content="2026-06-22-16:30-streaks-sparklines-foco">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-22-16:00-streaks-sparklines-foco">
+  <link rel="manifest" href="./manifest.json?v=2026-06-22-16:30-streaks-sparklines-foco">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -4460,7 +4460,7 @@ function ProgressSection({ student }) {
                   transition: `width 1.4s cubic-bezier(0.25,0.8,0.3,1) ${delay}ms`,
                 }} />
               </div>
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:6}}>
+              <div style={{display:'flex', alignItems:'center', gap:6, rowGap:8, flexWrap:'wrap'}}>
                 {key === focusKey ? (
                   <span style={{
                     fontSize:'0.66rem', fontWeight:800, letterSpacing:'0.02em',
@@ -4470,7 +4470,7 @@ function ProgressSection({ student }) {
                 ) : (
                   <>
                     <StatusBadge status={skillStatus(score)} />
-                    <div style={{display:'flex', alignItems:'center', gap:6, flexShrink:0}}>
+                    <div style={{display:'flex', alignItems:'center', gap:6, marginLeft:'auto', flexShrink:0}}>
                       {delta > 0 && barFill && (
                         <span style={{fontSize:'0.72rem', fontWeight:700, color:'#2E7A4B',
                           animation:`pop-in 0.3s ease-out ${delay + 1100}ms both`}}>↑ +{delta}</span>
@@ -5015,7 +5015,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-22-16:00-streaks-sparklines-foco';
+    const APP_VERSION = '2026-06-22-16:30-streaks-sparklines-foco';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 

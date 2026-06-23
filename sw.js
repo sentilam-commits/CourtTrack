@@ -1,4 +1,4 @@
-const VERSION = '2026-06-22-16:00-streaks-sparklines-foco';
+const VERSION = '2026-06-22-16:30-streaks-sparklines-foco';
 const CACHE = `padel-log-${VERSION}`;
 const APP_SHELL = './index.html';
 
