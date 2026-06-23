@@ -1,4 +1,4 @@
-const VERSION = '2026-06-22-15:00-remove-group-class';
+const VERSION = '2026-06-22-16:00-streaks-sparklines-foco';
 const CACHE = `padel-log-${VERSION}`;
 const APP_SHELL = './index.html';
 

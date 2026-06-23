@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-22-15:00-remove-group-class">
+  <meta name="app-version" content="2026-06-22-16:00-streaks-sparklines-foco">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-22-15:00-remove-group-class">
+  <link rel="manifest" href="./manifest.json?v=2026-06-22-16:00-streaks-sparklines-foco">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -4166,7 +4166,17 @@ function computeProgress(student) {
 
   const overall = avgEstablished(current);
   const sparkPoints = history.length >= 2 ? history.map(snap => avgEstablished(snap.skills || {})) : null;
-  return { overall, sparkPoints, isEstablished };
+
+  // Racha: clases consecutivas (desde la última) donde el promedio no bajó.
+  let streak = 0;
+  if (sparkPoints) {
+    for (let i = sparkPoints.length - 1; i > 0; i--) {
+      if (sparkPoints[i] >= sparkPoints[i - 1]) streak++;
+      else break;
+    }
+  }
+
+  return { overall, sparkPoints, isEstablished, streak };
 }
 
 // Logro de la semana: mayor mejora positiva por aspecto en los últimos 7 días.
@@ -4262,6 +4272,33 @@ function NextGoalSection({ overall, sparkPoints }) {
   );
 }
 
+// Mini sparkline para cada tarjeta de habilidad: tendencia compacta y estática.
+// Verde si sube, ámbar si plano, neutro si baja (nunca rojo). 1 punto → punto.
+function MiniSpark({ values }) {
+  if (!values || values.length === 0) return null;
+  const w = 40, h = 16, pad = 2;
+  if (values.length === 1) {
+    return (
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{display:'block'}} aria-hidden="true">
+        <circle cx={w - pad - 2} cy={h / 2} r="2.2" fill="var(--text-hint)" />
+      </svg>
+    );
+  }
+  const dir = values[values.length - 1] - values[0];
+  const color = dir > 0 ? 'var(--green-mid)' : dir === 0 ? 'var(--orange)' : 'var(--text-hint)';
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = max - min || 1;
+  const xs = values.map((_, i) => pad + (i / (values.length - 1)) * (w - pad * 2));
+  const ys = values.map(v => h - pad - ((v - min) / range) * (h - pad * 2));
+  const d = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{display:'block'}} aria-hidden="true">
+      <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={xs[xs.length - 1].toFixed(1)} cy={ys[ys.length - 1].toFixed(1)} r="1.8" fill={color} />
+    </svg>
+  );
+}
+
 function ProgressSection({ student }) {
   const [barFill, setBarFill] = useState(false);
   const [overallStart, setOverallStart] = useState(false);
@@ -4293,7 +4330,7 @@ function ProgressSection({ student }) {
 
   if (!prog) return null;
 
-  const { overall, sparkPoints, isEstablished } = prog;
+  const { overall, sparkPoints, isEstablished, streak } = prog;
   const overallStr = overall.toFixed(1);
   const aspects = scoredAspects(raw);
 
@@ -4347,6 +4384,13 @@ function ProgressSection({ student }) {
               <span>primera evaluación</span>
             )}
           </div>
+          {streak >= 2 && (
+            <div style={{
+              display:'inline-flex', alignItems:'center', gap:4, marginTop:10,
+              background:'rgba(255,255,255,0.12)', color:'#fff',
+              fontSize:'0.72rem', fontWeight:700, borderRadius:20, padding:'3px 10px',
+            }}>🔥 Racha de {streak}</div>
+          )}
         </div>
         {sparkPoints && (
           <div style={{paddingBottom: 4}}>
@@ -4361,6 +4405,31 @@ function ProgressSection({ student }) {
       <div ref={gridRef} style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10}}>
         {(() => {
           const prevSkills = history.length >= 2 ? history[history.length - 2].skills : null;
+
+          // Mini-tendencia por habilidad: últimos ~5 valores reales de skill_history.
+          const sparkFor = (k) => {
+            const vals = history.map(s => s.skills?.[k]).filter(v => v != null).slice(-5);
+            return vals.length ? vals : [raw[k]];
+          };
+
+          // "Tu próximo foco": habilidad más baja; desempate por la que mejoró hace más tiempo.
+          const focusKey = (() => {
+            const scored = aspects.filter(a => raw[a.key] != null);
+            if (!scored.length) return null;
+            const minScore = Math.min(...scored.map(a => raw[a.key]));
+            const lowest = scored.filter(a => raw[a.key] === minScore);
+            if (lowest.length === 1) return lowest[0].key;
+            const lastImproved = (k) => {
+              let at = -1;
+              for (let i = 1; i < history.length; i++) {
+                const p = history[i - 1].skills?.[k], c = history[i].skills?.[k];
+                if (p != null && c != null && c > p) at = i;
+              }
+              return at;
+            };
+            return lowest.slice().sort((a, b) => lastImproved(a.key) - lastImproved(b.key))[0].key;
+          })();
+
           return aspects.map(({ key, label }, idx) => {
           const score = raw[key];
           if (score == null) return null;
@@ -4391,11 +4460,24 @@ function ProgressSection({ student }) {
                   transition: `width 1.4s cubic-bezier(0.25,0.8,0.3,1) ${delay}ms`,
                 }} />
               </div>
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                <StatusBadge status={skillStatus(score)} />
-                {delta > 0 && barFill && (
-                  <span style={{fontSize:'0.72rem', fontWeight:700, color:'#2E7A4B',
-                    animation:`pop-in 0.3s ease-out ${delay + 1100}ms both`}}>↑ +{delta}</span>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:6}}>
+                {key === focusKey ? (
+                  <span style={{
+                    fontSize:'0.66rem', fontWeight:800, letterSpacing:'0.02em',
+                    padding:'2px 9px', borderRadius:20, background:'var(--green-dark)', color:'#fff',
+                    display:'inline-flex', alignItems:'center', gap:4, whiteSpace:'nowrap',
+                  }}>🎯 Tu próximo foco</span>
+                ) : (
+                  <>
+                    <StatusBadge status={skillStatus(score)} />
+                    <div style={{display:'flex', alignItems:'center', gap:6, flexShrink:0}}>
+                      {delta > 0 && barFill && (
+                        <span style={{fontSize:'0.72rem', fontWeight:700, color:'#2E7A4B',
+                          animation:`pop-in 0.3s ease-out ${delay + 1100}ms both`}}>↑ +{delta}</span>
+                      )}
+                      <MiniSpark values={sparkFor(key)} />
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -4933,7 +5015,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-22-15:00-remove-group-class';
+    const APP_VERSION = '2026-06-22-16:00-streaks-sparklines-foco';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 
