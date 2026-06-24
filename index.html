@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-24-add-label-consistency">
+  <meta name="app-version" content="2026-06-24-unified-log">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-24-add-label-consistency">
+  <link rel="manifest" href="./manifest.json?v=2026-06-24-unified-log">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -43,7 +43,7 @@
   -- Próxima clase: run once in Supabase SQL Editor
   ALTER TABLE public.students ADD COLUMN IF NOT EXISTS next_class DATE;
 
-  -- Update get_public_student to include coach profile:
+  -- Update get_public_student to include coach profile + upcoming scheduled classes:
   CREATE OR REPLACE FUNCTION public.get_public_student(public_student_id uuid)
   RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
     SELECT CASE WHEN s.id IS NULL THEN NULL ELSE jsonb_build_object(
@@ -51,6 +51,24 @@
       'class_logs', COALESCE((
         SELECT jsonb_agg(to_jsonb(cl) ORDER BY cl.date DESC, cl.created_at DESC)
         FROM public.class_logs cl WHERE cl.student_id = s.id
+      ), '[]'::jsonb),
+      'progress_score', (
+        SELECT to_jsonb(ps)
+        FROM public.progress_scores ps
+        WHERE ps.student_id = s.id
+        LIMIT 1
+      ),
+      'scheduled_classes', COALESCE((
+        SELECT jsonb_agg(to_jsonb(sc) ORDER BY sc.class_date ASC, sc.start_time ASC)
+        FROM (
+          SELECT sc.*
+          FROM public.scheduled_classes sc
+          WHERE sc.student_id = s.id
+            AND sc.status IN ('scheduled', 'confirmed')
+            AND sc.class_date >= CURRENT_DATE
+          ORDER BY sc.class_date ASC, sc.start_time ASC
+          LIMIT 10
+        ) sc
       ), '[]'::jsonb),
       'coach', (
         SELECT jsonb_build_object('display_name', p.display_name, 'club_name', p.club_name)
@@ -236,11 +254,32 @@
     }
     .screen--edge-swiping,
     .screen--edge-settling {
+      position: relative;
+      z-index: 2;
       will-change: transform;
       box-shadow: -18px 0 32px rgba(15, 24, 20, 0.18);
     }
     .screen--edge-settling {
       transition: transform 0.18s ease-out, box-shadow 0.18s ease-out;
+    }
+    .screen-edge-preview {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      overflow: hidden;
+      pointer-events: none;
+      background: var(--bg);
+    }
+    .screen-edge-preview .screen {
+      min-height: 100svh;
+      max-height: 100svh;
+      overflow: hidden;
+      transform: translateX(-22px);
+      opacity: 0.86;
+      transition: transform 0.12s linear, opacity 0.12s linear;
+    }
+    .screen-edge-preview .screen-content {
+      overflow: hidden;
     }
 
     .screen-content {
@@ -584,12 +623,15 @@
       font: inherit;
       cursor: pointer;
       appearance: none;
+      color: var(--text-primary);
+      -webkit-text-fill-color: var(--text-primary);
     }
     .coach-home-kpi:active { transform: translateY(1px); }
-    .coach-home-kpi--dark {
+    .coach-home-kpi--selected {
       background: var(--green-dark);
       border-color: var(--green-dark);
       color: white;
+      -webkit-text-fill-color: white;
     }
     .coach-home-kpi-label {
       font-size: 0.68rem;
@@ -597,22 +639,35 @@
       font-weight: 800;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--text-secondary);
+      color: var(--text-primary);
+      -webkit-text-fill-color: var(--text-primary);
     }
-    .coach-home-kpi--dark .coach-home-kpi-label { color: rgba(255,255,255,0.58); }
+    .coach-home-kpi--selected .coach-home-kpi-label {
+      color: rgba(255,255,255,0.58);
+      -webkit-text-fill-color: rgba(255,255,255,0.58);
+    }
     .coach-home-kpi-value {
       font-size: 2rem;
       line-height: 1;
       font-weight: 800;
-      color: inherit;
+      color: var(--text-primary);
+      -webkit-text-fill-color: var(--text-primary);
     }
     .coach-home-kpi-meta {
       margin-top: 4px;
       font-size: 0.72rem;
-      color: var(--text-hint);
+      color: var(--text-primary);
+      -webkit-text-fill-color: var(--text-primary);
       font-weight: 600;
     }
-    .coach-home-kpi--dark .coach-home-kpi-meta { color: rgba(255,255,255,0.58); }
+    .coach-home-kpi--selected .coach-home-kpi-value {
+      color: white;
+      -webkit-text-fill-color: white;
+    }
+    .coach-home-kpi--selected .coach-home-kpi-meta {
+      color: rgba(255,255,255,0.58);
+      -webkit-text-fill-color: rgba(255,255,255,0.58);
+    }
     .coach-home-section { margin-bottom: 24px; }
     .coach-home-section-head {
       display: flex;
@@ -1009,9 +1064,26 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      position: relative;
+      flex-shrink: 0;
       line-height: 1;
-      font-size: 1.05rem;
+      font-size: 0;
       font-weight: 600;
+    }
+    .pick-add-student span::before,
+    .pick-add-student span::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 11px;
+      height: 3px;
+      border-radius: 999px;
+      background: currentColor;
+      transform: translate(-50%, -50%);
+    }
+    .pick-add-student span::after {
+      transform: translate(-50%, -50%) rotate(90deg);
     }
 
     .bottom-bar {
@@ -1612,9 +1684,20 @@ function shortDateEs(dateStr) {
   return `${d.getDate()} ${months[d.getMonth()]}`;
 }
 
-function formatTimeShort(timeStr) {
+function timeInputValue(timeStr) {
   if (!timeStr) return '--:--';
   return String(timeStr).slice(0, 5);
+}
+
+function formatTimeShort(timeStr) {
+  const value = timeInputValue(timeStr);
+  if (value === '--:--') return value;
+  const [hourRaw, minute = '00'] = value.split(':');
+  const hour = Number(hourRaw);
+  if (!Number.isFinite(hour)) return value;
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minute} ${suffix}`;
 }
 
 const fromArr = arr => arr.join(', ');
@@ -1919,6 +2002,24 @@ async function insertLog(payload) {
   LS.set(`l:${coach_id}`, logs);
   LS.queue.push({ type: 'log', data: payload, _ts: ts });
   return { data: tmp, offline: true };
+}
+
+// Write a student's skill scores + append a dated skill_history snapshot (only when changed).
+// Same logic as EditStudentScreen, reused by the unified class-registration flow.
+async function updateStudentSkills(student, skills) {
+  const hasSkills = skills && Object.keys(skills).length > 0;
+  const newSkillsVal = hasSkills ? skills : null;
+  let newHistory = student.skill_history || [];
+  if (hasSkills) {
+    const last = newHistory[newHistory.length - 1];
+    const changed = !last || JSON.stringify(last.skills) !== JSON.stringify(skills);
+    if (changed) newHistory = [...newHistory, { date: new Date().toISOString().slice(0, 10), skills }];
+  }
+  try {
+    await sb.from('students')
+      .update({ skills: newSkillsVal, skill_history: newHistory, updated_at: new Date().toISOString() })
+      .eq('id', student.id);
+  } catch (e) {}
 }
 
 const moneyFmt = amount =>
@@ -2693,17 +2794,23 @@ function isEdgeSwipeBlockedTarget(target) {
   return !!closestEl(target, 'input, textarea, select, [contenteditable="true"], video, [data-swipe-row], .coach-detail-panel');
 }
 
-function useEdgeSwipeBack(enabled, onBack) {
+function useEdgeSwipeBack(enabled, onBack, previousScreenHtml = '') {
   const onBackRef = useRef(onBack);
+  const previousScreenHtmlRef = useRef(previousScreenHtml);
 
   useEffect(() => {
     onBackRef.current = onBack;
   }, [onBack]);
 
   useEffect(() => {
+    previousScreenHtmlRef.current = previousScreenHtml;
+  }, [previousScreenHtml]);
+
+  useEffect(() => {
     if (!enabled) return undefined;
     let start = null;
     let screenEl = null;
+    let previewEl = null;
     let lastDx = 0;
     let cleanupTimer = null;
 
@@ -2712,13 +2819,48 @@ function useEdgeSwipeBack(enabled, onBack) {
       return screens[screens.length - 1] || null;
     };
 
-    const resetScreen = () => {
-      if (!screenEl) return;
-      screenEl.classList.remove('screen--edge-swiping', 'screen--edge-settling');
-      screenEl.style.transform = '';
-      screenEl.style.transition = '';
-      screenEl.style.boxShadow = '';
-      screenEl = null;
+    const removePreview = () => {
+      if (previewEl) {
+        previewEl.remove();
+        previewEl = null;
+      }
+    };
+
+    const resetScreen = (removeEdgePreview = true) => {
+      if (screenEl) {
+        screenEl.classList.remove('screen--edge-swiping', 'screen--edge-settling');
+        screenEl.style.transform = '';
+        screenEl.style.transition = '';
+        screenEl.style.boxShadow = '';
+        screenEl = null;
+      }
+      if (removeEdgePreview) removePreview();
+    };
+
+    const showPreview = () => {
+      removePreview();
+      const html = previousScreenHtmlRef.current;
+      if (!html) return;
+      const root = document.getElementById('root');
+      if (!root) return;
+      previewEl = document.createElement('div');
+      previewEl.className = 'screen-edge-preview';
+      previewEl.setAttribute('aria-hidden', 'true');
+      previewEl.innerHTML = html;
+      const previewScreen = previewEl.querySelector('.screen');
+      if (previewScreen) {
+        previewScreen.classList.remove('screen--edge-swiping', 'screen--edge-settling');
+        previewScreen.removeAttribute('style');
+      }
+      root.insertBefore(previewEl, screenEl);
+    };
+
+    const updatePreview = dx => {
+      const previewScreen = previewEl?.querySelector('.screen');
+      if (!previewScreen) return;
+      const progress = Math.max(0, Math.min(1, dx / 160));
+      previewScreen.style.transform = `translateX(${-22 + progress * 22}px)`;
+      previewScreen.style.opacity = String(0.86 + progress * 0.14);
     };
 
     const settleBack = () => {
@@ -2735,6 +2877,7 @@ function useEdgeSwipeBack(enabled, onBack) {
       if (!touch || touch.clientX > 18 || isEdgeSwipeBlockedTarget(e.target)) return;
       if (cleanupTimer) window.clearTimeout(cleanupTimer);
       screenEl = activeScreen();
+      showPreview();
       start = { x: touch.clientX, y: touch.clientY, time: Date.now() };
       lastDx = 0;
     };
@@ -2765,6 +2908,7 @@ function useEdgeSwipeBack(enabled, onBack) {
         screenEl.classList.add('screen--edge-swiping');
         screenEl.style.transition = 'none';
         screenEl.style.transform = `translateX(${lastDx}px)`;
+        updatePreview(lastDx);
       }
     };
 
@@ -2783,8 +2927,9 @@ function useEdgeSwipeBack(enabled, onBack) {
         outgoing.style.transition = 'transform 0.18s ease-out, box-shadow 0.18s ease-out';
         outgoing.style.transform = 'translateX(100vw)';
         cleanupTimer = window.setTimeout(() => {
-          resetScreen();
+          resetScreen(false);
           onBackRef.current?.();
+          window.setTimeout(removePreview, 80);
         }, 170);
       } else {
         settleBack();
@@ -3449,7 +3594,7 @@ function CoachDetailModal({ type, students, payments, bonuses, scheduledClasses,
   } else if (type === 'classesToday') {
     const scheduleRows = [...todaySchedule, ...futureSchedule].slice(0, 12);
     title = 'Agenda de clases';
-    subtitle = 'Hoy y próximas clases con hora exacta.';
+    subtitle = 'Hoy y próximas clases con hora.';
     stats = [
       { value: todaySchedule.length, label: 'Hoy' },
       { value: futureSchedule.length, label: 'Futuras' },
@@ -3522,7 +3667,7 @@ function CoachDetailModal({ type, students, payments, bonuses, scheduledClasses,
   );
 }
 
-function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, todayCount, onRegisterClass, onSelectStudent, onOpenStudents, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onMarkPaymentPaid, onUseBonus, onEditPayment, onDeletePayment, onEditBonus, onDeleteBonus, onOpenDetail }) {
+function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, todayCount, selectedDetail, onRegisterClass, onSelectStudent, onOpenStudents, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onMarkPaymentPaid, onUseBonus, onEditPayment, onDeletePayment, onEditBonus, onDeleteBonus, onOpenDetail }) {
   const today = todayISO();
   const monthKey = today.slice(0, 7);
   const studentMap = new Map(students.map(s => [s.id, s]));
@@ -3567,14 +3712,14 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
     const nextToday = todaySchedule[0];
     alerts.push(`Próxima clase hoy a las ${formatTimeShort(nextToday.start_time)} · ${scheduleRowTitle(nextToday, studentMap)}`);
   } else if (legacyToday.length > 0) {
-    alerts.push(`${legacyToday.length} ${legacyToday.length === 1 ? 'clase' : 'clases'} hoy sin hora exacta`);
+    alerts.push(`${legacyToday.length} ${legacyToday.length === 1 ? 'clase' : 'clases'} hoy sin hora`);
   } else {
     alerts.push('No hay clases agendadas para hoy');
   }
   if (upcomingSchedule.length > 0) {
     alerts.push(`${upcomingSchedule.length} ${upcomingSchedule.length === 1 ? 'clase futura' : 'clases futuras'} con hora en los próximos 7 días`);
   } else if (legacyUpcoming.length > legacyToday.length) {
-    alerts.push(`${legacyUpcoming.length - legacyToday.length} ${legacyUpcoming.length - legacyToday.length === 1 ? 'clase futura' : 'clases futuras'} sin hora exacta`);
+    alerts.push(`${legacyUpcoming.length - legacyToday.length} ${legacyUpcoming.length - legacyToday.length === 1 ? 'clase futura' : 'clases futuras'} sin hora`);
   }
   if (studentsWithoutNext > 0) {
     alerts.push(`${studentsWithoutNext} ${studentsWithoutNext === 1 ? 'alumno sin próxima clase' : 'alumnos sin próxima clase'}`);
@@ -3596,7 +3741,7 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
   ];
 
   const kpis = [
-    { type: 'income', label: 'Ingresos del mes', value: moneyFmt(paidThisMonth), meta: 'Pagos cobrados', dark: true },
+    { type: 'income', label: 'Ingresos del mes', value: moneyFmt(paidThisMonth), meta: 'Pagos cobrados' },
     { type: 'receivable', label: 'Pagos pendientes', value: moneyFmt(pendingTotal), meta: pendingPayments.length ? `${pendingPayments.length} pendiente${pendingPayments.length === 1 ? '' : 's'}` : 'Al día' },
     { type: 'classesToday', label: 'Clases hoy', value: todayClassesValue, meta: todayClassesMeta },
     { type: 'lowBonuses', label: 'Bonos por agotarse', value: lowBonuses.length, meta: activeBonuses.length ? `${activeBonuses.length} activos` : 'Sin bonos activos' },
@@ -3610,15 +3755,23 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
       </div>
 
       <div className="coach-home-kpis">
-        {kpis.map(kpi => (
-          <button key={kpi.label} className={`coach-home-kpi${kpi.dark ? ' coach-home-kpi--dark' : ''}`} onClick={() => onOpenDetail(kpi.type)}>
-            <div>
-              <div className="coach-home-kpi-label">{kpi.label}</div>
-              <div className="coach-home-kpi-meta">{kpi.meta}</div>
-            </div>
-            <div className="coach-home-kpi-value">{kpi.value}</div>
-          </button>
-        ))}
+        {kpis.map(kpi => {
+          const selected = selectedDetail === kpi.type;
+          return (
+            <button
+              key={kpi.label}
+              className={`coach-home-kpi${selected ? ' coach-home-kpi--selected' : ''}`}
+              onClick={() => onOpenDetail(kpi.type)}
+              aria-pressed={selected}
+            >
+              <div>
+                <div className="coach-home-kpi-label">{kpi.label}</div>
+                <div className="coach-home-kpi-meta">{kpi.meta}</div>
+              </div>
+              <div className="coach-home-kpi-value">{kpi.value}</div>
+            </button>
+          );
+        })}
       </div>
 
       <section className="coach-home-section">
@@ -3628,7 +3781,7 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
         </div>
         <div className="coach-home-card">
           {agendaItems.length === 0 ? (
-            <div className="coach-home-empty">Sin clases agendadas para hoy. Agrega una hora exacta para organizar el día.</div>
+            <div className="coach-home-empty">Sin clases agendadas para hoy. Agrega una hora para organizar el día.</div>
           ) : agendaItems.map(row => {
             if (row.type === 'legacy') {
               const s = row.student;
@@ -3829,6 +3982,7 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
             bonuses={bonuses}
             scheduledClasses={scheduledClasses}
             todayCount={todayCount}
+            selectedDetail={detailType}
             onRegisterClass={onRegisterClass}
             onSelectStudent={onSelectStudent}
             onOpenStudents={openStudentsTab}
@@ -4003,8 +4157,8 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
 }
 
 // ── S4 Pick Student ──────────────────────────────────────────
-function PickStudentScreen({ students, onBack, onSelect, onSelectGroup, onAddStudent }) {
-  const [groupMode, setGroupMode] = useState(false);
+function PickStudentScreen({ students, initialGroupMode = false, onBack, onSelect, onSelectGroup, onAddStudent }) {
+  const [groupMode, setGroupMode] = useState(initialGroupMode);
   const [picked, setPicked] = useState([]);
   const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
   const modeBtn = (label, active, onClick) => (
@@ -4033,7 +4187,7 @@ function PickStudentScreen({ students, onBack, onSelect, onSelectGroup, onAddStu
           {modeBtn('Individual', !groupMode, () => { setGroupMode(false); setPicked([]); })}
           {modeBtn('Clase grupal', groupMode, () => setGroupMode(true))}
         </div>
-        <button className="pick-add-student" onClick={onAddStudent}>
+        <button className="pick-add-student" onClick={() => onAddStudent?.(groupMode)}>
           <span>+</span>
           Registrar alumno nuevo
         </button>
@@ -4228,7 +4382,7 @@ function AddScheduledClassScreen({ coachId, students, existingClass, prefill, on
   const current = existingClass ? normalizeScheduledClass(existingClass) : null;
   const [studentId, setStudentId] = useState(current?.student_id || prefill?.student_id || students[0]?.id || '');
   const [classDate, setClassDate] = useState(current?.class_date || prefill?.class_date || todayISO());
-  const [startTime, setStartTime] = useState(formatTimeShort(current?.start_time || '09:00'));
+  const [startTime, setStartTime] = useState(timeInputValue(current?.start_time || '09:00'));
   const [duration, setDuration]   = useState(String(current?.duration_minutes || 60));
   const [court, setCourt]         = useState(current?.court || '');
   const [status, setStatus]       = useState(current?.status || 'scheduled');
@@ -4240,7 +4394,7 @@ function AddScheduledClassScreen({ coachId, students, existingClass, prefill, on
   async function save() {
     if (!studentId) { setError('Elige un alumno.'); return; }
     if (!classDate) { setError('Elige la fecha.'); return; }
-    if (!startTime) { setError('Elige la hora exacta.'); return; }
+    if (!startTime) { setError('Elige la hora.'); return; }
     if (Number(duration || 0) <= 0) { setError('Ingresa una duración válida.'); return; }
     const student = students.find(s => s.id === studentId);
     setLoading(true); setError('');
@@ -4277,7 +4431,7 @@ function AddScheduledClassScreen({ coachId, students, existingClass, prefill, on
       <div className="screen-content">
         <h1 className="screen-title" style={{marginTop: 8}}>{editing ? 'Reprogramar clase' : 'Nueva clase en agenda'}</h1>
         <p className="screen-subtitle" style={{marginBottom: 28}}>
-          {editing ? 'Cambia fecha, hora, duración o cancha. Esto no toca pagos, bonos ni reportes.' : 'Pon fecha y hora exacta para que aparezca organizada en el inicio del coach.'}
+          {editing ? 'Cambia fecha, hora, duración o cancha. Esto no toca pagos, bonos ni reportes.' : 'Pon fecha y hora para que aparezca organizada en el inicio del coach.'}
         </p>
         {error && <div className="error-msg">{error}</div>}
         <div className="form-field">
@@ -4293,7 +4447,7 @@ function AddScheduledClassScreen({ coachId, students, existingClass, prefill, on
             <input className="field-input" type="date" value={classDate} onChange={e => setClassDate(e.target.value)} />
           </div>
           <div className="form-field">
-            <label className="field-label">Hora exacta</label>
+            <label className="field-label">Hora</label>
             <input className="field-input" type="time" step="300" value={startTime} onChange={e => setStartTime(e.target.value)} />
           </div>
         </div>
@@ -4498,22 +4652,26 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
 
   // If no draft, seed from last log as suggestions
   const seedFocus    = draft.focus    || (last ? toArr(last.today_focus)   : []);
-  const seedImproved = draft.improved || (last ? toArr(last.what_improved) : []);
   const seedCorrection = toArr(draft.correction);
   const seedCorrectionDetails = draft.correctionDetails || '';
   const seedHomework = draft.homework || [];
-  const isSeeded     = !draft.focus && !draft.improved && !!last;
+  const isSeeded     = !draft.focus && !!last;
+  const showSkills   = !isGroup; // skill scoring is per-student; hidden for group classes
   const initialRequiredStep = !seedFocus.length
     ? 'focus'
-    : !seedImproved.length
-      ? 'improved'
+    : (showSkills && !Object.keys(student.skills || {}).length)
+      ? 'skills'
       : !seedCorrection.length
         ? 'correction'
         : null;
 
   const [focus, setFocus]           = useState(seedFocus);
-  const [improved, setImproved]     = useState(seedImproved);
   const [correction, setCorrection] = useState(seedCorrection);
+  const [skills, setSkills]         = useState(showSkills ? (student.skills || {}) : {});
+  const [skillPickerOpen, setSkillPickerOpen] = useState(false);
+  function setSkill(key, val) { setSkills(s => ({ ...s, [key]: Math.min(10, Math.max(1, val)) })); }
+  function addSkill(key) { setSkills(s => s[key] != null ? s : ({ ...s, [key]: 5 })); }
+  function removeSkill(key) { setSkills(s => { const n = { ...s }; delete n[key]; return n; }); }
   const [correctionDetails, setCorrectionDetails] = useState(seedCorrectionDetails);
   const [homework, setHomework]     = useState(seedHomework);
   const [coachNote, setCoachNote]   = useState(draft.coachNote || '');
@@ -4545,19 +4703,19 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
   const date = todayISO();
   const firstName = student.name.split(' ')[0];
 
-  const requiredDone = [
-    focus.length > 0,
-    improved.length > 0,
-    correction.length > 0,
-  ].filter(Boolean).length;
-  const requiredComplete = requiredDone === 3;
+  const requiredItems = showSkills
+    ? [focus.length > 0, Object.keys(skills).length > 0, correction.length > 0]
+    : [focus.length > 0, correction.length > 0];
+  const requiredTotal = requiredItems.length;
+  const requiredDone = requiredItems.filter(Boolean).length;
+  const requiredComplete = requiredDone === requiredTotal;
 
-  const progressPct = (requiredDone / 3) * 100;
+  const progressPct = (requiredDone / requiredTotal) * 100;
   const progressColor = requiredComplete ? 'var(--green-dark)' : requiredDone > 0 ? 'var(--green-mid)' : 'var(--border)';
 
   function nextRequiredStep(step) {
-    if (step === 'focus') return 'improved';
-    if (step === 'improved') return 'correction';
+    if (step === 'focus') return showSkills ? 'skills' : 'correction';
+    if (step === 'skills') return 'correction';
     return null;
   }
 
@@ -4600,11 +4758,11 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
 
   // Save draft to localStorage on every change
   useEffect(() => {
-    LS.set(draftKey, { focus, improved, correction, correctionDetails, homework, coachNote });
-  }, [focus, improved, correction, correctionDetails, homework, coachNote]);
+    LS.set(draftKey, { focus, correction, correctionDetails, homework, coachNote });
+  }, [focus, correction, correctionDetails, homework, coachNote]);
 
   async function save() {
-    if (!requiredComplete) { setError('Completa los 3 puntos rápidos para enviar.'); return; }
+    if (!requiredComplete) { setError('Completa los puntos requeridos para enviar.'); return; }
     if (mediaUploading) { setError('Espera a que termine de subir el archivo.'); return; }
     setLoading(true); setError('');
     const correctionText = [fromArr(correction), correctionDetails.trim()].filter(Boolean).join('. ');
@@ -4613,7 +4771,7 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
       date,
       class_type:        isGroup ? 'Grupal' : 'Privada',
       today_focus:       fromArr(focus),
-      what_improved:     fromArr(improved),
+      what_improved:     null,
       main_correction:   correctionText || null,
       homework:          fromArr(homework),
       coach_note:        coachNote.trim() || null,
@@ -4630,6 +4788,10 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
       if (!data) { setError('Error al guardar. Intenta de nuevo.'); setLoading(false); return; }
       logs.push(data);
       anyOffline = anyOffline || offline;
+    }
+    // Unified skill evaluation → write to the student's real progress (skills + skill_history)
+    if (showSkills && JSON.stringify(skills) !== JSON.stringify(student.skills || {})) {
+      await updateStudentSkills(student, skills);
     }
     LS.set(draftKey, null);
     onSaved(anyOffline, logs);
@@ -4658,7 +4820,7 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
             <p className="quick-report-sub">{isGroup ? `${students.length} alumnos` : firstName}</p>
           </div>
           <div className={`quick-report-status${requiredComplete ? ' quick-report-status--ready' : ''}`}>
-            {requiredComplete ? 'Listo' : `${requiredDone}/3 listo`}
+            {requiredComplete ? 'Listo' : `${requiredDone}/${requiredTotal} listo`}
           </div>
         </div>
 
@@ -4690,7 +4852,7 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
               Preseleccionado desde la última clase
             </span>
             <button onClick={() => {
-              setFocus([]); setImproved([]); setActiveRequiredStep('focus'); setSeededBanner(false);
+              setFocus([]); setActiveRequiredStep('focus'); setSeededBanner(false);
             }} style={{
               fontSize:'0.72rem', fontWeight:700, color:'var(--green-dark)',
               background:'none', border:'none', cursor:'pointer', textDecoration:'underline',
@@ -4718,27 +4880,64 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
             )
           })}
 
-          {renderRequiredField({
-            step: 'improved',
+          {showSkills && renderRequiredField({
+            step: 'skills',
             number: 2,
-            title: 'Mejoró',
-            values: improved,
+            title: 'Habilidades',
+            values: scoredAspects(skills).map(({ key, label }) => `${label} ${skills[key]}`),
             children: (
-            <ChipGroup
-              chips={getCoachChips(coachId, 'improved', DEFAULT_IMPROVED)}
-              addLabel="+ Escribir" values={improved} onChange={v => {
-                updateRequiredStep('improved', improved, v, setImproved);
-                setSeededBanner(false);
-              }}
-              onNewChip={chip => saveCoachChip(coachId, 'improved', chip)}
-              onEditChip={(old, nw) => editCoachChip(coachId, 'improved', old, nw)}
-              onDeleteChip={chip => deleteCoachChip(coachId, 'improved', chip)} />
+              <div>
+                <p style={{fontSize:'0.78rem', color:'var(--text-secondary)', margin:'0 0 12px', lineHeight:1.4}}>
+                  Puntúa del 1 al 10. Aparecen los aspectos que ya tiene {firstName}; añade más con el botón.
+                </p>
+                <div style={{display:'flex', flexDirection:'column', gap:10}}>
+                  {scoredAspects(skills).map(({ key, label }) => {
+                    const val = skills[key];
+                    return (
+                      <div key={key} style={{display:'flex', alignItems:'center', gap:8, background:'var(--white)', border:'1px solid var(--border)', borderRadius:12, padding:'10px 14px'}}>
+                        <button onClick={() => removeSkill(key)} aria-label={`Quitar ${label}`} style={{width:24, height:24, borderRadius:6, border:'none', flexShrink:0, background:'var(--bg)', color:'var(--text-hint)', cursor:'pointer', fontSize:'1rem', lineHeight:1, display:'flex', alignItems:'center', justifyContent:'center'}}>×</button>
+                        <span style={{flex:1, fontSize:'0.88rem', fontWeight:600, color:'var(--text-primary)'}}>{label}</span>
+                        <div style={{display:'flex', alignItems:'center', gap:0}}>
+                          <button onClick={() => setSkill(key, (val || 5) - 1)} style={{width:34, height:34, borderRadius:8, border:'1.5px solid var(--border)', background:'var(--bg)', color:'var(--text-secondary)', fontSize:'1.1rem', cursor:'pointer'}}>−</button>
+                          <span style={{width:36, textAlign:'center', fontSize:'1rem', fontWeight:800, color:'var(--green-dark)'}}>{val}</span>
+                          <button onClick={() => setSkill(key, (val || 5) + 1)} style={{width:34, height:34, borderRadius:8, border:'1.5px solid var(--border)', background:'var(--bg)', color:'var(--text-secondary)', fontSize:'1.1rem', cursor:'pointer'}}>+</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {scoredAspects(skills).length === 0 && (
+                    <p style={{fontSize:'0.82rem', color:'var(--text-hint)', textAlign:'center', padding:'8px 0'}}>Aún no has añadido aspectos.</p>
+                  )}
+                </div>
+                <button onClick={() => setSkillPickerOpen(o => !o)} style={{marginTop:12, width:'100%', padding:11, borderRadius:12, border:'1.5px dashed var(--border)', background:'var(--bg)', color:'var(--green-dark)', fontSize:'0.88rem', fontWeight:700, cursor:'pointer'}}>
+                  {skillPickerOpen ? 'Cerrar catálogo' : '+ Añadir aspecto'}
+                </button>
+                {skillPickerOpen && (
+                  <div style={{marginTop:12, border:'1px solid var(--border)', borderRadius:14, padding:14, background:'var(--bg)', maxHeight:320, overflowY:'auto'}}>
+                    {SKILL_CATALOG.map(({ cat, aspects }) => (
+                      <div key={cat} style={{marginBottom:14}}>
+                        <div style={{fontSize:'0.68rem', fontWeight:700, letterSpacing:'0.06em', color:'var(--text-secondary)', textTransform:'uppercase', marginBottom:6}}>{cat}</div>
+                        <div className="chips">
+                          {aspects.map(a => {
+                            const added = skills[a.key] != null;
+                            return (
+                              <button key={a.key} disabled={added} onClick={() => addSkill(a.key)} style={{fontSize:'0.78rem', fontWeight:600, padding:'6px 11px', borderRadius:100, border:`1px solid ${added ? 'var(--green-mid)' : 'var(--border)'}`, background: added ? 'var(--green-soft)' : 'var(--white)', color: added ? 'var(--green-dark)' : 'var(--text-primary)', cursor: added ? 'default' : 'pointer'}}>
+                                {added ? '✓ ' : '+ '}{a.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )
           })}
 
           {renderRequiredField({
             step: 'correction',
-            number: 3,
+            number: showSkills ? 3 : 2,
             title: 'Corrección',
             values: correction,
             children: (
@@ -4759,7 +4958,7 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
               {loading ? 'Guardando...' : mediaUploading ? 'Subiendo archivo…' : 'Guardar reporte'}
             </button>
             {!requiredComplete && (
-              <div className="required-hint">Completa 3 puntos.</div>
+              <div className="required-hint">Completa los puntos requeridos.</div>
             )}
           </div>
         </section>
@@ -5317,6 +5516,14 @@ function PublicReportScreen({ studentId }) {
   const { student, class_logs: logs, coach } = data;
   const latest  = logs?.[0];
   const history = logs?.slice(1, 11) || [];
+  const nextScheduledClass = sortScheduledClasses((data.scheduled_classes || [])
+    .map(normalizeScheduledClass)
+    .filter(c => ['scheduled', 'confirmed'].includes(c.status) && daysFromToday(c.class_date) >= 0))[0];
+  const nextClassText = nextScheduledClass
+    ? `${formatFullDateEs(nextScheduledClass.class_date)} · ${formatTimeShort(nextScheduledClass.start_time)}`
+    : student.next_class
+      ? formatFullDateEs(student.next_class)
+      : '';
   const achievement = weeklyAchievement(student);
   const canShareProgress = !!computeProgress(student);
   async function shareMyProgress() {
@@ -5510,7 +5717,7 @@ function PublicReportScreen({ studentId }) {
           </button>
         )}
 
-        {student.next_class && (
+        {nextClassText && (
           <div style={{
             marginTop:4, marginBottom:8, borderTop:'1px solid var(--border)',
             paddingTop:20, display:'flex', alignItems:'center', gap:8
@@ -5519,7 +5726,7 @@ function PublicReportScreen({ studentId }) {
               <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
             <span style={{fontSize:'0.82rem', color:'var(--green-dark)', fontWeight:600}}>
-              Próxima clase: {formatFullDateEs(student.next_class)}
+              Próxima clase: {nextClassText}
             </span>
           </div>
         )}
@@ -7263,9 +7470,27 @@ function App() {
   const [selectedLog, setSelectedLog]         = useState(null);
   const [isOffline, setIsOffline]           = useState(!navigator.onLine);
   const [isManaging, setIsManaging]         = useState(() => LS.get('isManaging') || false);
+  const [edgePreviewHtml, setEdgePreviewHtml] = useState('');
+  const edgePreviewStackRef = useRef([]);
   useEffect(() => { LS.set('isManaging', isManaging); }, [isManaging]);
 
-  const go = r => {
+  const captureActiveScreenHtml = () => {
+    const screens = document.querySelectorAll('#root .screen');
+    const screen = Array.from(screens).filter(el => !el.closest('.screen-edge-preview')).pop();
+    return screen ? screen.outerHTML : '';
+  };
+
+  const go = (r, options = {}) => {
+    if (options.history === 'back') {
+      edgePreviewStackRef.current.pop();
+      setEdgePreviewHtml(edgePreviewStackRef.current[edgePreviewStackRef.current.length - 1] || '');
+    } else if (options.history !== 'replace') {
+      const html = captureActiveScreenHtml();
+      if (html) {
+        edgePreviewStackRef.current.push(html);
+        setEdgePreviewHtml(html);
+      }
+    }
     setRoute(r);
     if (r && r !== 'loading' && r !== 'auth') {
       LS.set('lastRoute', r);
@@ -7410,30 +7635,31 @@ function App() {
   }
 
   const routeName = typeof route === 'object' ? route.name : route;
+  const goBack = r => go(r, { history: 'back' });
 
   function backFromCurrentRoute() {
     if (routeName === 'studentProfile') {
       setSelectedStudent(null);
-      go('dashboard');
+      goBack('dashboard');
       return;
     }
     if (routeName === 'logClass') {
       if (route.from === 'studentProfile' && selectedStudent?.id) {
-        go({ name: 'studentProfile', studentId: selectedStudent.id });
+        goBack({ name: 'studentProfile', studentId: selectedStudent.id });
       } else if (route.from === 'dashboard') {
-        go('dashboard');
+        goBack('dashboard');
       } else {
-        go('pickStudent');
+        goBack('pickStudent');
       }
       return;
     }
     if (routeName === 'editStudent') {
-      if (route?.from === 'studentProfile' && selectedStudent?.id) go({ name: 'studentProfile', studentId: selectedStudent.id });
-      else go('dashboard');
+      if (route?.from === 'studentProfile' && selectedStudent?.id) goBack({ name: 'studentProfile', studentId: selectedStudent.id });
+      else goBack('dashboard');
       return;
     }
     if (routeName === 'addStudent' && route?.from === 'pickStudent') {
-      go('pickStudent');
+      goBack(route?.group ? { name: 'pickStudent', group: true } : 'pickStudent');
       return;
     }
     if (routeName === 'share') {
@@ -7441,30 +7667,31 @@ function App() {
       setSavedOffline(false);
       setSavedLog(null);
       LS.set('lastRoute', null);
-      go('dashboard');
+      goBack('dashboard');
       return;
     }
     if (routeName === 'editScheduledClass') {
       setSelectedScheduledClass(null);
-      go('dashboard');
+      goBack('dashboard');
       return;
     }
     if (routeName === 'editPayment') {
       setSelectedPayment(null);
-      go('dashboard');
+      goBack('dashboard');
       return;
     }
     if (routeName === 'editBonus') {
       setSelectedBonus(null);
-      go('dashboard');
+      goBack('dashboard');
       return;
     }
-    go('dashboard');
+    goBack('dashboard');
   }
 
   useEdgeSwipeBack(
     !!user && !['loading', 'auth', 'onboarding', 'dashboard'].includes(routeName) && routeName !== 'public',
-    backFromCurrentRoute
+    backFromCurrentRoute,
+    edgePreviewHtml
   );
 
   // ── Render ──
@@ -7567,11 +7794,11 @@ function App() {
         })()
       )}
 
-      {route === 'pickStudent' && (
-        <PickStudentScreen students={students} onBack={() => go('dashboard')}
+      {routeName === 'pickStudent' && (
+        <PickStudentScreen students={students} initialGroupMode={!!route?.group} onBack={() => go('dashboard')}
           onSelect={s => { setGroupStudents(null); setSelectedStudent(s); go({ name: 'logClass', from: 'pickStudent', studentId: s.id }); }}
           onSelectGroup={arr => { setGroupStudents(arr); setSelectedStudent(arr[0]); go({ name: 'logClass', from: 'pickStudent', group: true }); }}
-          onAddStudent={() => go({ name: 'addStudent', from: 'pickStudent' })} />
+          onAddStudent={fromGroup => go({ name: 'addStudent', from: 'pickStudent', group: !!fromGroup })} />
       )}
 
       {routeName === 'addStudent' && (
@@ -7581,7 +7808,9 @@ function App() {
             setStudents(prev =>
               [...prev, savedStudent].sort((a, b) => a.name.localeCompare(b.name))
             );
-            if (route?.from === 'pickStudent') {
+            if (route?.from === 'pickStudent' && route?.group) {
+              go({ name: 'pickStudent', group: true });
+            } else if (route?.from === 'pickStudent') {
               setGroupStudents(null);
               setSelectedStudent(savedStudent);
               go({ name: 'logClass', from: 'pickStudent', studentId: savedStudent.id });
@@ -7628,12 +7857,6 @@ function App() {
           onBack={() => go('dashboard')}
           onDone={async scheduled => {
             setScheduledClasses(prev => upcomingScheduledClasses([scheduled, ...prev.filter(c => c.id !== scheduled.id)]));
-            // If this upgraded a legacy "sin hora" slot, clear next_class so it doesn't show twice.
-            // Only clear it when the scheduled class persisted SERVER-SIDE (not the local fallback),
-            // otherwise we'd erase the only durable record of the class.
-            if (typeof route === 'object' && route.fromLegacy && route.studentId && !scheduled?._local) {
-              await setStudentNextClass(route.studentId, null);
-            }
             go('dashboard');
           }} />
       )}
@@ -7770,7 +7993,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-24-add-label-consistency';
+    const APP_VERSION = '2026-06-24-unified-log';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 
