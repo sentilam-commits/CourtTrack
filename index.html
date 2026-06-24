@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-23-dashboard-semana">
+  <meta name="app-version" content="2026-06-24-bottom-tabs">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-23-dashboard-semana">
+  <link rel="manifest" href="./manifest.json?v=2026-06-24-bottom-tabs">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -121,8 +121,8 @@
   );
   ALTER TABLE public.archived_records ENABLE ROW LEVEL SECURITY;
 
-  -- Archives the coach's students/classes/scores (with coach email + name), then
-  -- deletes the auth user — the cascade clears the live profile/students/logs/scores.
+  -- Archives the coach's students/classes/scores/ops data (with coach email + name), then
+  -- deletes the auth user — the cascade clears the live profile/students/logs/scores/ops data.
   -- Takes no arguments and uses auth.uid(), so a user can only delete themselves.
   CREATE OR REPLACE FUNCTION public.delete_my_account()
   RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -147,6 +147,18 @@
     INSERT INTO public.archived_records (kind, original_id, coach_id, coach_email, coach_display_name, data)
       SELECT 'progress_score', ps.id, uid, c_email, c_name, to_jsonb(ps)
       FROM public.progress_scores ps WHERE ps.coach_id = uid;
+
+    INSERT INTO public.archived_records (kind, original_id, coach_id, coach_email, coach_display_name, data)
+      SELECT 'coach_payment', cp.id, uid, c_email, c_name, to_jsonb(cp)
+      FROM public.coach_payments cp WHERE cp.coach_id = uid;
+
+    INSERT INTO public.archived_records (kind, original_id, coach_id, coach_email, coach_display_name, data)
+      SELECT 'class_bonus', cb.id, uid, c_email, c_name, to_jsonb(cb)
+      FROM public.class_bonuses cb WHERE cb.coach_id = uid;
+
+    INSERT INTO public.archived_records (kind, original_id, coach_id, coach_email, coach_display_name, data)
+      SELECT 'scheduled_class', sc.id, uid, c_email, c_name, to_jsonb(sc)
+      FROM public.scheduled_classes sc WHERE sc.coach_id = uid;
 
     DELETE FROM auth.users WHERE id = uid;
   END;
@@ -220,6 +232,7 @@
       background: var(--bg);
       max-width: 480px;
       margin: 0 auto;
+      isolation: isolate;
     }
 
     .screen-content {
@@ -227,6 +240,9 @@
       padding: 24px 20px;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
+    }
+    .screen-content--with-bottom-bar {
+      padding-bottom: calc(112px + env(safe-area-inset-bottom));
     }
 
     .screen-bottom {
@@ -404,6 +420,16 @@
       color: var(--text-primary); font-size: 16px;
     }
     .field-input:focus { border-color: var(--green-dark); }
+    .field-textarea {
+      height: 78px;
+      min-height: 78px;
+      padding: 17px 16px;
+      line-height: 1.35;
+      resize: vertical;
+    }
+    .field-textarea::placeholder {
+      color: var(--text-secondary);
+    }
 
     .error-msg {
       font-size: 0.84rem; color: #c0392b;
@@ -481,13 +507,512 @@
     .stat-lbl { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; color: var(--text-secondary); margin-top: 6px; }
     .stat-card--dark .stat-lbl { color: rgba(255,255,255,0.55); }
 
+    .dash-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      background: rgba(14,42,28,0.07);
+      border: 1px solid rgba(14,42,28,0.08);
+      border-radius: 14px;
+      padding: 4px;
+      margin: -10px 0 22px;
+    }
+    .dash-tab {
+      min-height: 40px;
+      border-radius: 10px;
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+      font-weight: 800;
+      border: none;
+      background: transparent;
+    }
+    .dash-tab--active {
+      background: var(--white);
+      color: var(--green-dark);
+      box-shadow: 0 1px 0 rgba(14,19,17,0.04);
+    }
+
+    .coach-home-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .coach-home-eyebrow {
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .coach-home-link {
+      flex-shrink: 0;
+      min-height: 38px;
+      padding: 0 13px;
+      border-radius: 12px;
+      background: var(--green-dark);
+      color: white;
+      font-size: 0.84rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .coach-home-kpis {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .coach-home-kpi {
+      min-height: 92px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--white);
+      padding: 13px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+      appearance: none;
+    }
+    .coach-home-kpi:active { transform: translateY(1px); }
+    .coach-home-kpi--dark {
+      background: var(--green-dark);
+      border-color: var(--green-dark);
+      color: white;
+    }
+    .coach-home-kpi-label {
+      font-size: 0.68rem;
+      line-height: 1.2;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .coach-home-kpi--dark .coach-home-kpi-label { color: rgba(255,255,255,0.58); }
+    .coach-home-kpi-value {
+      font-size: 2rem;
+      line-height: 1;
+      font-weight: 800;
+      color: inherit;
+    }
+    .coach-home-kpi-meta {
+      margin-top: 4px;
+      font-size: 0.72rem;
+      color: var(--text-hint);
+      font-weight: 600;
+    }
+    .coach-home-kpi--dark .coach-home-kpi-meta { color: rgba(255,255,255,0.58); }
+    .coach-home-section { margin-bottom: 24px; }
+    .coach-home-section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .coach-home-section-title {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .coach-home-section-action {
+      color: var(--green-dark);
+      font-size: 0.82rem;
+      font-weight: 800;
+      white-space: nowrap;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    .coach-home-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .coach-home-row {
+      width: 100%;
+      min-height: 68px;
+      display: grid;
+      grid-template-columns: 60px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .coach-home-row:last-child { border-bottom: none; }
+    .coach-home-time {
+      color: var(--green-dark);
+      font-size: 0.9rem;
+      font-weight: 800;
+    }
+    .coach-home-row-main { min-width: 0; }
+    .coach-home-row-title {
+      color: var(--text-primary);
+      font-size: 0.94rem;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .coach-home-row-sub {
+      margin-top: 3px;
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .coach-home-badge {
+      min-width: 72px;
+      min-height: 28px;
+      padding: 0 9px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--green-dark);
+      background: var(--green-soft);
+      font-size: 0.68rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .coach-home-badge--muted {
+      color: var(--blue-slate);
+      background: #EAF0F3;
+    }
+    .coach-home-empty {
+      padding: 18px 16px;
+      color: var(--text-secondary);
+      font-size: 0.86rem;
+      line-height: 1.45;
+      text-align: center;
+    }
+    .coach-home-pay-row {
+      min-height: 58px;
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .coach-home-pay-row:last-child { border-bottom: none; }
+    .coach-home-initials {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--green-soft);
+      color: var(--green-dark);
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+    .coach-home-amount {
+      font-size: 0.92rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+    .coach-home-mini-btn {
+      min-height: 30px;
+      padding: 0 10px;
+      border-radius: 10px;
+      background: var(--green-dark);
+      color: white;
+      font-size: 0.72rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .coach-home-mini-btn--light {
+      background: var(--green-soft);
+      color: var(--green-dark);
+    }
+    .coach-home-mini-btn--danger {
+      background: #FDECEC;
+      color: #B3261E;
+    }
+    .swipe-row {
+      position: relative;
+      overflow: hidden;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      touch-action: pan-y;
+    }
+    .swipe-row:last-child { border-bottom: none; }
+    .swipe-row-actions {
+      position: absolute;
+      inset: 0 0 0 auto;
+      z-index: 0;
+      display: flex;
+      align-items: stretch;
+      justify-content: flex-end;
+      background: var(--green-soft);
+    }
+    .swipe-row-content {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      background: var(--white);
+      will-change: transform;
+    }
+    .swipe-row-content--animating {
+      transition: transform 0.18s ease;
+    }
+    .swipe-row--open .swipe-row-content {
+      box-shadow: 8px 0 18px rgba(15, 24, 20, 0.08);
+    }
+    .swipe-row .coach-home-row,
+    .swipe-row .coach-home-pay-row,
+    .swipe-row .coach-home-bonus-row {
+      border-bottom: none;
+    }
+    .swipe-action {
+      min-width: 88px;
+      height: 100%;
+      padding: 0 12px;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 0.74rem;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+    .swipe-action--primary { background: var(--green-dark); }
+    .swipe-action--secondary {
+      background: #EAF0F3;
+      color: var(--blue-slate);
+    }
+    .swipe-action--danger { background: #B3261E; }
+    .coach-home-bonus-row {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .coach-home-bonus-row:last-child { border-bottom: none; }
+    .coach-home-bonus-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .coach-home-bonus-main { min-width: 0; }
+    .coach-home-meter {
+      height: 6px;
+      border-radius: 999px;
+      background: #EDF0EC;
+      overflow: hidden;
+    }
+    .coach-home-meter span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--orange);
+    }
+    .coach-home-alerts {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .coach-home-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--white);
+    }
+    .coach-home-alert-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #FFF2E8;
+      color: var(--orange);
+      font-size: 0.82rem;
+      font-weight: 900;
+    }
+    .coach-home-alert-text {
+      color: var(--text-primary);
+      font-size: 0.84rem;
+      line-height: 1.35;
+      font-weight: 650;
+    }
+    .coach-detail-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      background: rgba(15, 24, 20, 0.38);
+      padding: 18px;
+    }
+    .coach-detail-panel {
+      width: min(100%, 520px);
+      max-height: min(78vh, 680px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--white);
+      box-shadow: 0 20px 60px rgba(15, 24, 20, 0.22);
+    }
+    .coach-detail-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .coach-detail-title {
+      color: var(--text-primary);
+      font-size: 1.05rem;
+      font-weight: 850;
+      line-height: 1.2;
+    }
+    .coach-detail-subtitle {
+      margin-top: 4px;
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      line-height: 1.35;
+      font-weight: 600;
+    }
+    .coach-detail-close {
+      width: 34px;
+      height: 34px;
+      flex-shrink: 0;
+      border-radius: 10px;
+      background: var(--green-soft);
+      color: var(--green-dark);
+      font-size: 1.2rem;
+      line-height: 1;
+      font-weight: 800;
+    }
+    .coach-detail-body {
+      overflow-y: auto;
+      padding: 6px 0 max(12px, env(safe-area-inset-bottom));
+    }
+    .coach-detail-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      padding: 12px 18px;
+    }
+    .coach-detail-stat {
+      min-height: 72px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 12px;
+      background: var(--bg);
+    }
+    .coach-detail-stat-value {
+      color: var(--text-primary);
+      font-size: 1.35rem;
+      line-height: 1;
+      font-weight: 850;
+    }
+    .coach-detail-stat-label {
+      margin-top: 7px;
+      color: var(--text-secondary);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .coach-detail-list {
+      border-top: 1px solid var(--border);
+    }
+    .coach-detail-row {
+      min-height: 62px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .coach-detail-row-title {
+      color: var(--text-primary);
+      font-size: 0.92rem;
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .coach-detail-row-sub {
+      margin-top: 4px;
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      line-height: 1.35;
+      font-weight: 600;
+    }
+    .coach-detail-row-value {
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+    .coach-detail-row-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
     .bottom-bar {
       display: flex; gap: 12px; padding: 16px 20px;
       padding-bottom: max(20px, env(safe-area-inset-bottom));
       background: var(--bg); border-top: 1px solid var(--border);
       position: sticky; bottom: 0; flex-shrink: 0;
+      z-index: 40;
+      box-shadow: 0 -10px 24px rgba(234, 237, 232, 0.92);
     }
     .bottom-bar .btn { flex: 1; }
+
+    /* ── Bottom tab navigation ── */
+    .tab-nav {
+      display: flex; align-items: stretch;
+      padding: 8px 10px;
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
+      background: var(--white); border-top: 1px solid var(--border);
+      position: sticky; bottom: 0; flex-shrink: 0;
+      z-index: 40;
+      box-shadow: 0 -10px 24px rgba(234, 237, 232, 0.92);
+    }
+    .tab-nav-item {
+      flex: 1;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; padding: 6px 4px;
+      border: none; background: transparent; cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.01em;
+    }
+    .tab-nav-item svg { width: 23px; height: 23px; }
+    .tab-nav-item--active { color: var(--green-dark); }
+    .tab-nav-item--action { color: var(--green-dark); }
+    .tab-nav-item--action svg {
+      width: 30px; height: 30px;
+      padding: 4px; border-radius: 50%;
+      background: var(--green-dark); color: var(--white);
+    }
 
     /* ── Log Class ── */
     .log-content { padding: 14px 16px max(28px, env(safe-area-inset-bottom)); }
@@ -1050,6 +1575,11 @@ function shortDateEs(dateStr) {
   return `${d.getDate()} ${months[d.getMonth()]}`;
 }
 
+function formatTimeShort(timeStr) {
+  if (!timeStr) return '--:--';
+  return String(timeStr).slice(0, 5);
+}
+
 const fromArr = arr => arr.join(', ');
 const toArr = str => {
   if (!str) return [];
@@ -1354,6 +1884,344 @@ async function insertLog(payload) {
   return { data: tmp, offline: true };
 }
 
+const moneyFmt = amount =>
+  `$${Number(amount || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}`;
+
+const parseMoney = value => {
+  let raw = String(value || '').replace(/[^\d.,]/g, '');
+  if (!raw) return 0;
+  const hasComma = raw.includes(',');
+  const hasDot = raw.includes('.');
+  if (hasComma && hasDot) {
+    raw = raw.lastIndexOf(',') > raw.lastIndexOf('.')
+      ? raw.replace(/\./g, '').replace(',', '.')
+      : raw.replace(/,/g, '');
+  } else if (hasComma) {
+    const parts = raw.split(',');
+    raw = parts.length === 2 && parts[1].length === 3
+      ? raw.replace(/,/g, '')
+      : raw.replace(',', '.');
+  } else if (hasDot) {
+    const parts = raw.split('.');
+    raw = parts.length === 2 && parts[1].length === 3
+      ? raw.replace(/\./g, '')
+      : raw;
+  }
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const opsLocalId = prefix =>
+  `local_${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+const opsKey = (uid, kind) => `${kind}:${uid}`;
+
+function isLocalRecord(record) {
+  return String(record?.id || '').startsWith('local_');
+}
+
+function cacheOps(uid, kind, rows) {
+  LS.set(opsKey(uid, kind), rows || []);
+}
+
+function mergeRemoteWithLocal(uid, kind, remoteRows) {
+  const localRows = LS.get(opsKey(uid, kind)) || [];
+  const localOnly = localRows.filter(isLocalRecord);
+  const merged = [...(remoteRows || []), ...localOnly];
+  cacheOps(uid, kind, merged);
+  return merged;
+}
+
+function normalizePayment(row) {
+  return {
+    ...row,
+    amount: Number(row.amount || 0),
+    status: row.status || 'pending',
+  };
+}
+
+function normalizeBonus(row) {
+  const total = Number(row.total_classes || 0);
+  const remaining = Number(row.remaining_classes ?? total);
+  return {
+    ...row,
+    total_classes: total,
+    remaining_classes: remaining,
+    alert_at: Number(row.alert_at ?? 3),
+    status: row.status || (remaining <= 0 ? 'exhausted' : 'active'),
+  };
+}
+
+function normalizeScheduledClass(row) {
+  return {
+    ...row,
+    class_date: row.class_date || todayISO(),
+    start_time: row.start_time || '09:00',
+    duration_minutes: Number(row.duration_minutes || 60),
+    status: row.status || 'scheduled',
+  };
+}
+
+function sortScheduledClasses(rows) {
+  return [...(rows || [])].sort((a, b) => {
+    const dateCompare = String(a.class_date || '').localeCompare(String(b.class_date || ''));
+    if (dateCompare !== 0) return dateCompare;
+    return String(a.start_time || '').localeCompare(String(b.start_time || ''));
+  });
+}
+
+function upcomingScheduledClasses(rows) {
+  return sortScheduledClasses((rows || []).filter(row => {
+    const diff = daysFromToday(row.class_date);
+    return diff !== null && diff >= 0;
+  }));
+}
+
+async function fetchCoachPayments(uid) {
+  try {
+    const { data, error } = await sb.from('coach_payments')
+      .select('*')
+      .eq('coach_id', uid)
+      .order('due_date', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return mergeRemoteWithLocal(uid, 'payments', (data || []).map(normalizePayment));
+  } catch(e) {
+    return (LS.get(opsKey(uid, 'payments')) || []).map(normalizePayment);
+  }
+}
+
+async function fetchClassBonuses(uid) {
+  try {
+    const { data, error } = await sb.from('class_bonuses')
+      .select('*')
+      .eq('coach_id', uid)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return mergeRemoteWithLocal(uid, 'bonuses', (data || []).map(normalizeBonus));
+  } catch(e) {
+    return (LS.get(opsKey(uid, 'bonuses')) || []).map(normalizeBonus);
+  }
+}
+
+async function fetchScheduledClasses(uid) {
+  try {
+    const { data, error } = await sb.from('scheduled_classes')
+      .select('*')
+      .eq('coach_id', uid)
+      .gte('class_date', todayISO())
+      .order('class_date', { ascending: true })
+      .order('start_time', { ascending: true });
+    if (error) throw error;
+    return upcomingScheduledClasses(mergeRemoteWithLocal(uid, 'scheduledClasses', (data || []).map(normalizeScheduledClass)));
+  } catch(e) {
+    return upcomingScheduledClasses((LS.get(opsKey(uid, 'scheduledClasses')) || []).map(normalizeScheduledClass));
+  }
+}
+
+async function fetchCoachOps(uid) {
+  const [payments, bonuses, scheduledClasses] = await Promise.all([
+    fetchCoachPayments(uid),
+    fetchClassBonuses(uid),
+    fetchScheduledClasses(uid),
+  ]);
+  return { payments, bonuses, scheduledClasses };
+}
+
+async function createCoachPayment(uid, payload) {
+  const paidAt = payload.status === 'paid'
+    ? `${payload.paid_at || payload.due_date || todayISO()}T12:00:00`
+    : null;
+  const row = normalizePayment({
+    coach_id: uid,
+    student_id: payload.student_id || null,
+    title: payload.title || 'Clase',
+    amount: parseMoney(payload.amount),
+    status: payload.status || 'pending',
+    due_date: payload.due_date || null,
+    paid_at: paidAt,
+  });
+
+  try {
+    const { data, error } = await sb.from('coach_payments').insert(row).select().single();
+    if (error) throw error;
+    const saved = normalizePayment(data);
+    cacheOps(uid, 'payments', [saved, ...(LS.get(opsKey(uid, 'payments')) || []).filter(p => p.id !== saved.id)]);
+    return saved;
+  } catch(e) {
+    const local = normalizePayment({ ...row, id: opsLocalId('payment'), created_at: new Date().toISOString(), _local: true });
+    cacheOps(uid, 'payments', [local, ...(LS.get(opsKey(uid, 'payments')) || [])]);
+    return local;
+  }
+}
+
+async function markCoachPaymentPaid(uid, payment) {
+  const patch = { status: 'paid', paid_at: new Date().toISOString() };
+  if (!isLocalRecord(payment)) {
+    try {
+      const { data, error } = await sb.from('coach_payments')
+        .update(patch)
+        .eq('id', payment.id)
+        .select().single();
+      if (error) throw error;
+      const saved = normalizePayment(data);
+      const rows = LS.get(opsKey(uid, 'payments')) || [];
+      cacheOps(uid, 'payments', rows.some(p => p.id === saved.id)
+        ? rows.map(p => p.id === saved.id ? saved : p)
+        : [saved, ...rows]);
+      return saved;
+    } catch(e) {}
+  }
+  const saved = normalizePayment({ ...payment, ...patch });
+  const rows = LS.get(opsKey(uid, 'payments')) || [];
+  cacheOps(uid, 'payments', rows.some(p => p.id === saved.id)
+    ? rows.map(p => p.id === saved.id ? saved : p)
+    : [saved, ...rows]);
+  return saved;
+}
+
+async function createClassBonus(uid, payload) {
+  const total = Math.max(1, Number(payload.total_classes || 0));
+  const remaining = Math.min(total, Math.max(0, Number(payload.remaining_classes || total)));
+  const row = normalizeBonus({
+    coach_id: uid,
+    student_id: payload.student_id,
+    name: payload.name || `Bono ${total} clases`,
+    total_classes: total,
+    remaining_classes: remaining,
+    alert_at: Math.max(1, Number(payload.alert_at || 3)),
+    status: remaining <= 0 ? 'exhausted' : 'active',
+  });
+
+  try {
+    const { data, error } = await sb.from('class_bonuses').insert(row).select().single();
+    if (error) throw error;
+    const saved = normalizeBonus(data);
+    cacheOps(uid, 'bonuses', [saved, ...(LS.get(opsKey(uid, 'bonuses')) || []).filter(b => b.id !== saved.id)]);
+    return saved;
+  } catch(e) {
+    const local = normalizeBonus({ ...row, id: opsLocalId('bonus'), created_at: new Date().toISOString(), _local: true });
+    cacheOps(uid, 'bonuses', [local, ...(LS.get(opsKey(uid, 'bonuses')) || [])]);
+    return local;
+  }
+}
+
+async function useClassBonus(uid, bonus) {
+  const remaining = Math.max(0, Number(bonus.remaining_classes || 0) - 1);
+  const patch = {
+    remaining_classes: remaining,
+    status: remaining <= 0 ? 'exhausted' : 'active',
+  };
+  if (!isLocalRecord(bonus)) {
+    try {
+      const { data, error } = await sb.from('class_bonuses')
+        .update(patch)
+        .eq('id', bonus.id)
+        .select().single();
+      if (error) throw error;
+      const saved = normalizeBonus(data);
+      const rows = LS.get(opsKey(uid, 'bonuses')) || [];
+      cacheOps(uid, 'bonuses', rows.some(b => b.id === saved.id)
+        ? rows.map(b => b.id === saved.id ? saved : b)
+        : [saved, ...rows]);
+      return saved;
+    } catch(e) {}
+  }
+  const saved = normalizeBonus({ ...bonus, ...patch });
+  const rows = LS.get(opsKey(uid, 'bonuses')) || [];
+  cacheOps(uid, 'bonuses', rows.some(b => b.id === saved.id)
+    ? rows.map(b => b.id === saved.id ? saved : b)
+    : [saved, ...rows]);
+  return saved;
+}
+
+async function createScheduledClass(uid, payload) {
+  const row = normalizeScheduledClass({
+    coach_id: uid,
+    student_id: payload.student_id || null,
+    title: payload.title || 'Clase',
+    class_date: payload.class_date || todayISO(),
+    start_time: payload.start_time || '09:00',
+    duration_minutes: Math.max(15, Number(payload.duration_minutes || 60)),
+    court: payload.court || null,
+    status: payload.status || 'scheduled',
+    notes: payload.notes || null,
+  });
+
+  try {
+    const { data, error } = await sb.from('scheduled_classes').insert(row).select().single();
+    if (error) throw error;
+    const saved = normalizeScheduledClass(data);
+    cacheOps(uid, 'scheduledClasses', sortScheduledClasses([saved, ...(LS.get(opsKey(uid, 'scheduledClasses')) || []).filter(c => c.id !== saved.id)]));
+    return saved;
+  } catch(e) {
+    const local = normalizeScheduledClass({ ...row, id: opsLocalId('class'), created_at: new Date().toISOString(), _local: true });
+    cacheOps(uid, 'scheduledClasses', sortScheduledClasses([local, ...(LS.get(opsKey(uid, 'scheduledClasses')) || [])]));
+    return local;
+  }
+}
+
+async function updateScheduledClass(uid, current, payload) {
+  const patch = normalizeScheduledClass({
+    ...current,
+    student_id: payload.student_id || null,
+    title: payload.title || current.title || 'Clase',
+    class_date: payload.class_date || current.class_date || todayISO(),
+    start_time: payload.start_time || current.start_time || '09:00',
+    duration_minutes: Math.max(15, Number(payload.duration_minutes || current.duration_minutes || 60)),
+    court: payload.court || null,
+    status: payload.status || current.status || 'scheduled',
+    notes: payload.notes || null,
+  });
+  const updateRow = {
+    student_id: patch.student_id,
+    title: patch.title,
+    class_date: patch.class_date,
+    start_time: patch.start_time,
+    duration_minutes: patch.duration_minutes,
+    court: patch.court,
+    status: patch.status,
+    notes: patch.notes,
+  };
+
+  if (!isLocalRecord(current)) {
+    try {
+      const { data, error } = await sb.from('scheduled_classes')
+        .update(updateRow)
+        .eq('id', current.id)
+        .select().single();
+      if (error) throw error;
+      const saved = normalizeScheduledClass(data);
+      const rows = LS.get(opsKey(uid, 'scheduledClasses')) || [];
+      cacheOps(uid, 'scheduledClasses', sortScheduledClasses(rows.some(c => c.id === saved.id)
+        ? rows.map(c => c.id === saved.id ? saved : c)
+        : [saved, ...rows]));
+      return saved;
+    } catch(e) {}
+  }
+
+  const saved = normalizeScheduledClass({ ...current, ...updateRow });
+  const rows = LS.get(opsKey(uid, 'scheduledClasses')) || [];
+  cacheOps(uid, 'scheduledClasses', sortScheduledClasses(rows.some(c => c.id === saved.id)
+    ? rows.map(c => c.id === saved.id ? saved : c)
+    : [saved, ...rows]));
+  return saved;
+}
+
+async function deleteScheduledClass(uid, scheduledClass) {
+  if (!isLocalRecord(scheduledClass)) {
+    try {
+      const { error } = await sb.from('scheduled_classes')
+        .delete()
+        .eq('id', scheduledClass.id);
+      if (error) throw error;
+    } catch(e) {}
+  }
+  const rows = LS.get(opsKey(uid, 'scheduledClasses')) || [];
+  cacheOps(uid, 'scheduledClasses', rows.filter(c => c.id !== scheduledClass.id));
+  return scheduledClass.id;
+}
+
 // ── Linkify ──────────────────────────────────────────────────
 function linkify(text) {
   if (!text || typeof text !== 'string') return text;
@@ -1524,6 +2392,192 @@ function Header({ title, onBack, right }) {
       <div className="header-right">{right}</div>
     </header>
   );
+}
+
+const SWIPE_ACTION_WIDTH = 88;
+
+function closestEl(target, selector) {
+  return target?.closest ? target.closest(selector) : null;
+}
+
+function isSwipeIgnoredTarget(target) {
+  return !!closestEl(target, 'input, textarea, select, [contenteditable="true"], video, [data-swipe-ignore], [data-swipe-action]');
+}
+
+function SwipeActionsRow({ children, actions = [] }) {
+  const maxOffset = actions.length * SWIPE_ACTION_WIDTH;
+  const [offset, setOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef(null);
+  const offsetRef = useRef(0);
+  const suppressClickRef = useRef(false);
+
+  const setLiveOffset = value => {
+    offsetRef.current = value;
+    setOffset(value);
+  };
+
+  useEffect(() => {
+    if (!maxOffset) setLiveOffset(0);
+  }, [maxOffset]);
+
+  const snap = open => {
+    setDragging(false);
+    setLiveOffset(open && maxOffset ? -maxOffset : 0);
+  };
+
+  const onPointerDown = e => {
+    if (!maxOffset || isSwipeIgnoredTarget(e.target)) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startOffset: offsetRef.current,
+      swiping: false,
+    };
+  };
+
+  const onPointerMove = e => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+
+    if (!drag.swiping) {
+      if (Math.abs(dx) < 7 && Math.abs(dy) < 7) return;
+      if (Math.abs(dy) > Math.abs(dx)) {
+        dragRef.current = null;
+        return;
+      }
+      drag.swiping = true;
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      setDragging(true);
+    }
+
+    const next = Math.max(-maxOffset, Math.min(0, drag.startOffset + dx));
+    setLiveOffset(next);
+    e.preventDefault?.();
+  };
+
+  const onPointerEnd = e => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    if (drag.swiping) {
+      suppressClickRef.current = true;
+      window.setTimeout(() => { suppressClickRef.current = false; }, 0);
+    }
+    const shouldOpen = offsetRef.current < -maxOffset * 0.35;
+    snap(shouldOpen);
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
+    }
+    dragRef.current = null;
+  };
+
+  const onContentClickCapture = e => {
+    if (suppressClickRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (offsetRef.current < 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      snap(false);
+    }
+  };
+
+  return (
+    <div
+      className={`swipe-row${offset < 0 ? ' swipe-row--open' : ''}`}
+      data-swipe-row
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerEnd}
+      onPointerCancel={onPointerEnd}>
+      <div className="swipe-row-actions" style={{width: maxOffset}}>
+        {actions.map(action => (
+          <button
+            key={action.label}
+            type="button"
+            data-swipe-action
+            className={`swipe-action swipe-action--${action.tone || 'primary'}`}
+            onClick={e => {
+              e.stopPropagation();
+              snap(false);
+              action.onClick?.();
+            }}>
+            {action.label}
+          </button>
+        ))}
+      </div>
+      <div
+        className={`swipe-row-content${dragging ? '' : ' swipe-row-content--animating'}`}
+        style={{transform: `translateX(${offset}px)`}}
+        onClickCapture={onContentClickCapture}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function isEdgeSwipeBlockedTarget(target) {
+  return !!closestEl(target, 'input, textarea, select, [contenteditable="true"], video, [data-swipe-row], .coach-detail-panel');
+}
+
+function useEdgeSwipeBack(enabled, onBack) {
+  const onBackRef = useRef(onBack);
+
+  useEffect(() => {
+    onBackRef.current = onBack;
+  }, [onBack]);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let start = null;
+
+    const onTouchStart = e => {
+      const touch = e.touches?.[0];
+      if (!touch || touch.clientX > 18 || isEdgeSwipeBlockedTarget(e.target)) return;
+      start = { x: touch.clientX, y: touch.clientY };
+    };
+
+    const onTouchMove = e => {
+      if (!start) return;
+      const touch = e.touches?.[0];
+      if (!touch) return;
+      const dx = touch.clientX - start.x;
+      const dy = touch.clientY - start.y;
+
+      if (dx > 12 && Math.abs(dx) > Math.abs(dy) && e.cancelable) {
+        e.preventDefault();
+      }
+
+      if (Math.abs(dy) > 48 && Math.abs(dy) > Math.abs(dx)) {
+        start = null;
+        return;
+      }
+
+      if (dx > 72 && Math.abs(dy) < 44) {
+        start = null;
+        onBackRef.current?.();
+      }
+    };
+
+    const onTouchEnd = () => { start = null; };
+
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [enabled]);
 }
 
 // ── Avatar ───────────────────────────────────────────────────
@@ -1962,37 +3016,64 @@ function OnboardingScreen({ user, onDone }) {
 // ── S3 Dashboard ─────────────────────────────────────────────
 // ── Panel de inicio del coach: clases de esta semana ──────────
 // Solo lo que le importa al coach: qué clases tiene agendadas en los próximos 7 días.
-// Solo lectura, desde `students` ya cargados (next_class). Sin queries ni migraciones.
-function CoachDashboardPanel({ students, onSelectStudent }) {
+function CoachDashboardPanel({ students, scheduledClasses, onSelectStudent, onEditScheduledClass, onDeleteScheduledClass }) {
   const today = todayISO();
   const ahead = (d) => Math.round((new Date(d) - new Date(today)) / 86400000);
   const open = (s) => { if (s && onSelectStudent) onSelectStudent(s); };
+  const studentMap = new Map((students || []).map(s => [s.id, s]));
 
-  const semana = students
+  const exactSchedule = sortScheduledClasses((scheduledClasses || [])
+    .map(normalizeScheduledClass)
+    .filter(c => {
+      const d = daysFromToday(c.class_date);
+      return c.status !== 'cancelled' && d !== null && d >= 0 && d < 7;
+    }));
+  const legacySchedule = students
     .filter(s => s.next_class && s.next_class >= today && ahead(s.next_class) < 7)
     .sort((a, b) => a.next_class.localeCompare(b.next_class));
+  const rows = exactSchedule.length
+    ? exactSchedule.map(item => ({ type: 'schedule', item }))
+    : legacySchedule.map(student => ({ type: 'legacy', student }));
 
   return (
     <div style={{marginBottom: 24}}>
-      <div className="section-label" style={{marginBottom: 10}}>CLASES DE ESTA SEMANA</div>
-      {semana.length === 0 ? (
+      <div className="section-label" style={{marginBottom: 10}}>AGENDA DE ESTA SEMANA</div>
+      {rows.length === 0 ? (
         <div style={{background:'var(--white)', border:'1px solid var(--border)', borderRadius:14, padding:'16px', fontSize:'0.85rem', color:'var(--text-secondary)', textAlign:'center'}}>
           No hay clases agendadas para los próximos 7 días.
         </div>
       ) : (
         <div style={{background:'var(--white)', border:'1px solid var(--border)', borderRadius:14, padding:'2px 16px'}}>
-          {semana.map((s, i) => {
-            const d = ahead(s.next_class);
-            const when = d === 0 ? 'Hoy' : d === 1 ? 'Mañana' : formatDateEs(s.next_class);
-            return (
-              <button key={s.id} onClick={() => open(s)} style={{
+          {rows.map((row, i) => {
+            const item = row.item;
+            const s = row.type === 'schedule' ? studentMap.get(item.student_id) : row.student;
+            const date = row.type === 'schedule' ? item.class_date : s.next_class;
+            const d = ahead(date);
+            const when = row.type === 'schedule'
+              ? `${d === 0 ? 'Hoy' : d === 1 ? 'Mañana' : formatDateEs(date)} · ${formatTimeShort(item.start_time)}`
+              : `${d === 0 ? 'Hoy' : d === 1 ? 'Mañana' : formatDateEs(date)} · sin hora`;
+            const title = row.type === 'schedule' ? scheduleRowTitle(item, studentMap) : s.name;
+            const rowButton = (
+              <button onClick={() => row.type === 'schedule' ? onEditScheduledClass(item) : open(s)} style={{
                 width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10,
                 background:'none', border:'none', borderTop: i === 0 ? 'none' : '1px solid var(--border)',
                 padding:'13px 0', cursor:'pointer', textAlign:'left',
               }}>
-                <span style={{fontSize:'0.9rem', fontWeight:600, color:'var(--text-primary)'}}>{s.name}</span>
+                <span style={{fontSize:'0.9rem', fontWeight:600, color:'var(--text-primary)'}}>{title}</span>
                 <span style={{flexShrink:0, fontSize:'0.82rem', fontWeight:700, color: d <= 1 ? 'var(--green-mid)' : 'var(--text-secondary)'}}>{when}</span>
               </button>
+            );
+            return row.type === 'schedule' ? (
+              <SwipeActionsRow
+                key={item.id}
+                actions={[
+                  { label: 'Editar', tone: 'secondary', onClick: () => onEditScheduledClass(item) },
+                  { label: 'Eliminar', tone: 'danger', onClick: () => onDeleteScheduledClass(item) },
+                ]}>
+                {rowButton}
+              </SwipeActionsRow>
+            ) : (
+              <React.Fragment key={s.id}>{rowButton}</React.Fragment>
             );
           })}
         </div>
@@ -2001,8 +3082,430 @@ function CoachDashboardPanel({ students, onSelectStudent }) {
   );
 }
 
-function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog, managing, onManagingChange }) {
+function daysFromToday(dateStr) {
+  if (!dateStr) return null;
+  const today = new Date(todayISO() + 'T00:00:00');
+  const date = new Date(dateStr + 'T00:00:00');
+  return Math.round((date - today) / 86400000);
+}
+
+function dueLabel(dateStr) {
+  const diff = daysFromToday(dateStr);
+  if (diff === null) return '';
+  if (diff === 0) return 'Hoy';
+  if (diff === 1) return 'Mañana';
+  if (diff > 1 && diff < 7) return formatDateEs(dateStr);
+  if (diff < 0) return 'Atrasada';
+  return formatDateEs(dateStr);
+}
+
+function paymentDueLabel(payment) {
+  if (payment.status === 'paid') return 'Pagado';
+  if (!payment.due_date) return 'Pendiente';
+  const diff = daysFromToday(payment.due_date);
+  if (diff === 0) return 'Vence hoy';
+  if (diff === 1) return 'Vence mañana';
+  if (diff < 0) return `Vencido · ${Math.abs(diff)} días`;
+  return `Vence ${formatDateEs(payment.due_date)}`;
+}
+
+function scheduleStatusLabel(status) {
+  if (status === 'confirmed') return 'Confirmada';
+  if (status === 'completed') return 'Completada';
+  if (status === 'cancelled') return 'Cancelada';
+  return 'Agendada';
+}
+
+function scheduleRowTitle(item, studentMap) {
+  const student = studentMap.get(item.student_id);
+  return student?.name || item.title || 'Clase';
+}
+
+function scheduleRowSub(item) {
+  const duration = `${Number(item.duration_minutes || 60)} min`;
+  return `${duration} · ${item.court || 'Cancha pendiente'}`;
+}
+
+function CoachDetailModal({ type, students, payments, bonuses, scheduledClasses, todayCount, onClose, onMarkPaymentPaid, onUseBonus, onEditScheduledClass }) {
+  if (!type) return null;
+
+  const today = todayISO();
+  const monthKey = today.slice(0, 7);
+  const studentMap = new Map((students || []).map(s => [s.id, s]));
+  const activeSchedule = sortScheduledClasses((scheduledClasses || [])
+    .map(normalizeScheduledClass)
+    .filter(c => c.status !== 'cancelled'));
+  const todaySchedule = activeSchedule.filter(c => c.class_date === today);
+  const futureSchedule = activeSchedule.filter(c => {
+    const diff = daysFromToday(c.class_date);
+    return diff !== null && diff > 0;
+  });
+  const paidThisMonthRows = (payments || [])
+    .filter(p => p.status === 'paid' && String(p.paid_at || p.created_at || '').slice(0, 7) === monthKey)
+    .sort((a, b) => String(b.paid_at || b.created_at || '').localeCompare(String(a.paid_at || a.created_at || '')));
+  const paidThisMonth = paidThisMonthRows.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const pendingPayments = (payments || [])
+    .filter(p => p.status !== 'paid')
+    .sort((a, b) => String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')));
+  const pendingTotal = pendingPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const activeBonuses = (bonuses || []).filter(b => b.status !== 'exhausted' && Number(b.remaining_classes || 0) > 0);
+  const lowBonuses = activeBonuses
+    .filter(b => Number(b.remaining_classes || 0) <= Number(b.alert_at || 3))
+    .sort((a, b) => Number(a.remaining_classes || 0) - Number(b.remaining_classes || 0));
+
+  let title = '';
+  let subtitle = '';
+  let stats = [];
+  let rows = null;
+
+  if (type === 'income') {
+    title = 'Ingresos del mes';
+    subtitle = 'Pagos marcados como cobrados durante el mes actual.';
+    stats = [
+      { value: moneyFmt(paidThisMonth), label: 'Cobrado' },
+      { value: paidThisMonthRows.length, label: 'Pagos' },
+    ];
+    rows = paidThisMonthRows.length ? paidThisMonthRows.map(payment => {
+      const student = studentMap.get(payment.student_id);
+      const title = student?.name || payment.title || 'Pago';
+      return (
+        <div key={payment.id} className="coach-detail-row">
+          <div>
+            <div className="coach-detail-row-title">{title}</div>
+            <div className="coach-detail-row-sub">{payment.title || 'Pago'} · {formatDateEs(String(payment.paid_at || payment.created_at || today).slice(0, 10))}</div>
+          </div>
+          <div className="coach-detail-row-value">{moneyFmt(payment.amount)}</div>
+        </div>
+      );
+    }) : <div className="coach-home-empty">Todavía no hay pagos cobrados este mes.</div>;
+  } else if (type === 'receivable') {
+    title = 'Por cobrar';
+    subtitle = 'Pagos pendientes ordenados por vencimiento.';
+    stats = [
+      { value: moneyFmt(pendingTotal), label: 'Pendiente' },
+      { value: pendingPayments.length, label: 'Cobros' },
+    ];
+    rows = pendingPayments.length ? pendingPayments.map(payment => {
+      const student = studentMap.get(payment.student_id);
+      const title = student?.name || payment.title || 'Pago';
+      return (
+        <div key={payment.id} className="coach-detail-row">
+          <div>
+            <div className="coach-detail-row-title">{title}</div>
+            <div className="coach-detail-row-sub">{paymentDueLabel(payment)}</div>
+          </div>
+          <div className="coach-detail-row-actions">
+            <div className="coach-detail-row-value">{moneyFmt(payment.amount)}</div>
+            <button className="coach-home-mini-btn" onClick={() => onMarkPaymentPaid(payment)}>Cobrar</button>
+          </div>
+        </div>
+      );
+    }) : <div className="coach-home-empty">No hay pagos pendientes.</div>;
+  } else if (type === 'classesToday') {
+    const scheduleRows = [...todaySchedule, ...futureSchedule].slice(0, 12);
+    title = 'Agenda de clases';
+    subtitle = 'Hoy y próximas clases con hora exacta.';
+    stats = [
+      { value: todaySchedule.length, label: 'Hoy' },
+      { value: futureSchedule.length, label: 'Futuras' },
+      { value: todayCount, label: 'Reportes hoy' },
+    ];
+    rows = scheduleRows.length ? scheduleRows.map(item => (
+      <div key={item.id} className="coach-detail-row">
+        <div>
+          <div className="coach-detail-row-title">{scheduleRowTitle(item, studentMap)}</div>
+          <div className="coach-detail-row-sub">{formatDateEs(item.class_date)} · {formatTimeShort(item.start_time)} · {scheduleRowSub(item)}</div>
+        </div>
+        <div className="coach-detail-row-actions">
+          <span className="coach-home-badge">{scheduleStatusLabel(item.status)}</span>
+          <button className="coach-home-mini-btn coach-home-mini-btn--light" onClick={() => { onClose(); onEditScheduledClass(item); }}>Reprogramar</button>
+        </div>
+      </div>
+    )) : <div className="coach-home-empty">No hay clases agendadas. Usa Agendar clase para poner hora y cancha.</div>;
+  } else {
+    const rowsToShow = lowBonuses.length ? lowBonuses : activeBonuses;
+    title = 'Bonos por agotarse';
+    subtitle = lowBonuses.length ? 'Bonos que ya llegaron al umbral de alerta.' : 'Bonos activos registrados.';
+    stats = [
+      { value: lowBonuses.length, label: 'Por agotarse' },
+      { value: activeBonuses.length, label: 'Activos' },
+    ];
+    rows = rowsToShow.length ? rowsToShow.map(bonus => {
+      const student = studentMap.get(bonus.student_id);
+      const remaining = Number(bonus.remaining_classes || 0);
+      const total = Math.max(1, Number(bonus.total_classes || 1));
+      return (
+        <div key={bonus.id} className="coach-detail-row">
+          <div>
+            <div className="coach-detail-row-title">{student?.name || bonus.name || 'Bono'}</div>
+            <div className="coach-detail-row-sub">{bonus.name || `Bono ${total} clases`} · quedan {remaining} de {total}</div>
+          </div>
+          <div className="coach-detail-row-actions">
+            <div className="coach-detail-row-value">{remaining}/{total}</div>
+            <button className="coach-home-mini-btn coach-home-mini-btn--light" onClick={() => onUseBonus(bonus)}>Descontar</button>
+          </div>
+        </div>
+      );
+    }) : <div className="coach-home-empty">No hay bonos activos registrados.</div>;
+  }
+
+  return (
+    <div className="coach-detail-backdrop" onClick={onClose}>
+      <div className="coach-detail-panel" role="dialog" aria-modal="true" aria-label={title} onClick={e => e.stopPropagation()}>
+        <div className="coach-detail-header">
+          <div>
+            <div className="coach-detail-title">{title}</div>
+            <div className="coach-detail-subtitle">{subtitle}</div>
+          </div>
+          <button className="coach-detail-close" onClick={onClose} aria-label="Cerrar">×</button>
+        </div>
+        <div className="coach-detail-body">
+          <div className="coach-detail-summary">
+            {stats.map(stat => (
+              <div key={stat.label} className="coach-detail-stat">
+                <div className="coach-detail-stat-value">{stat.value}</div>
+                <div className="coach-detail-stat-label">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="coach-detail-list">{rows}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, todayCount, onRegisterClass, onSelectStudent, onOpenStudents, onAddPayment, onAddBonus, onAddScheduledClass, onEditScheduledClass, onDeleteScheduledClass, onMarkPaymentPaid, onUseBonus, onOpenDetail }) {
+  const today = todayISO();
+  const monthKey = today.slice(0, 7);
+  const studentMap = new Map(students.map(s => [s.id, s]));
+  const activeSchedule = sortScheduledClasses((scheduledClasses || [])
+    .map(normalizeScheduledClass)
+    .filter(c => c.status !== 'cancelled'));
+  const weekSchedule = activeSchedule.filter(c => {
+    const diff = daysFromToday(c.class_date);
+    return diff !== null && diff >= 0 && diff < 7;
+  });
+  const todaySchedule = weekSchedule.filter(c => c.class_date === today);
+  const upcomingSchedule = weekSchedule.filter(c => c.class_date !== today);
+  const legacyUpcoming = students
+    .filter(s => s.next_class && daysFromToday(s.next_class) >= 0 && daysFromToday(s.next_class) < 7)
+    .sort((a, b) => a.next_class.localeCompare(b.next_class));
+  const legacyToday = legacyUpcoming.filter(s => s.next_class === today);
+  const agendaItems = todaySchedule.length
+    ? todaySchedule.slice(0, 4).map(item => ({ type: 'schedule', item }))
+    : legacyToday.slice(0, 4).map(student => ({ type: 'legacy', student }));
+  const studentsWithoutNext = students.filter(s => !s.next_class).length;
+  const paidThisMonth = (payments || [])
+    .filter(p => p.status === 'paid' && String(p.paid_at || p.created_at || '').slice(0, 7) === monthKey)
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const pendingPayments = (payments || [])
+    .filter(p => p.status !== 'paid')
+    .sort((a, b) => String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')));
+  const pendingTotal = pendingPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const activeBonuses = (bonuses || []).filter(b => b.status !== 'exhausted' && Number(b.remaining_classes || 0) > 0);
+  const lowBonuses = activeBonuses
+    .filter(b => Number(b.remaining_classes || 0) <= Number(b.alert_at || 3))
+    .sort((a, b) => Number(a.remaining_classes || 0) - Number(b.remaining_classes || 0));
+  const bonusesToShow = lowBonuses.length ? lowBonuses : activeBonuses;
+  const todayClassesValue = Math.max(todaySchedule.length, legacyToday.length, todayCount);
+  const todayClassesMeta = todaySchedule.length && todayCount
+    ? `${todaySchedule.length} agendadas · ${todayCount} reportes`
+    : todaySchedule.length
+      ? 'Agendadas'
+      : 'Reportes guardados';
+  const alerts = [];
+
+  if (todaySchedule.length > 0) {
+    const nextToday = todaySchedule[0];
+    alerts.push(`Próxima clase hoy a las ${formatTimeShort(nextToday.start_time)} · ${scheduleRowTitle(nextToday, studentMap)}`);
+  } else if (legacyToday.length > 0) {
+    alerts.push(`${legacyToday.length} ${legacyToday.length === 1 ? 'clase' : 'clases'} hoy sin hora exacta`);
+  } else {
+    alerts.push('No hay clases agendadas para hoy');
+  }
+  if (upcomingSchedule.length > 0) {
+    alerts.push(`${upcomingSchedule.length} ${upcomingSchedule.length === 1 ? 'clase futura' : 'clases futuras'} con hora en los próximos 7 días`);
+  } else if (legacyUpcoming.length > legacyToday.length) {
+    alerts.push(`${legacyUpcoming.length - legacyToday.length} ${legacyUpcoming.length - legacyToday.length === 1 ? 'clase futura' : 'clases futuras'} sin hora exacta`);
+  }
+  if (studentsWithoutNext > 0) {
+    alerts.push(`${studentsWithoutNext} ${studentsWithoutNext === 1 ? 'alumno sin próxima clase' : 'alumnos sin próxima clase'}`);
+  }
+  if (pendingPayments.length > 0) {
+    alerts.push(`${pendingPayments.length} ${pendingPayments.length === 1 ? 'pago pendiente' : 'pagos pendientes'}`);
+  }
+  if (lowBonuses.length > 0) {
+    alerts.push(`${lowBonuses.length} ${lowBonuses.length === 1 ? 'bono por agotarse' : 'bonos por agotarse'}`);
+  }
+  if (alerts.length === 0) alerts.push('Todo al día por ahora');
+
+  const kpis = [
+    { type: 'income', label: 'Ingresos del mes', value: moneyFmt(paidThisMonth), meta: 'Pagos cobrados', dark: true },
+    { type: 'receivable', label: 'Por cobrar', value: moneyFmt(pendingTotal), meta: pendingPayments.length ? `${pendingPayments.length} pendiente${pendingPayments.length === 1 ? '' : 's'}` : 'Al día' },
+    { type: 'classesToday', label: 'Clases hoy', value: todayClassesValue, meta: todayClassesMeta },
+    { type: 'lowBonuses', label: 'Bonos por agotarse', value: lowBonuses.length, meta: activeBonuses.length ? `${activeBonuses.length} activos` : 'Sin bonos activos' },
+  ];
+
+  return (
+    <div className="coach-home">
+      <div className="coach-home-actions">
+        <div className="coach-home-eyebrow">Inicio del coach</div>
+        <button className="coach-home-link" onClick={onRegisterClass}>+ Nueva clase ↗</button>
+      </div>
+
+      <div className="coach-home-kpis">
+        {kpis.map(kpi => (
+          <button key={kpi.label} className={`coach-home-kpi${kpi.dark ? ' coach-home-kpi--dark' : ''}`} onClick={() => onOpenDetail(kpi.type)}>
+            <div>
+              <div className="coach-home-kpi-label">{kpi.label}</div>
+              <div className="coach-home-kpi-meta">{kpi.meta}</div>
+            </div>
+            <div className="coach-home-kpi-value">{kpi.value}</div>
+          </button>
+        ))}
+      </div>
+
+      <section className="coach-home-section">
+        <div className="coach-home-section-head">
+          <div className="coach-home-section-title">Agenda de hoy</div>
+          <button className="coach-home-section-action" onClick={onAddScheduledClass}>Agendar</button>
+        </div>
+        <div className="coach-home-card">
+          {agendaItems.length === 0 ? (
+            <div className="coach-home-empty">Sin clases agendadas para hoy. Agrega una hora exacta para organizar el día.</div>
+          ) : agendaItems.map(row => {
+            if (row.type === 'legacy') {
+              const s = row.student;
+              return (
+                <button key={s.id} className="coach-home-row" onClick={() => onSelectStudent(s)}>
+                  <div className="coach-home-time">{dueLabel(s.next_class)}</div>
+                  <div className="coach-home-row-main">
+                    <div className="coach-home-row-title">{s.name}</div>
+                    <div className="coach-home-row-sub">{s.level || 'Alumno'} · falta hora exacta</div>
+                  </div>
+                  <span className="coach-home-badge coach-home-badge--muted">Sin hora</span>
+                </button>
+              );
+            }
+            const item = row.item;
+            const student = studentMap.get(item.student_id);
+            return (
+              <SwipeActionsRow
+                key={item.id}
+                actions={[
+                  { label: 'Editar', tone: 'secondary', onClick: () => onEditScheduledClass(item) },
+                  { label: 'Eliminar', tone: 'danger', onClick: () => onDeleteScheduledClass(item) },
+                ]}>
+                <button className="coach-home-row" onClick={() => onEditScheduledClass(item)}>
+                  <div className="coach-home-time">{formatTimeShort(item.start_time)}</div>
+                  <div className="coach-home-row-main">
+                    <div className="coach-home-row-title">{scheduleRowTitle(item, studentMap)}</div>
+                    <div className="coach-home-row-sub">{scheduleRowSub(item)}</div>
+                  </div>
+                  <span className="coach-home-badge">{scheduleStatusLabel(item.status)}</span>
+                </button>
+              </SwipeActionsRow>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="coach-home-section">
+        <div className="coach-home-section-head">
+          <div className="coach-home-section-title">Pagos pendientes</div>
+          <button className="coach-home-section-action" onClick={onAddPayment}>Añadir</button>
+        </div>
+        <div className="coach-home-card">
+          {pendingPayments.length === 0 ? (
+            <div className="coach-home-empty">Sin pagos pendientes.</div>
+          ) : pendingPayments.slice(0, 4).map(payment => {
+            const student = studentMap.get(payment.student_id);
+            const title = student?.name || payment.title || 'Pago';
+            return (
+              <SwipeActionsRow
+                key={payment.id}
+                actions={[{ label: 'Cobrar', tone: 'primary', onClick: () => onMarkPaymentPaid(payment) }]}>
+                <div className="coach-home-pay-row">
+                  <div className="coach-home-initials">{initials(title)}</div>
+                  <div className="coach-home-row-main">
+                    <div className="coach-home-row-title">{title}</div>
+                    <div className="coach-home-row-sub">{paymentDueLabel(payment)}</div>
+                  </div>
+                  <div style={{display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6}}>
+                    <div className="coach-home-amount">{moneyFmt(payment.amount)}</div>
+                    <button className="coach-home-mini-btn" data-swipe-ignore onClick={() => onMarkPaymentPaid(payment)}>Cobrar</button>
+                  </div>
+                </div>
+              </SwipeActionsRow>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="coach-home-section">
+        <div className="coach-home-section-head">
+          <div className="coach-home-section-title">Bonos activos</div>
+          <button className="coach-home-section-action" onClick={onAddBonus}>Añadir</button>
+        </div>
+        <div className="coach-home-card">
+          {bonusesToShow.length === 0 ? (
+            <div className="coach-home-empty">Sin bonos activos.</div>
+          ) : bonusesToShow.slice(0, 4).map(bonus => {
+            const student = studentMap.get(bonus.student_id);
+            const remaining = Number(bonus.remaining_classes || 0);
+            const total = Math.max(1, Number(bonus.total_classes || 1));
+            const pct = Math.max(0, Math.min(100, (remaining / total) * 100));
+            return (
+              <SwipeActionsRow
+                key={bonus.id}
+                actions={[{ label: 'Descontar', tone: 'primary', onClick: () => onUseBonus(bonus) }]}>
+                <div className="coach-home-bonus-row">
+                  <div className="coach-home-bonus-top">
+                    <div className="coach-home-bonus-main">
+                      <div className="coach-home-row-title">{student?.name || bonus.name || 'Bono'}</div>
+                      <div className="coach-home-row-sub">{bonus.name || `Bono ${total} clases`}</div>
+                    </div>
+                    <div style={{display:'flex', alignItems:'center', gap:8, flexShrink:0}}>
+                      <span className="coach-home-row-sub" style={{fontWeight:800}}>{remaining} de {total}</span>
+                      <button
+                        className="coach-home-mini-btn coach-home-mini-btn--light"
+                        data-swipe-ignore
+                        title="Descontar 1 clase manualmente"
+                        onClick={() => onUseBonus(bonus)}>
+                        Descontar
+                      </button>
+                    </div>
+                  </div>
+                  <div className="coach-home-meter"><span style={{width:`${pct}%`}} /></div>
+                </div>
+              </SwipeActionsRow>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="coach-home-section" style={{marginBottom: 8}}>
+        <div className="coach-home-section-head">
+          <div className="coach-home-section-title">Atención</div>
+        </div>
+        <div className="coach-home-alerts">
+          {alerts.slice(0, 3).map((alert, i) => (
+            <div key={alert} className="coach-home-alert">
+              <div className="coach-home-alert-icon">{i === 0 ? '!' : '·'}</div>
+              <div className="coach-home-alert-text">{alert}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function DashboardScreen({ profile, students, payments, bonuses, scheduledClasses, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog, onAddPayment, onAddBonus, onAddScheduledClass, onEditScheduledClass, onDeleteScheduledClass, onMarkPaymentPaid, onUseBonus, managing, onManagingChange }) {
   const [showMenu, setShowMenu]         = useState(false);
+  const [dashboardView, setDashboardView] = useState('home');
+  const [detailType, setDetailType]     = useState(null);
   const managingStudents = managing;
   const setManaging = onManagingChange;
   const firstName = (profile?.display_name || 'Coach').split(' ')[0];
@@ -2011,6 +3514,11 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
   const months = ['enero','febrero','marzo','abril','mayo','junio',
                   'julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const dateStr = `${days[today.getDay()]}, ${today.getDate()} ${months[today.getMonth()]}`;
+  const showHome = dashboardView === 'home';
+  const openStudentsTab = () => {
+    setDashboardView('students');
+    setManaging(false);
+  };
 
   return (
     <div className="screen">
@@ -2038,9 +3546,29 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
           )}
         </div>
       </header>
-      <div className="screen-content">
+      <div className="screen-content screen-content--with-bottom-bar">
         <div className="dash-date">{dateStr}</div>
         <h1 className="dash-greeting">Hola, {firstName}</h1>
+        {showHome ? (
+          <CoachHomeOverview
+            students={students}
+            payments={payments}
+            bonuses={bonuses}
+            scheduledClasses={scheduledClasses}
+            todayCount={todayCount}
+            onRegisterClass={onRegisterClass}
+            onSelectStudent={onSelectStudent}
+            onOpenStudents={openStudentsTab}
+            onAddPayment={onAddPayment}
+            onAddBonus={onAddBonus}
+            onAddScheduledClass={onAddScheduledClass}
+            onEditScheduledClass={onEditScheduledClass}
+            onDeleteScheduledClass={onDeleteScheduledClass}
+            onMarkPaymentPaid={onMarkPaymentPaid}
+            onUseBonus={onUseBonus}
+            onOpenDetail={setDetailType} />
+        ) : (
+          <>
         <div className="stat-cards">
           <button
             className={`stat-card ${managingStudents ? 'stat-card--dark' : 'stat-card--light'}`}
@@ -2085,8 +3613,20 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
             </div>}
           </button>
         </div>
-        {!managingStudents && <CoachDashboardPanel students={students} onSelectStudent={onSelectStudent} />}
-        <div className="section-label">{managingStudents ? 'GESTIONAR ALUMNOS' : 'ALUMNOS'}</div>
+        {!managingStudents && <CoachDashboardPanel students={students} scheduledClasses={scheduledClasses} onSelectStudent={onSelectStudent} onEditScheduledClass={onEditScheduledClass} onDeleteScheduledClass={onDeleteScheduledClass} />}
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginTop:8, marginBottom:14}}>
+          <div className="section-label" style={{marginBottom:0}}>{managingStudents ? 'GESTIONAR ALUMNOS' : 'ALUMNOS'}</div>
+          {!managingStudents && (
+            <button
+              onClick={onAddStudent}
+              style={{
+                border:'1.5px solid var(--green-dark)', background:'var(--white)',
+                color:'var(--green-dark)', borderRadius:100, padding:'5px 13px',
+                fontSize:'0.78rem', fontWeight:700, cursor:'pointer', flexShrink:0,
+                lineHeight:1.2
+              }}>+ Alumno</button>
+          )}
+        </div>
         <div className="student-list">
           {students.length === 0
             ? <div className="empty-state">Sin alumnos aún. Añade uno.</div>
@@ -2131,31 +3671,126 @@ function DashboardScreen({ profile, students, todayCount, onAddStudent, onRegist
                 </div>
               ))}
         </div>
+          </>
+        )}
         <div style={{height: 16}} />
       </div>
-      <div className="bottom-bar">
-        <button className="btn btn-outline" onClick={onAddStudent}>+ Alumno</button>
-        <button className="btn btn-primary" onClick={onRegisterClass}>Registrar clase</button>
-      </div>
+      <nav className="tab-nav" role="tablist" aria-label="Navegación principal">
+        <button
+          className={`tab-nav-item${showHome ? ' tab-nav-item--active' : ''}`}
+          onClick={() => { setDashboardView('home'); setManaging(false); }}
+          role="tab" aria-selected={showHome}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/><path d="M9.5 20v-5h5v5"/>
+          </svg>
+          Inicio
+        </button>
+        <button
+          className={`tab-nav-item${!showHome ? ' tab-nav-item--active' : ''}`}
+          onClick={openStudentsTab}
+          role="tab" aria-selected={!showHome}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="8" r="3.2"/><path d="M19.5 19v-1.4a3.3 3.3 0 0 0-2.5-3.2"/><path d="M15.5 5.2a3.2 3.2 0 0 1 0 5.6"/>
+          </svg>
+          Alumnos
+        </button>
+        <button
+          className="tab-nav-item tab-nav-item--action"
+          onClick={onRegisterClass}
+          aria-label="Registrar clase">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="6" x2="12" y2="18"/><line x1="6" y1="12" x2="18" y2="12"/>
+          </svg>
+          Clase
+        </button>
+      </nav>
+      <CoachDetailModal
+        type={detailType}
+        students={students}
+        payments={payments}
+        bonuses={bonuses}
+        scheduledClasses={scheduledClasses}
+        todayCount={todayCount}
+        onClose={() => setDetailType(null)}
+        onMarkPaymentPaid={onMarkPaymentPaid}
+        onUseBonus={onUseBonus}
+        onEditScheduledClass={onEditScheduledClass} />
     </div>
   );
 }
 
 // ── S4 Pick Student ──────────────────────────────────────────
-function PickStudentScreen({ students, onBack, onSelect }) {
+function PickStudentScreen({ students, onBack, onSelect, onSelectGroup }) {
+  const [groupMode, setGroupMode] = useState(false);
+  const [picked, setPicked] = useState([]);
+  const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  const modeBtn = (label, active, onClick) => (
+    <button
+      onClick={onClick}
+      style={{
+        flex:1, minHeight:38, borderRadius:10, border:'none',
+        fontSize:'0.85rem', fontWeight:800, cursor:'pointer',
+        background: active ? 'var(--white)' : 'transparent',
+        color: active ? 'var(--green-dark)' : 'var(--text-secondary)',
+        boxShadow: active ? '0 1px 0 rgba(14,19,17,0.04)' : 'none'
+      }}>{label}</button>
+  );
   return (
     <div className="screen">
       <Header title="Registrar clase" onBack={onBack} />
-      <div className="screen-content">
+      <div className="screen-content screen-content--with-bottom-bar">
         <h1 className="screen-title" style={{marginTop: 8}}>¿Con quién fue la clase?</h1>
-        <p className="screen-subtitle" style={{marginBottom: 24}}>Toca al alumno para continuar.</p>
+        <p className="screen-subtitle" style={{marginBottom: 16}}>
+          {groupMode ? 'Marca a todos los alumnos de la clase grupal.' : 'Toca al alumno para continuar.'}
+        </p>
+        <div style={{
+          display:'flex', gap:6, padding:4, marginBottom:20,
+          background:'rgba(14,42,28,0.07)', border:'1px solid rgba(14,42,28,0.08)', borderRadius:14
+        }}>
+          {modeBtn('Individual', !groupMode, () => { setGroupMode(false); setPicked([]); })}
+          {modeBtn('Clase grupal', groupMode, () => setGroupMode(true))}
+        </div>
         <div className="student-list">
-          {students.map((s, i) => (
-            <StudentCard key={s.id} student={s} lastLog={s.lastLog}
-              onClick={() => onSelect(s)} highlighted={i === 0} />
-          ))}
+          {students.map((s, i) => {
+            if (!groupMode) {
+              return (
+                <StudentCard key={s.id} student={s} lastLog={s.lastLog}
+                  onClick={() => onSelect(s)} highlighted={i === 0} />
+              );
+            }
+            const on = picked.includes(s.id);
+            return (
+              <div key={s.id} style={{display:'flex', alignItems:'stretch', gap:8}}>
+                <div style={{flex:1, minWidth:0, overflow:'hidden'}}>
+                  <StudentCard student={s} lastLog={s.lastLog}
+                    onClick={() => toggle(s.id)} highlighted={on} />
+                </div>
+                <button
+                  onClick={() => toggle(s.id)}
+                  aria-label={on ? 'Quitar de la clase' : 'Añadir a la clase'}
+                  style={{
+                    flexShrink:0, width:56, borderRadius:14,
+                    border: on ? 'none' : '1.5px solid var(--border)',
+                    background: on ? 'var(--green-dark)' : 'var(--white)',
+                    color: on ? 'white' : 'var(--text-hint)',
+                    fontSize:'1.3rem', fontWeight:600, cursor:'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center'
+                  }}>{on ? '✓' : '+'}</button>
+              </div>
+            );
+          })}
         </div>
       </div>
+      {groupMode && (
+        <div className="bottom-bar">
+          <button
+            className="btn btn-primary"
+            disabled={picked.length < 2}
+            onClick={() => onSelectGroup(students.filter(s => picked.includes(s.id)))}>
+            {picked.length < 2 ? 'Marca 2 o más alumnos' : `Continuar con ${picked.length} alumnos`}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -2203,6 +3838,266 @@ function AddStudentScreen({ coachId, onBack, onDone }) {
       <div className="screen-bottom">
         <button className="btn btn-primary" onClick={save} disabled={loading || !name.trim()}>
           {loading ? 'Guardando...' : 'Añadir alumno'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AddPaymentScreen({ coachId, students, onBack, onDone }) {
+  const [studentId, setStudentId] = useState(students[0]?.id || '');
+  const [title, setTitle]         = useState('Clase');
+  const [amount, setAmount]       = useState('');
+  const [status, setStatus]       = useState('pending');
+  const [dueDate, setDueDate]     = useState(todayISO());
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState('');
+
+  async function save() {
+    if (!studentId) { setError('Elige un alumno.'); return; }
+    if (parseMoney(amount) <= 0) { setError('Ingresa un monto válido.'); return; }
+    setLoading(true); setError('');
+    const payment = await createCoachPayment(coachId, {
+      student_id: studentId,
+      title: title.trim() || 'Clase',
+      amount,
+      due_date: dueDate || null,
+      status,
+    });
+    setLoading(false);
+    onDone(payment);
+  }
+
+  return (
+    <div className="screen">
+      <Header title="Nuevo pago" onBack={onBack} />
+      <div className="screen-content">
+        <h1 className="screen-title" style={{marginTop: 8}}>Registrar pago</h1>
+        <p className="screen-subtitle" style={{marginBottom: 28}}>Registra cobros pendientes o pagos ya recibidos.</p>
+        {error && <div className="error-msg">{error}</div>}
+        <div className="form-field">
+          <label className="field-label">Alumno</label>
+          <select className="field-input" value={studentId} onChange={e => setStudentId(e.target.value)}>
+            <option value="">Selecciona un alumno</option>
+            {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div className="form-field">
+          <label className="field-label">Concepto</label>
+          <input className="field-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Clase, bono, mensualidad" />
+        </div>
+        <div className="form-field">
+          <label className="field-label">Monto</label>
+          <input className="field-input" type="number" min="0" inputMode="decimal" value={amount}
+            onChange={e => setAmount(e.target.value)} placeholder="160" />
+        </div>
+        <div className="form-field">
+          <label className="field-label">Estado</label>
+          <div className="chips" style={{marginTop: 8}}>
+            <Chip label="Pendiente" on={status === 'pending'} onClick={() => setStatus('pending')} />
+            <Chip label="Ya pagado" on={status === 'paid'} onClick={() => setStatus('paid')} />
+          </div>
+        </div>
+        <div className="form-field">
+          <label className="field-label">{status === 'paid' ? 'Fecha de pago' : 'Fecha de vencimiento'}</label>
+          <input className="field-input" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+        </div>
+      </div>
+      <div className="screen-bottom">
+        <button className="btn btn-primary" onClick={save} disabled={loading || !studentId || parseMoney(amount) <= 0}>
+          {loading ? 'Guardando...' : status === 'paid' ? 'Guardar como pagado' : 'Guardar pago pendiente'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AddScheduledClassScreen({ coachId, students, existingClass, onBack, onDone, onDeleted }) {
+  const editing = !!existingClass;
+  const current = existingClass ? normalizeScheduledClass(existingClass) : null;
+  const [studentId, setStudentId] = useState(current?.student_id || students[0]?.id || '');
+  const [classDate, setClassDate] = useState(current?.class_date || todayISO());
+  const [startTime, setStartTime] = useState(formatTimeShort(current?.start_time || '09:00'));
+  const [duration, setDuration]   = useState(String(current?.duration_minutes || 60));
+  const [court, setCourt]         = useState(current?.court || '');
+  const [status, setStatus]       = useState(current?.status || 'scheduled');
+  const [notes, setNotes]         = useState(current?.notes || '');
+  const [loading, setLoading]     = useState(false);
+  const [deleting, setDeleting]   = useState(false);
+  const [error, setError]         = useState('');
+
+  async function save() {
+    if (!studentId) { setError('Elige un alumno.'); return; }
+    if (!classDate) { setError('Elige la fecha.'); return; }
+    if (!startTime) { setError('Elige la hora exacta.'); return; }
+    if (Number(duration || 0) <= 0) { setError('Ingresa una duración válida.'); return; }
+    const student = students.find(s => s.id === studentId);
+    setLoading(true); setError('');
+    const payload = {
+      student_id: studentId,
+      title: student?.name || 'Clase',
+      class_date: classDate,
+      start_time: startTime,
+      duration_minutes: duration,
+      court: court.trim(),
+      status,
+      notes: notes.trim(),
+    };
+    const scheduled = editing
+      ? await updateScheduledClass(coachId, current, payload)
+      : await createScheduledClass(coachId, payload);
+    setLoading(false);
+    onDone(scheduled);
+  }
+
+  async function remove() {
+    if (!editing) return;
+    const ok = window.confirm('¿Eliminar esta clase agendada? No se borran pagos, bonos ni reportes.');
+    if (!ok) return;
+    setDeleting(true); setError('');
+    const deletedId = await deleteScheduledClass(coachId, current);
+    setDeleting(false);
+    onDeleted(deletedId);
+  }
+
+  return (
+    <div className="screen">
+      <Header title={editing ? 'Editar agenda' : 'Agendar clase'} onBack={onBack} />
+      <div className="screen-content">
+        <h1 className="screen-title" style={{marginTop: 8}}>{editing ? 'Reprogramar clase' : 'Nueva clase en agenda'}</h1>
+        <p className="screen-subtitle" style={{marginBottom: 28}}>
+          {editing ? 'Cambia fecha, hora, duración o cancha. Esto no toca pagos, bonos ni reportes.' : 'Pon fecha y hora exacta para que aparezca organizada en el inicio del coach.'}
+        </p>
+        {error && <div className="error-msg">{error}</div>}
+        <div className="form-field">
+          <label className="field-label">Alumno</label>
+          <select className="field-input" value={studentId} onChange={e => setStudentId(e.target.value)}>
+            <option value="">Selecciona un alumno</option>
+            {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+          <div className="form-field">
+            <label className="field-label">Fecha</label>
+            <input className="field-input" type="date" value={classDate} onChange={e => setClassDate(e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label className="field-label">Hora exacta</label>
+            <input className="field-input" type="time" step="300" value={startTime} onChange={e => setStartTime(e.target.value)} />
+          </div>
+        </div>
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+          <div className="form-field">
+            <label className="field-label">Duración</label>
+            <input className="field-input" type="number" min="15" step="15" inputMode="numeric" value={duration}
+              onChange={e => setDuration(e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label className="field-label">Cancha</label>
+            <input className="field-input" value={court} onChange={e => setCourt(e.target.value)} placeholder="Cancha 2" />
+          </div>
+        </div>
+        <div className="form-field">
+          <label className="field-label">Estado</label>
+          <div className="chips" style={{marginTop: 8}}>
+            <Chip label="Agendada" on={status === 'scheduled'} onClick={() => setStatus('scheduled')} />
+            <Chip label="Confirmada" on={status === 'confirmed'} onClick={() => setStatus('confirmed')} />
+          </div>
+        </div>
+        <div className="form-field">
+          <label className="field-label">Nota para agenda</label>
+          <textarea
+            className="field-input field-textarea"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder="Ej: reservar cancha 2" />
+        </div>
+      </div>
+      <div className="screen-bottom" style={{display:'grid', gap:10}}>
+        <button className="btn btn-primary" onClick={save} disabled={loading || !studentId || !classDate || !startTime}>
+          {loading ? 'Guardando...' : editing ? 'Guardar cambios' : 'Guardar en agenda'}
+        </button>
+        {editing && (
+          <button className="btn btn-outline" onClick={remove} disabled={loading || deleting}
+            style={{borderColor:'#F3B8B3', color:'#B3261E', background:'#FDECEC'}}>
+            {deleting ? 'Eliminando...' : 'Eliminar clase agendada'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AddBonusScreen({ coachId, students, onBack, onDone }) {
+  const [studentId, setStudentId] = useState(students[0]?.id || '');
+  const [name, setName]           = useState('Bono 10 clases');
+  const [total, setTotal]         = useState('10');
+  const [remaining, setRemaining] = useState('10');
+  const [alertAt, setAlertAt]     = useState('3');
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState('');
+
+  async function save() {
+    if (!studentId) { setError('Elige un alumno.'); return; }
+    const totalNum = Number(total || 0);
+    const remainingNum = Number(remaining || 0);
+    if (totalNum <= 0) { setError('Ingresa el total de clases.'); return; }
+    if (remainingNum < 0 || remainingNum > totalNum) { setError('Las clases que quedan deben estar entre 0 y el total.'); return; }
+    setLoading(true); setError('');
+    const bonus = await createClassBonus(coachId, {
+      student_id: studentId,
+      name: name.trim() || `Bono ${total} clases`,
+      total_classes: total,
+      remaining_classes: remaining || total,
+      alert_at: alertAt || 3,
+    });
+    setLoading(false);
+    onDone(bonus);
+  }
+
+  return (
+    <div className="screen">
+      <Header title="Nuevo bono" onBack={onBack} />
+      <div className="screen-content">
+        <h1 className="screen-title" style={{marginTop: 8}}>Crear bono</h1>
+        <p className="screen-subtitle" style={{marginBottom: 28}}>Si pagó 4 clases y ya diste 1, pon 4 incluidas y 3 que quedan.</p>
+        {error && <div className="error-msg">{error}</div>}
+        <div className="form-field">
+          <label className="field-label">Alumno</label>
+          <select className="field-input" value={studentId} onChange={e => setStudentId(e.target.value)}>
+            <option value="">Selecciona un alumno</option>
+            {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div className="form-field">
+          <label className="field-label">Nombre del bono</label>
+          <input className="field-input" value={name} onChange={e => setName(e.target.value)} placeholder="Bono 10 clases" />
+        </div>
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+          <div className="form-field">
+            <label className="field-label">Clases incluidas</label>
+            <input className="field-input" type="number" min="1" inputMode="numeric" value={total}
+              onChange={e => {
+                const next = e.target.value;
+                setTotal(next);
+                if (Number(remaining) > Number(next || 0)) setRemaining(next);
+              }} />
+          </div>
+          <div className="form-field">
+            <label className="field-label">Clases que quedan</label>
+            <input className="field-input" type="number" min="0" inputMode="numeric" value={remaining}
+              onChange={e => setRemaining(e.target.value)} />
+          </div>
+        </div>
+        <div className="form-field">
+          <label className="field-label">Avisar cuando queden</label>
+          <input className="field-input" type="number" min="1" inputMode="numeric" value={alertAt}
+            onChange={e => setAlertAt(e.target.value)} />
+        </div>
+      </div>
+      <div className="screen-bottom">
+        <button className="btn btn-primary" onClick={save} disabled={loading || !studentId || Number(total) <= 0}>
+          {loading ? 'Guardando...' : 'Guardar bono'}
         </button>
       </div>
     </div>
@@ -2258,10 +4153,13 @@ function deleteCoachChip(coachId, category, chip) {
   LS.set(deletedKey, normalizeChips([...(LS.get(deletedKey) || []), value]));
 }
 
-function LogClassScreen({ student, coachId, onBack, onSaved }) {
-  const draftKey = `draft:${student.id}`;
+function LogClassScreen({ students, coachId, onBack, onSaved }) {
+  const isGroup  = students.length > 1;
+  const student  = students[0];
+  const groupNames = students.map(s => s.name.split(' ')[0]).join(', ');
+  const draftKey = isGroup ? 'draft:group' : `draft:${student.id}`;
   const draft    = LS.get(draftKey) || {};
-  const last     = student.lastLog;
+  const last     = isGroup ? null : student.lastLog;
 
   // If no draft, seed from last log as suggestions
   const seedFocus    = draft.focus    || (last ? toArr(last.today_focus)   : []);
@@ -2375,10 +4273,10 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
     if (mediaUploading) { setError('Espera a que termine de subir el archivo.'); return; }
     setLoading(true); setError('');
     const correctionText = [fromArr(correction), correctionDetails.trim()].filter(Boolean).join('. ');
-    const { data, offline } = await insertLog({
-      student_id:        student.id,
+    const basePayload = {
       coach_id:          coachId,
       date,
+      class_type:        isGroup ? 'Grupal' : 'Privada',
       today_focus:       fromArr(focus),
       what_improved:     fromArr(improved),
       main_correction:   correctionText || null,
@@ -2389,10 +4287,17 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
       visual_what:       visualWhat.trim() || null,
       visual_correction: null,
       visual_task:       null,
-    });
-    if (!data) { setError('Error al guardar. Intenta de nuevo.'); setLoading(false); return; }
+    };
+    const logs = [];
+    let anyOffline = false;
+    for (const s of students) {
+      const { data, offline } = await insertLog({ ...basePayload, student_id: s.id });
+      if (!data) { setError('Error al guardar. Intenta de nuevo.'); setLoading(false); return; }
+      logs.push(data);
+      anyOffline = anyOffline || offline;
+    }
     LS.set(draftKey, null);
-    onSaved(offline, data);
+    onSaved(anyOffline, logs);
   }
 
   return (
@@ -2415,7 +4320,7 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
           <div className="quick-report-copy">
             <div className="quick-report-kicker">Reporte rápido</div>
             <h1 className="quick-report-title">3 toques y listo</h1>
-            <p className="quick-report-sub">Solo lo esencial para {firstName}.</p>
+            <p className="quick-report-sub">{isGroup ? `El mismo reporte se guarda para ${students.length} alumnos.` : `Solo lo esencial para ${firstName}.`}</p>
           </div>
           <div className={`quick-report-status${requiredComplete ? ' quick-report-status--ready' : ''}`}>
             {requiredComplete ? 'Listo' : `${requiredDone}/3 listo`}
@@ -2425,9 +4330,19 @@ function LogClassScreen({ student, coachId, onBack, onSaved }) {
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12}}>
           <div className="student-pill" style={{marginBottom:0}}>
             <div className="student-pill-sq" />
-            {student.name}
+            {isGroup ? `Clase grupal · ${students.length} alumnos` : student.name}
           </div>
         </div>
+        {isGroup && (
+          <div style={{display:'flex', flexWrap:'wrap', gap:6, marginBottom:14}}>
+            {students.map(s => (
+              <span key={s.id} style={{
+                background:'#E7F0E9', color:'var(--green-dark)',
+                borderRadius:100, padding:'4px 10px', fontSize:'0.75rem', fontWeight:600
+              }}>{s.name}</span>
+            ))}
+          </div>
+        )}
 
         {/* Seeded from last session banner */}
         {seededBanner && (
@@ -4999,8 +6914,13 @@ function App() {
   const [user, setUser]                     = useState(null);
   const [profile, setProfile]               = useState(null);
   const [students, setStudents]             = useState([]);
+  const [payments, setPayments]             = useState([]);
+  const [bonuses, setBonuses]               = useState([]);
+  const [scheduledClasses, setScheduledClasses] = useState([]);
   const [todayCount, setTodayCount]         = useState(0);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [groupStudents, setGroupStudents] = useState(null);
+  const [selectedScheduledClass, setSelectedScheduledClass] = useState(null);
   const [savedOffline, setSavedOffline]     = useState(false);
   const [savedLog, setSavedLog]             = useState(null);
   const [selectedLog, setSelectedLog]         = useState(null);
@@ -5047,7 +6967,7 @@ function App() {
 
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
       if (session?.user) { saveCoachEmail(session.user.email); setUser(session.user); loadEverything(session.user.id); }
-      else { setUser(null); setProfile(null); go('auth'); }
+      else { setUser(null); setProfile(null); setStudents([]); setPayments([]); setBonuses([]); setScheduledClasses([]); setSelectedScheduledClass(null); go('auth'); }
     });
 
     const handleHash = () => { const pid = publicMatch(); if (pid) go({ name: 'public', id: pid }); };
@@ -5064,6 +6984,10 @@ function App() {
     setTodayCount(logs.filter(l => l.date === today).length);
     const mappedStudents = studs.map(s => ({ ...s, lastLog: logs.find(l => l.student_id === s.id) || null }));
     setStudents(mappedStudents);
+    const ops = await fetchCoachOps(uid);
+    setPayments(ops.payments);
+    setBonuses(ops.bonuses);
+    setScheduledClasses(ops.scheduledClasses);
 
     // Restore last route (no time limit)
     const savedRoute = LS.get('lastRoute');
@@ -5085,7 +7009,15 @@ function App() {
           return;
         }
         // Student not found (deleted?), fall through to dashboard
-      } else if (['pickStudent','addStudent','editProfile','manageStudents'].includes(rName)) {
+      } else if (rName === 'editScheduledClass') {
+        const restoredClass = ops.scheduledClasses.find(c => c.id === savedRoute?.classId);
+        if (restoredClass) {
+          setSelectedScheduledClass(restoredClass);
+          setRoute(savedRoute);
+          flushQueue(uid);
+          return;
+        }
+      } else if (['pickStudent','addStudent','addPayment','addBonus','addScheduledClass','editProfile','manageStudents'].includes(rName)) {
         setRoute(savedRoute);
         flushQueue(uid);
         return;
@@ -5102,6 +7034,57 @@ function App() {
     setTodayCount(logs.filter(l => l.date === today).length);
     setStudents(studs.map(s => ({ ...s, lastLog: logs.find(l => l.student_id === s.id) || null })));
   }
+
+  async function refreshCoachOps(uid) {
+    const ops = await fetchCoachOps(uid);
+    setPayments(ops.payments);
+    setBonuses(ops.bonuses);
+    setScheduledClasses(ops.scheduledClasses);
+  }
+
+  const routeName = typeof route === 'object' ? route.name : route;
+
+  function backFromCurrentRoute() {
+    if (routeName === 'studentProfile') {
+      setSelectedStudent(null);
+      go('dashboard');
+      return;
+    }
+    if (routeName === 'logClass') {
+      if (route.from === 'studentProfile' && selectedStudent?.id) {
+        go({ name: 'studentProfile', studentId: selectedStudent.id });
+      } else if (route.from === 'dashboard') {
+        go('dashboard');
+      } else {
+        go('pickStudent');
+      }
+      return;
+    }
+    if (routeName === 'editStudent') {
+      if (route?.from === 'studentProfile' && selectedStudent?.id) go({ name: 'studentProfile', studentId: selectedStudent.id });
+      else go('dashboard');
+      return;
+    }
+    if (routeName === 'share') {
+      setSelectedStudent(null);
+      setSavedOffline(false);
+      setSavedLog(null);
+      LS.set('lastRoute', null);
+      go('dashboard');
+      return;
+    }
+    if (routeName === 'editScheduledClass') {
+      setSelectedScheduledClass(null);
+      go('dashboard');
+      return;
+    }
+    go('dashboard');
+  }
+
+  useEdgeSwipeBack(
+    !!user && !['loading', 'auth', 'onboarding', 'dashboard'].includes(routeName) && routeName !== 'public',
+    backFromCurrentRoute
+  );
 
   // ── Render ──
   if (route?.name === 'public') return <PublicReportScreen studentId={route.id} />;
@@ -5127,7 +7110,7 @@ function App() {
       )}
 
       {route === 'dashboard' && (
-        <DashboardScreen profile={profile} students={students} todayCount={todayCount}
+        <DashboardScreen profile={profile} students={students} payments={payments} bonuses={bonuses} scheduledClasses={scheduledClasses} todayCount={todayCount}
           onAddStudent={() => go('addStudent')}
           onRegisterClass={() => go('pickStudent')}
           onSelectStudent={s => { setSelectedStudent(s); go({ name: 'studentProfile', studentId: s.id }); }}
@@ -5136,7 +7119,28 @@ function App() {
           onEditStudent={s => { setSelectedStudent(s); go({ name: 'editStudent', studentId: s.id }); }}
           onEditLog={(s, log) => { setSelectedStudent(s); setSelectedLog(log); go({ name: 'editLog', studentId: s.id, logId: log.id }); }}
           onManageStudents={() => go('manageStudents')}
-          onQuickLog={s => { setSelectedStudent(s); go({ name: 'logClass', from: 'dashboard', studentId: s.id }); }}
+          onQuickLog={s => { setGroupStudents(null); setSelectedStudent(s); go({ name: 'logClass', from: 'dashboard', studentId: s.id }); }}
+          onAddPayment={() => go('addPayment')}
+          onAddBonus={() => go('addBonus')}
+          onAddScheduledClass={() => go('addScheduledClass')}
+          onEditScheduledClass={scheduled => {
+            setSelectedScheduledClass(scheduled);
+            go({ name: 'editScheduledClass', classId: scheduled.id });
+          }}
+          onDeleteScheduledClass={async scheduled => {
+            const ok = window.confirm('¿Eliminar esta clase agendada? No se borran pagos, bonos ni reportes.');
+            if (!ok) return;
+            const deletedId = await deleteScheduledClass(user.id, scheduled);
+            setScheduledClasses(prev => prev.filter(c => c.id !== deletedId));
+          }}
+          onMarkPaymentPaid={async payment => {
+            const saved = await markCoachPaymentPaid(user.id, payment);
+            setPayments(prev => prev.map(p => p.id === saved.id ? saved : p));
+          }}
+          onUseBonus={async bonus => {
+            const saved = await useClassBonus(user.id, bonus);
+            setBonuses(prev => prev.map(b => b.id === saved.id ? saved : b));
+          }}
           managing={isManaging}
           onManagingChange={setIsManaging} />
       )}
@@ -5150,7 +7154,7 @@ function App() {
               coachId={user.id}
               onBack={() => go('dashboard')}
               onEdit={() => { setSelectedStudent(s); go({ name: 'editStudent', from: 'studentProfile', studentId: s.id }); }}
-              onRegisterClass={() => { setSelectedStudent(s); go({ name: 'logClass', from: 'studentProfile', studentId: s.id }); }}
+              onRegisterClass={() => { setGroupStudents(null); setSelectedStudent(s); go({ name: 'logClass', from: 'studentProfile', studentId: s.id }); }}
               onLogDeleted={() => refreshStudents(user.id)} />
           ) : null;
         })()
@@ -5158,7 +7162,8 @@ function App() {
 
       {route === 'pickStudent' && (
         <PickStudentScreen students={students} onBack={() => go('dashboard')}
-          onSelect={s => { setSelectedStudent(s); go({ name: 'logClass', from: 'pickStudent', studentId: s.id }); }} />
+          onSelect={s => { setGroupStudents(null); setSelectedStudent(s); go({ name: 'logClass', from: 'pickStudent', studentId: s.id }); }}
+          onSelectGroup={arr => { setGroupStudents(arr); setSelectedStudent(arr[0]); go({ name: 'logClass', from: 'pickStudent', group: true }); }} />
       )}
 
       {route === 'addStudent' && (
@@ -5171,14 +7176,75 @@ function App() {
           }} />
       )}
 
-      {route?.name === 'logClass' && (
-        <LogClassScreen student={selectedStudent} coachId={user.id}
+      {route === 'addPayment' && (
+        <AddPaymentScreen coachId={user.id} students={students} onBack={() => go('dashboard')}
+          onDone={payment => {
+            setPayments(prev => [payment, ...prev.filter(p => p.id !== payment.id)]);
+            go('dashboard');
+          }} />
+      )}
+
+      {route === 'addScheduledClass' && (
+        <AddScheduledClassScreen coachId={user.id} students={students} onBack={() => go('dashboard')}
+          onDone={scheduled => {
+            setScheduledClasses(prev => upcomingScheduledClasses([scheduled, ...prev.filter(c => c.id !== scheduled.id)]));
+            go('dashboard');
+          }} />
+      )}
+
+      {route?.name === 'editScheduledClass' && (
+        (() => {
+          const scheduled = selectedScheduledClass || scheduledClasses.find(c => c.id === route.classId);
+          return scheduled ? (
+            <AddScheduledClassScreen
+              coachId={user.id}
+              students={students}
+              existingClass={scheduled}
+              onBack={() => go('dashboard')}
+              onDone={updated => {
+                setScheduledClasses(prev => upcomingScheduledClasses([updated, ...prev.filter(c => c.id !== updated.id)]));
+                setSelectedScheduledClass(null);
+                go('dashboard');
+              }}
+              onDeleted={deletedId => {
+                setScheduledClasses(prev => prev.filter(c => c.id !== deletedId));
+                setSelectedScheduledClass(null);
+                go('dashboard');
+              }} />
+          ) : null;
+        })()
+      )}
+
+      {route === 'addBonus' && (
+        <AddBonusScreen coachId={user.id} students={students} onBack={() => go('dashboard')}
+          onDone={bonus => {
+            setBonuses(prev => [bonus, ...prev.filter(b => b.id !== bonus.id)]);
+            go('dashboard');
+          }} />
+      )}
+
+      {route?.name === 'logClass' && (selectedStudent || groupStudents) && (
+        <LogClassScreen students={groupStudents || [selectedStudent]} coachId={user.id}
           onBack={() => go(route.from === 'dashboard' || route.from === 'studentProfile' ? (route.from === 'studentProfile' ? { name: 'studentProfile', studentId: selectedStudent.id } : 'dashboard') : 'pickStudent')}
-          onSaved={(offline, log) => {
+          onSaved={async (offline, logs) => {
+            const classStudents = groupStudents || [selectedStudent];
+            const isGroup = classStudents.length > 1;
             setSavedOffline(offline);
-            setSavedLog(log);
-            refreshStudents(user.id);
-            go({ name: 'share', studentId: selectedStudent.id });
+            setSavedLog(logs[0]);
+            for (const st of classStudents) {
+              const activeBonus = bonuses.find(b =>
+                b.student_id === st.id &&
+                b.status !== 'exhausted' &&
+                Number(b.remaining_classes || 0) > 0
+              );
+              if (activeBonus) {
+                const savedBonus = await useClassBonus(user.id, activeBonus);
+                setBonuses(prev => prev.map(b => b.id === savedBonus.id ? savedBonus : b));
+              }
+            }
+            await refreshStudents(user.id);
+            if (isGroup) { setGroupStudents(null); go('dashboard'); }
+            else { go({ name: 'share', studentId: selectedStudent.id }); }
           }} />
       )}
 
@@ -5235,7 +7301,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-23-dashboard-semana';
+    const APP_VERSION = '2026-06-24-bottom-tabs';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 

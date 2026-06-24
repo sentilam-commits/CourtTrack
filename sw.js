@@ -1,4 +1,4 @@
-const VERSION = '2026-06-23-dashboard-semana';
+const VERSION = '2026-06-24-bottom-tabs';
 const CACHE = `padel-log-${VERSION}`;
 const APP_SHELL = './index.html';
 
