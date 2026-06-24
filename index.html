@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-24-agenda-edit">
+  <meta name="app-version" content="2026-06-24-add-label-consistency">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-24-agenda-edit">
+  <link rel="manifest" href="./manifest.json?v=2026-06-24-add-label-consistency">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -233,6 +233,14 @@
       max-width: 480px;
       margin: 0 auto;
       isolation: isolate;
+    }
+    .screen--edge-swiping,
+    .screen--edge-settling {
+      will-change: transform;
+      box-shadow: -18px 0 32px rgba(15, 24, 20, 0.18);
+    }
+    .screen--edge-settling {
+      transition: transform 0.18s ease-out, box-shadow 0.18s ease-out;
     }
 
     .screen-content {
@@ -772,7 +780,8 @@
     }
     .swipe-row .coach-home-row,
     .swipe-row .coach-home-pay-row,
-    .swipe-row .coach-home-bonus-row {
+    .swipe-row .coach-home-bonus-row,
+    .swipe-row .coach-detail-row {
       border-bottom: none;
     }
     .swipe-action {
@@ -976,6 +985,34 @@
       gap: 8px;
       flex-wrap: wrap;
     }
+    .pick-add-student {
+      width: 100%;
+      min-height: 56px;
+      margin-bottom: 12px;
+      border: 1.5px dashed rgba(14,42,28,0.28);
+      border-radius: 14px;
+      background: rgba(14,42,28,0.04);
+      color: var(--green-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 0.92rem;
+      font-weight: 850;
+    }
+    .pick-add-student span {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--green-dark);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
 
     .bottom-bar {
       display: flex; gap: 12px; padding: 16px 20px;
@@ -1015,11 +1052,11 @@
     }
 
     /* ── Log Class ── */
-    .log-content { padding: 14px 16px max(28px, env(safe-area-inset-bottom)); }
+    .log-content { padding: 12px 16px max(28px, env(safe-area-inset-bottom)); }
 
     .quick-report-header {
       display: flex; align-items: center; justify-content: space-between;
-      gap: 12px; margin-bottom: 12px;
+      gap: 12px; margin-bottom: 10px;
     }
     .quick-report-copy { min-width: 0; }
     .quick-report-kicker {
@@ -1027,7 +1064,7 @@
       margin-bottom: 4px;
     }
     .quick-report-title {
-      font-size: 1.28rem; font-weight: 800; line-height: 1.14;
+      font-size: 1.16rem; font-weight: 800; line-height: 1.14;
       color: var(--text-primary);
     }
     .quick-report-sub {
@@ -1035,9 +1072,9 @@
       line-height: 1.35;
     }
     .quick-report-status {
-      flex-shrink: 0; padding: 7px 10px; border-radius: 999px;
+      flex-shrink: 0; padding: 6px 9px; border-radius: 999px;
       background: var(--white); border: 1px solid var(--border);
-      color: var(--text-secondary); font-size: 0.75rem; font-weight: 800;
+      color: var(--text-secondary); font-size: 0.72rem; font-weight: 800;
       white-space: nowrap;
     }
     .quick-report-status--ready {
@@ -1045,12 +1082,12 @@
       border-color: var(--green-mid);
     }
     .required-section {
-      display: flex; flex-direction: column; gap: 8px;
-      margin-bottom: 14px;
+      display: flex; flex-direction: column; gap: 7px;
+      margin-bottom: 12px;
     }
     .required-field {
       background: var(--white); border: 1px solid var(--border);
-      border-radius: 8px; padding: 9px 10px;
+      border-radius: 8px; padding: 8px 10px;
     }
     .required-field--open {
       border-color: var(--green-dark);
@@ -1086,22 +1123,22 @@
     .required-summary--empty {
       color: var(--text-hint); font-weight: 500;
     }
-    .required-options { padding-top: 8px; }
+    .required-options { padding-top: 7px; }
     .required-section .chip-group { gap: 6px; }
     .required-section .chips {
       flex-wrap: wrap; overflow-x: visible; gap: 7px;
       padding: 0; margin: 0;
     }
     .required-section .chip {
-      min-height: 44px; padding: 0 12px; border-radius: 12px;
-      font-size: 0.88rem; font-weight: 700; flex: 0 1 auto;
+      min-height: 42px; padding: 0 11px; border-radius: 12px;
+      font-size: 0.84rem; font-weight: 700; flex: 0 1 auto;
       line-height: 1.1;
     }
     .required-section .chip-edit-input { height: 44px; border-radius: 12px; max-width: 148px; }
     .required-section .chip-edit-ok { width: 34px; height: 34px; }
     .required-section .chip-input-row { margin-top: 2px; }
     .required-submit { margin: 4px 0 14px; }
-    .required-submit .btn { height: 58px; border-radius: 14px; font-size: 1rem; }
+    .required-submit .btn { height: 54px; border-radius: 14px; font-size: 0.96rem; }
     .required-hint {
       text-align: center; font-size: 0.76rem; color: var(--text-hint);
       margin-top: 8px;
@@ -1111,7 +1148,7 @@
       border-radius: 8px; overflow: hidden; margin-top: 12px;
     }
     .optional-trigger {
-      width: 100%; min-height: 58px; padding: 0 14px;
+      width: 100%; min-height: 52px; padding: 0 14px;
       display: flex; align-items: center; justify-content: space-between;
       gap: 12px; text-align: left;
     }
@@ -2080,6 +2117,65 @@ async function markCoachPaymentPaid(uid, payment) {
   return saved;
 }
 
+async function updateCoachPayment(uid, current, payload) {
+  const paidDate = payload.paid_at || payload.due_date || String(current.paid_at || current.due_date || todayISO()).slice(0, 10);
+  const paidAt = payload.status === 'paid' ? `${paidDate}T12:00:00` : null;
+  const patch = normalizePayment({
+    ...current,
+    student_id: payload.student_id || null,
+    title: payload.title || current.title || 'Clase',
+    amount: parseMoney(payload.amount),
+    status: payload.status || current.status || 'pending',
+    due_date: payload.due_date || null,
+    paid_at: paidAt,
+  });
+  const updateRow = {
+    student_id: patch.student_id,
+    title: patch.title,
+    amount: patch.amount,
+    status: patch.status,
+    due_date: patch.due_date,
+    paid_at: patch.paid_at,
+  };
+
+  if (!isLocalRecord(current)) {
+    try {
+      const { data, error } = await sb.from('coach_payments')
+        .update(updateRow)
+        .eq('id', current.id)
+        .select().single();
+      if (error) throw error;
+      const saved = normalizePayment(data);
+      const rows = LS.get(opsKey(uid, 'payments')) || [];
+      cacheOps(uid, 'payments', rows.some(p => p.id === saved.id)
+        ? rows.map(p => p.id === saved.id ? saved : p)
+        : [saved, ...rows]);
+      return saved;
+    } catch(e) {}
+  }
+
+  const saved = normalizePayment({ ...current, ...updateRow });
+  const rows = LS.get(opsKey(uid, 'payments')) || [];
+  cacheOps(uid, 'payments', rows.some(p => p.id === saved.id)
+    ? rows.map(p => p.id === saved.id ? saved : p)
+    : [saved, ...rows]);
+  return saved;
+}
+
+async function deleteCoachPayment(uid, payment) {
+  if (!isLocalRecord(payment)) {
+    try {
+      const { error } = await sb.from('coach_payments')
+        .delete()
+        .eq('id', payment.id);
+      if (error) throw error;
+    } catch(e) {}
+  }
+  const rows = LS.get(opsKey(uid, 'payments')) || [];
+  cacheOps(uid, 'payments', rows.filter(p => p.id !== payment.id));
+  return payment.id;
+}
+
 async function createClassBonus(uid, payload) {
   const total = Math.max(1, Number(payload.total_classes || 0));
   const remaining = Math.min(total, Math.max(0, Number(payload.remaining_classes || total)));
@@ -2104,6 +2200,65 @@ async function createClassBonus(uid, payload) {
     cacheOps(uid, 'bonuses', [local, ...(LS.get(opsKey(uid, 'bonuses')) || [])]);
     return local;
   }
+}
+
+async function updateClassBonus(uid, current, payload) {
+  const total = Math.max(1, Number(payload.total_classes || current.total_classes || 1));
+  const remaining = Math.min(total, Math.max(0, Number(payload.remaining_classes ?? current.remaining_classes ?? total)));
+  const patch = normalizeBonus({
+    ...current,
+    student_id: payload.student_id || current.student_id,
+    name: payload.name || current.name || `Bono ${total} clases`,
+    total_classes: total,
+    remaining_classes: remaining,
+    alert_at: Math.max(1, Number(payload.alert_at || current.alert_at || 3)),
+    status: remaining <= 0 ? 'exhausted' : 'active',
+  });
+  const updateRow = {
+    student_id: patch.student_id,
+    name: patch.name,
+    total_classes: patch.total_classes,
+    remaining_classes: patch.remaining_classes,
+    alert_at: patch.alert_at,
+    status: patch.status,
+  };
+
+  if (!isLocalRecord(current)) {
+    try {
+      const { data, error } = await sb.from('class_bonuses')
+        .update(updateRow)
+        .eq('id', current.id)
+        .select().single();
+      if (error) throw error;
+      const saved = normalizeBonus(data);
+      const rows = LS.get(opsKey(uid, 'bonuses')) || [];
+      cacheOps(uid, 'bonuses', rows.some(b => b.id === saved.id)
+        ? rows.map(b => b.id === saved.id ? saved : b)
+        : [saved, ...rows]);
+      return saved;
+    } catch(e) {}
+  }
+
+  const saved = normalizeBonus({ ...current, ...updateRow });
+  const rows = LS.get(opsKey(uid, 'bonuses')) || [];
+  cacheOps(uid, 'bonuses', rows.some(b => b.id === saved.id)
+    ? rows.map(b => b.id === saved.id ? saved : b)
+    : [saved, ...rows]);
+  return saved;
+}
+
+async function deleteClassBonus(uid, bonus) {
+  if (!isLocalRecord(bonus)) {
+    try {
+      const { error } = await sb.from('class_bonuses')
+        .delete()
+        .eq('id', bonus.id);
+      if (error) throw error;
+    } catch(e) {}
+  }
+  const rows = LS.get(opsKey(uid, 'bonuses')) || [];
+  cacheOps(uid, 'bonuses', rows.filter(b => b.id !== bonus.id));
+  return bonus.id;
 }
 
 async function useClassBonus(uid, bonus) {
@@ -2408,6 +2563,7 @@ function SwipeActionsRow({ children, actions = [] }) {
   const maxOffset = actions.length * SWIPE_ACTION_WIDTH;
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const rowRef = useRef(null);
   const dragRef = useRef(null);
   const offsetRef = useRef(0);
   const suppressClickRef = useRef(false);
@@ -2425,6 +2581,16 @@ function SwipeActionsRow({ children, actions = [] }) {
     setDragging(false);
     setLiveOffset(open && maxOffset ? -maxOffset : 0);
   };
+
+  useEffect(() => {
+    const closeOnOutsidePress = e => {
+      if (offsetRef.current >= 0) return;
+      if (rowRef.current?.contains(e.target)) return;
+      snap(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePress, true);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePress, true);
+  }, []);
 
   const onPointerDown = e => {
     if (!maxOffset || isSwipeIgnoredTarget(e.target)) return;
@@ -2490,6 +2656,7 @@ function SwipeActionsRow({ children, actions = [] }) {
 
   return (
     <div
+      ref={rowRef}
       className={`swipe-row${offset < 0 ? ' swipe-row--open' : ''}`}
       data-swipe-row
       onPointerDown={onPointerDown}
@@ -2536,11 +2703,40 @@ function useEdgeSwipeBack(enabled, onBack) {
   useEffect(() => {
     if (!enabled) return undefined;
     let start = null;
+    let screenEl = null;
+    let lastDx = 0;
+    let cleanupTimer = null;
+
+    const activeScreen = () => {
+      const screens = document.querySelectorAll('#root .screen');
+      return screens[screens.length - 1] || null;
+    };
+
+    const resetScreen = () => {
+      if (!screenEl) return;
+      screenEl.classList.remove('screen--edge-swiping', 'screen--edge-settling');
+      screenEl.style.transform = '';
+      screenEl.style.transition = '';
+      screenEl.style.boxShadow = '';
+      screenEl = null;
+    };
+
+    const settleBack = () => {
+      if (!screenEl) return;
+      screenEl.classList.remove('screen--edge-swiping');
+      screenEl.classList.add('screen--edge-settling');
+      screenEl.style.transition = 'transform 0.18s ease-out, box-shadow 0.18s ease-out';
+      screenEl.style.transform = 'translateX(0px)';
+      cleanupTimer = window.setTimeout(resetScreen, 190);
+    };
 
     const onTouchStart = e => {
       const touch = e.touches?.[0];
       if (!touch || touch.clientX > 18 || isEdgeSwipeBlockedTarget(e.target)) return;
-      start = { x: touch.clientX, y: touch.clientY };
+      if (cleanupTimer) window.clearTimeout(cleanupTimer);
+      screenEl = activeScreen();
+      start = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+      lastDx = 0;
     };
 
     const onTouchMove = e => {
@@ -2550,22 +2746,50 @@ function useEdgeSwipeBack(enabled, onBack) {
       const dx = touch.clientX - start.x;
       const dy = touch.clientY - start.y;
 
-      if (dx > 12 && Math.abs(dx) > Math.abs(dy) && e.cancelable) {
-        e.preventDefault();
-      }
-
       if (Math.abs(dy) > 48 && Math.abs(dy) > Math.abs(dx)) {
         start = null;
+        settleBack();
         return;
       }
 
-      if (dx > 72 && Math.abs(dy) < 44) {
-        start = null;
-        onBackRef.current?.();
+      if (dx <= 0) return;
+
+      if (dx > 8 && Math.abs(dx) > Math.abs(dy) && e.cancelable) {
+        e.preventDefault();
+      }
+
+      if (Math.abs(dx) > Math.abs(dy) && screenEl) {
+        const maxDrag = Math.min(window.innerWidth * 0.58, 260);
+        lastDx = Math.min(maxDrag, dx);
+        screenEl.classList.remove('screen--edge-settling');
+        screenEl.classList.add('screen--edge-swiping');
+        screenEl.style.transition = 'none';
+        screenEl.style.transform = `translateX(${lastDx}px)`;
       }
     };
 
-    const onTouchEnd = () => { start = null; };
+    const onTouchEnd = () => {
+      if (!start) {
+        return;
+      }
+      const elapsed = Date.now() - start.time;
+      const shouldGoBack = lastDx > 92 || (lastDx > 58 && elapsed < 320);
+      start = null;
+
+      if (shouldGoBack && screenEl) {
+        const outgoing = screenEl;
+        outgoing.classList.remove('screen--edge-swiping');
+        outgoing.classList.add('screen--edge-settling');
+        outgoing.style.transition = 'transform 0.18s ease-out, box-shadow 0.18s ease-out';
+        outgoing.style.transform = 'translateX(100vw)';
+        cleanupTimer = window.setTimeout(() => {
+          resetScreen();
+          onBackRef.current?.();
+        }, 170);
+      } else {
+        settleBack();
+      }
+    };
 
     window.addEventListener('touchstart', onTouchStart, { passive: true });
     window.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -2576,6 +2800,8 @@ function useEdgeSwipeBack(enabled, onBack) {
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('touchcancel', onTouchEnd);
+      if (cleanupTimer) window.clearTimeout(cleanupTimer);
+      resetScreen();
     };
   }, [enabled]);
 }
@@ -3133,7 +3359,7 @@ function scheduleRowSub(item) {
   return `${duration} · ${item.court || 'Cancha pendiente'}`;
 }
 
-function CoachDetailModal({ type, students, payments, bonuses, scheduledClasses, todayCount, onClose, onMarkPaymentPaid, onUseBonus, onEditScheduledClass }) {
+function CoachDetailModal({ type, students, payments, bonuses, scheduledClasses, todayCount, onClose, onMarkPaymentPaid, onUseBonus, onEditScheduledClass, onEditPayment, onDeletePayment, onEditBonus, onDeleteBonus }) {
   if (!type) return null;
 
   const today = todayISO();
@@ -3159,6 +3385,14 @@ function CoachDetailModal({ type, students, payments, bonuses, scheduledClasses,
   const lowBonuses = activeBonuses
     .filter(b => Number(b.remaining_classes || 0) <= Number(b.alert_at || 3))
     .sort((a, b) => Number(a.remaining_classes || 0) - Number(b.remaining_classes || 0));
+  const paymentSwipeActions = payment => [
+    { label: 'Editar', tone: 'secondary', onClick: () => { onClose(); onEditPayment(payment); } },
+    { label: 'Eliminar', tone: 'danger', onClick: () => onDeletePayment(payment) },
+  ];
+  const bonusSwipeActions = bonus => [
+    { label: 'Editar', tone: 'secondary', onClick: () => { onClose(); onEditBonus(bonus); } },
+    { label: 'Eliminar', tone: 'danger', onClick: () => onDeleteBonus(bonus) },
+  ];
 
   let title = '';
   let subtitle = '';
@@ -3176,17 +3410,19 @@ function CoachDetailModal({ type, students, payments, bonuses, scheduledClasses,
       const student = studentMap.get(payment.student_id);
       const title = student?.name || payment.title || 'Pago';
       return (
-        <div key={payment.id} className="coach-detail-row">
-          <div>
-            <div className="coach-detail-row-title">{title}</div>
-            <div className="coach-detail-row-sub">{payment.title || 'Pago'} · {formatDateEs(String(payment.paid_at || payment.created_at || today).slice(0, 10))}</div>
+        <SwipeActionsRow key={payment.id} actions={paymentSwipeActions(payment)}>
+          <div className="coach-detail-row">
+            <div>
+              <div className="coach-detail-row-title">{title}</div>
+              <div className="coach-detail-row-sub">{payment.title || 'Pago'} · {formatDateEs(String(payment.paid_at || payment.created_at || today).slice(0, 10))}</div>
+            </div>
+            <div className="coach-detail-row-value">{moneyFmt(payment.amount)}</div>
           </div>
-          <div className="coach-detail-row-value">{moneyFmt(payment.amount)}</div>
-        </div>
+        </SwipeActionsRow>
       );
     }) : <div className="coach-home-empty">Todavía no hay pagos cobrados este mes.</div>;
   } else if (type === 'receivable') {
-    title = 'Por cobrar';
+    title = 'Pagos pendientes';
     subtitle = 'Pagos pendientes ordenados por vencimiento.';
     stats = [
       { value: moneyFmt(pendingTotal), label: 'Pendiente' },
@@ -3196,16 +3432,18 @@ function CoachDetailModal({ type, students, payments, bonuses, scheduledClasses,
       const student = studentMap.get(payment.student_id);
       const title = student?.name || payment.title || 'Pago';
       return (
-        <div key={payment.id} className="coach-detail-row">
-          <div>
-            <div className="coach-detail-row-title">{title}</div>
-            <div className="coach-detail-row-sub">{paymentDueLabel(payment)}</div>
+        <SwipeActionsRow key={payment.id} actions={paymentSwipeActions(payment)}>
+          <div className="coach-detail-row">
+            <div>
+              <div className="coach-detail-row-title">{title}</div>
+              <div className="coach-detail-row-sub">{paymentDueLabel(payment)}</div>
+            </div>
+            <div className="coach-detail-row-actions">
+              <div className="coach-detail-row-value">{moneyFmt(payment.amount)}</div>
+              <button className="coach-home-mini-btn" data-swipe-ignore onClick={() => onMarkPaymentPaid(payment)}>Cobrar</button>
+            </div>
           </div>
-          <div className="coach-detail-row-actions">
-            <div className="coach-detail-row-value">{moneyFmt(payment.amount)}</div>
-            <button className="coach-home-mini-btn" onClick={() => onMarkPaymentPaid(payment)}>Cobrar</button>
-          </div>
-        </div>
+        </SwipeActionsRow>
       );
     }) : <div className="coach-home-empty">No hay pagos pendientes.</div>;
   } else if (type === 'classesToday') {
@@ -3242,16 +3480,18 @@ function CoachDetailModal({ type, students, payments, bonuses, scheduledClasses,
       const remaining = Number(bonus.remaining_classes || 0);
       const total = Math.max(1, Number(bonus.total_classes || 1));
       return (
-        <div key={bonus.id} className="coach-detail-row">
-          <div>
-            <div className="coach-detail-row-title">{student?.name || bonus.name || 'Bono'}</div>
-            <div className="coach-detail-row-sub">{bonus.name || `Bono ${total} clases`} · quedan {remaining} de {total}</div>
+        <SwipeActionsRow key={bonus.id} actions={bonusSwipeActions(bonus)}>
+          <div className="coach-detail-row">
+            <div>
+              <div className="coach-detail-row-title">{student?.name || bonus.name || 'Bono'}</div>
+              <div className="coach-detail-row-sub">{bonus.name || `Bono ${total} clases`} · quedan {remaining} de {total}</div>
+            </div>
+            <div className="coach-detail-row-actions">
+              <div className="coach-detail-row-value">{remaining}/{total}</div>
+              <button className="coach-home-mini-btn" data-swipe-ignore onClick={() => onUseBonus(bonus)}>Descontar</button>
+            </div>
           </div>
-          <div className="coach-detail-row-actions">
-            <div className="coach-detail-row-value">{remaining}/{total}</div>
-            <button className="coach-home-mini-btn coach-home-mini-btn--light" onClick={() => onUseBonus(bonus)}>Descontar</button>
-          </div>
-        </div>
+        </SwipeActionsRow>
       );
     }) : <div className="coach-home-empty">No hay bonos activos registrados.</div>;
   }
@@ -3282,7 +3522,7 @@ function CoachDetailModal({ type, students, payments, bonuses, scheduledClasses,
   );
 }
 
-function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, todayCount, onRegisterClass, onSelectStudent, onOpenStudents, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onMarkPaymentPaid, onUseBonus, onOpenDetail }) {
+function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, todayCount, onRegisterClass, onSelectStudent, onOpenStudents, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onMarkPaymentPaid, onUseBonus, onEditPayment, onDeletePayment, onEditBonus, onDeleteBonus, onOpenDetail }) {
   const today = todayISO();
   const monthKey = today.slice(0, 7);
   const studentMap = new Map(students.map(s => [s.id, s]));
@@ -3346,10 +3586,18 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
     alerts.push(`${lowBonuses.length} ${lowBonuses.length === 1 ? 'bono por agotarse' : 'bonos por agotarse'}`);
   }
   if (alerts.length === 0) alerts.push('Todo al día por ahora');
+  const paymentSwipeActions = payment => [
+    { label: 'Editar', tone: 'secondary', onClick: () => onEditPayment(payment) },
+    { label: 'Eliminar', tone: 'danger', onClick: () => onDeletePayment(payment) },
+  ];
+  const bonusSwipeActions = bonus => [
+    { label: 'Editar', tone: 'secondary', onClick: () => onEditBonus(bonus) },
+    { label: 'Eliminar', tone: 'danger', onClick: () => onDeleteBonus(bonus) },
+  ];
 
   const kpis = [
     { type: 'income', label: 'Ingresos del mes', value: moneyFmt(paidThisMonth), meta: 'Pagos cobrados', dark: true },
-    { type: 'receivable', label: 'Por cobrar', value: moneyFmt(pendingTotal), meta: pendingPayments.length ? `${pendingPayments.length} pendiente${pendingPayments.length === 1 ? '' : 's'}` : 'Al día' },
+    { type: 'receivable', label: 'Pagos pendientes', value: moneyFmt(pendingTotal), meta: pendingPayments.length ? `${pendingPayments.length} pendiente${pendingPayments.length === 1 ? '' : 's'}` : 'Al día' },
     { type: 'classesToday', label: 'Clases hoy', value: todayClassesValue, meta: todayClassesMeta },
     { type: 'lowBonuses', label: 'Bonos por agotarse', value: lowBonuses.length, meta: activeBonuses.length ? `${activeBonuses.length} activos` : 'Sin bonos activos' },
   ];
@@ -3376,7 +3624,7 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
       <section className="coach-home-section">
         <div className="coach-home-section-head">
           <div className="coach-home-section-title">Agenda de hoy</div>
-          <button className="coach-home-section-action" onClick={onAddScheduledClass}>Agendar</button>
+          <button className="coach-home-section-action" onClick={onAddScheduledClass}>Añadir</button>
         </div>
         <div className="coach-home-card">
           {agendaItems.length === 0 ? (
@@ -3439,7 +3687,7 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
             return (
               <SwipeActionsRow
                 key={payment.id}
-                actions={[{ label: 'Cobrar', tone: 'primary', onClick: () => onMarkPaymentPaid(payment) }]}>
+                actions={paymentSwipeActions(payment)}>
                 <div className="coach-home-pay-row">
                   <div className="coach-home-initials">{initials(title)}</div>
                   <div className="coach-home-row-main">
@@ -3473,17 +3721,17 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
             return (
               <SwipeActionsRow
                 key={bonus.id}
-                actions={[{ label: 'Descontar', tone: 'primary', onClick: () => onUseBonus(bonus) }]}>
+                actions={bonusSwipeActions(bonus)}>
                 <div className="coach-home-bonus-row">
                   <div className="coach-home-bonus-top">
                     <div className="coach-home-bonus-main">
                       <div className="coach-home-row-title">{student?.name || bonus.name || 'Bono'}</div>
                       <div className="coach-home-row-sub">{bonus.name || `Bono ${total} clases`}</div>
                     </div>
-                    <div style={{display:'flex', alignItems:'center', gap:8, flexShrink:0}}>
+                    <div style={{display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6, flexShrink:0}}>
                       <span className="coach-home-row-sub" style={{fontWeight:800}}>{remaining} de {total}</span>
                       <button
-                        className="coach-home-mini-btn coach-home-mini-btn--light"
+                        className="coach-home-mini-btn"
                         data-swipe-ignore
                         title="Descontar 1 clase manualmente"
                         onClick={() => onUseBonus(bonus)}>
@@ -3516,11 +3764,21 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
   );
 }
 
-function DashboardScreen({ profile, students, payments, bonuses, scheduledClasses, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onMarkPaymentPaid, onUseBonus, managing, onManagingChange }) {
+function DashboardScreen({ profile, students, payments, bonuses, scheduledClasses, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onMarkPaymentPaid, onUseBonus, onEditPayment, onDeletePayment, onEditBonus, onDeleteBonus, managing, onManagingChange }) {
   const [showMenu, setShowMenu]         = useState(false);
   const [dashboardView, setDashboardView] = useState(() => LS.get('dashboardView') || 'home');
   const [detailType, setDetailType]     = useState(null);
+  const menuRef = useRef(null);
   useEffect(() => { LS.set('dashboardView', dashboardView); }, [dashboardView]);
+  useEffect(() => {
+    if (!showMenu) return undefined;
+    const closeMenu = e => {
+      if (menuRef.current?.contains(e.target)) return;
+      setShowMenu(false);
+    };
+    document.addEventListener('pointerdown', closeMenu, true);
+    return () => document.removeEventListener('pointerdown', closeMenu, true);
+  }, [showMenu]);
   const managingStudents = managing;
   const setManaging = onManagingChange;
   const firstName = (profile?.display_name || 'Coach').split(' ')[0];
@@ -3539,7 +3797,7 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
     <div className="screen">
       <header className="dash-header">
         <Logo />
-        <div style={{position:'relative'}}>
+        <div ref={menuRef} style={{position:'relative'}}>
           <button className="dash-avatar-wrap" onClick={() => setShowMenu(s => !s)}>
             <Avatar name={profile?.display_name || 'U'} size={36} />
           </button>
@@ -3583,6 +3841,10 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
             onDeleteScheduledClass={onDeleteScheduledClass}
             onMarkPaymentPaid={onMarkPaymentPaid}
             onUseBonus={onUseBonus}
+            onEditPayment={onEditPayment}
+            onDeletePayment={onDeletePayment}
+            onEditBonus={onEditBonus}
+            onDeleteBonus={onDeleteBonus}
             onOpenDetail={setDetailType} />
         ) : (
           <>
@@ -3731,13 +3993,17 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
         onClose={() => setDetailType(null)}
         onMarkPaymentPaid={onMarkPaymentPaid}
         onUseBonus={onUseBonus}
-        onEditScheduledClass={onEditScheduledClass} />
+        onEditScheduledClass={onEditScheduledClass}
+        onEditPayment={onEditPayment}
+        onDeletePayment={onDeletePayment}
+        onEditBonus={onEditBonus}
+        onDeleteBonus={onDeleteBonus} />
     </div>
   );
 }
 
 // ── S4 Pick Student ──────────────────────────────────────────
-function PickStudentScreen({ students, onBack, onSelect, onSelectGroup }) {
+function PickStudentScreen({ students, onBack, onSelect, onSelectGroup, onAddStudent }) {
   const [groupMode, setGroupMode] = useState(false);
   const [picked, setPicked] = useState([]);
   const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
@@ -3767,6 +4033,10 @@ function PickStudentScreen({ students, onBack, onSelect, onSelectGroup }) {
           {modeBtn('Individual', !groupMode, () => { setGroupMode(false); setPicked([]); })}
           {modeBtn('Clase grupal', groupMode, () => setGroupMode(true))}
         </div>
+        <button className="pick-add-student" onClick={onAddStudent}>
+          <span>+</span>
+          Registrar alumno nuevo
+        </button>
         <div className="student-list">
           {students.map((s, i) => {
             if (!groupMode) {
@@ -3861,36 +4131,54 @@ function AddStudentScreen({ coachId, onBack, onDone }) {
   );
 }
 
-function AddPaymentScreen({ coachId, students, onBack, onDone }) {
-  const [studentId, setStudentId] = useState(students[0]?.id || '');
-  const [title, setTitle]         = useState('Clase');
-  const [amount, setAmount]       = useState('');
-  const [status, setStatus]       = useState('pending');
-  const [dueDate, setDueDate]     = useState(todayISO());
+function AddPaymentScreen({ coachId, students, existingPayment, onBack, onDone, onDeleted }) {
+  const editing = !!existingPayment;
+  const current = editing ? normalizePayment(existingPayment) : null;
+  const [studentId, setStudentId] = useState(current?.student_id || students[0]?.id || '');
+  const [title, setTitle]         = useState(current?.title || 'Clase');
+  const [amount, setAmount]       = useState(current ? String(current.amount || '') : '');
+  const [status, setStatus]       = useState(current?.status || 'pending');
+  const [dueDate, setDueDate]     = useState(String(current?.paid_at || current?.due_date || todayISO()).slice(0, 10));
   const [loading, setLoading]     = useState(false);
+  const [deleting, setDeleting]   = useState(false);
   const [error, setError]         = useState('');
 
   async function save() {
     if (!studentId) { setError('Elige un alumno.'); return; }
     if (parseMoney(amount) <= 0) { setError('Ingresa un monto válido.'); return; }
     setLoading(true); setError('');
-    const payment = await createCoachPayment(coachId, {
+    const payload = {
       student_id: studentId,
       title: title.trim() || 'Clase',
       amount,
       due_date: dueDate || null,
       status,
-    });
+    };
+    const payment = editing
+      ? await updateCoachPayment(coachId, current, payload)
+      : await createCoachPayment(coachId, payload);
     setLoading(false);
     onDone(payment);
   }
 
+  async function remove() {
+    if (!editing) return;
+    const ok = window.confirm('¿Eliminar este pago? Esta acción no borra alumnos, bonos ni clases.');
+    if (!ok) return;
+    setDeleting(true); setError('');
+    const deletedId = await deleteCoachPayment(coachId, current);
+    setDeleting(false);
+    onDeleted(deletedId);
+  }
+
   return (
     <div className="screen">
-      <Header title="Nuevo pago" onBack={onBack} />
+      <Header title={editing ? 'Editar pago' : 'Nuevo pago'} onBack={onBack} />
       <div className="screen-content">
-        <h1 className="screen-title" style={{marginTop: 8}}>Registrar pago</h1>
-        <p className="screen-subtitle" style={{marginBottom: 28}}>Registra cobros pendientes o pagos ya recibidos.</p>
+        <h1 className="screen-title" style={{marginTop: 8}}>{editing ? 'Editar pago' : 'Registrar pago'}</h1>
+        <p className="screen-subtitle" style={{marginBottom: 28}}>
+          {editing ? 'Cambia monto, estado o alumno.' : 'Registra cobros pendientes o pagos ya recibidos.'}
+        </p>
         {error && <div className="error-msg">{error}</div>}
         <div className="form-field">
           <label className="field-label">Alumno</label>
@@ -3920,10 +4208,16 @@ function AddPaymentScreen({ coachId, students, onBack, onDone }) {
           <input className="field-input" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
         </div>
       </div>
-      <div className="screen-bottom">
+      <div className="screen-bottom" style={{display:'grid', gap:10}}>
         <button className="btn btn-primary" onClick={save} disabled={loading || !studentId || parseMoney(amount) <= 0}>
-          {loading ? 'Guardando...' : status === 'paid' ? 'Guardar como pagado' : 'Guardar pago pendiente'}
+          {loading ? 'Guardando...' : editing ? 'Guardar cambios' : status === 'paid' ? 'Guardar como pagado' : 'Guardar pago pendiente'}
         </button>
+        {editing && (
+          <button className="btn btn-outline" onClick={remove} disabled={loading || deleting}
+            style={{borderColor:'#F3B8B3', color:'#B3261E', background:'#FDECEC'}}>
+            {deleting ? 'Eliminando...' : 'Eliminar pago'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -4045,13 +4339,16 @@ function AddScheduledClassScreen({ coachId, students, existingClass, prefill, on
   );
 }
 
-function AddBonusScreen({ coachId, students, onBack, onDone }) {
-  const [studentId, setStudentId] = useState(students[0]?.id || '');
-  const [name, setName]           = useState('Bono 10 clases');
-  const [total, setTotal]         = useState('10');
-  const [remaining, setRemaining] = useState('10');
-  const [alertAt, setAlertAt]     = useState('3');
+function AddBonusScreen({ coachId, students, existingBonus, onBack, onDone, onDeleted }) {
+  const editing = !!existingBonus;
+  const current = editing ? normalizeBonus(existingBonus) : null;
+  const [studentId, setStudentId] = useState(current?.student_id || students[0]?.id || '');
+  const [name, setName]           = useState(current?.name || 'Bono 10 clases');
+  const [total, setTotal]         = useState(current ? String(current.total_classes || 10) : '10');
+  const [remaining, setRemaining] = useState(current ? String(current.remaining_classes ?? current.total_classes ?? 10) : '10');
+  const [alertAt, setAlertAt]     = useState(current ? String(current.alert_at || 3) : '3');
   const [loading, setLoading]     = useState(false);
+  const [deleting, setDeleting]   = useState(false);
   const [error, setError]         = useState('');
 
   async function save() {
@@ -4061,23 +4358,38 @@ function AddBonusScreen({ coachId, students, onBack, onDone }) {
     if (totalNum <= 0) { setError('Ingresa el total de clases.'); return; }
     if (remainingNum < 0 || remainingNum > totalNum) { setError('Las clases que quedan deben estar entre 0 y el total.'); return; }
     setLoading(true); setError('');
-    const bonus = await createClassBonus(coachId, {
+    const payload = {
       student_id: studentId,
       name: name.trim() || `Bono ${total} clases`,
       total_classes: total,
       remaining_classes: remaining || total,
       alert_at: alertAt || 3,
-    });
+    };
+    const bonus = editing
+      ? await updateClassBonus(coachId, current, payload)
+      : await createClassBonus(coachId, payload);
     setLoading(false);
     onDone(bonus);
   }
 
+  async function remove() {
+    if (!editing) return;
+    const ok = window.confirm('¿Eliminar este bono? No se borran pagos, alumnos ni reportes.');
+    if (!ok) return;
+    setDeleting(true); setError('');
+    const deletedId = await deleteClassBonus(coachId, current);
+    setDeleting(false);
+    onDeleted(deletedId);
+  }
+
   return (
     <div className="screen">
-      <Header title="Nuevo bono" onBack={onBack} />
+      <Header title={editing ? 'Editar bono' : 'Nuevo bono'} onBack={onBack} />
       <div className="screen-content">
-        <h1 className="screen-title" style={{marginTop: 8}}>Crear bono</h1>
-        <p className="screen-subtitle" style={{marginBottom: 28}}>Si pagó 4 clases y ya diste 1, pon 4 incluidas y 3 que quedan.</p>
+        <h1 className="screen-title" style={{marginTop: 8}}>{editing ? 'Editar bono' : 'Crear bono'}</h1>
+        <p className="screen-subtitle" style={{marginBottom: 28}}>
+          {editing ? 'Ajusta clases incluidas, restantes o alerta.' : 'Si pagó 4 clases y ya diste 1, pon 4 incluidas y 3 que quedan.'}
+        </p>
         {error && <div className="error-msg">{error}</div>}
         <div className="form-field">
           <label className="field-label">Alumno</label>
@@ -4112,10 +4424,16 @@ function AddBonusScreen({ coachId, students, onBack, onDone }) {
             onChange={e => setAlertAt(e.target.value)} />
         </div>
       </div>
-      <div className="screen-bottom">
+      <div className="screen-bottom" style={{display:'grid', gap:10}}>
         <button className="btn btn-primary" onClick={save} disabled={loading || !studentId || Number(total) <= 0}>
-          {loading ? 'Guardando...' : 'Guardar bono'}
+          {loading ? 'Guardando...' : editing ? 'Guardar cambios' : 'Guardar bono'}
         </button>
+        {editing && (
+          <button className="btn btn-outline" onClick={remove} disabled={loading || deleting}
+            style={{borderColor:'#F3B8B3', color:'#B3261E', background:'#FDECEC'}}>
+            {deleting ? 'Eliminando...' : 'Eliminar bono'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -4123,9 +4441,9 @@ function AddBonusScreen({ coachId, students, onBack, onDone }) {
 
 // ── S5 Log Class ─────────────────────────────────────────────
 
-const DEFAULT_FOCUS    = ['Revés','Volea','Bandeja','Globo','Pared','Smash','Saque','Posicionamiento'];
-const DEFAULT_IMPROVED = ['Volea','Reacción','Confianza','Consistencia','Técnica','Actitud','Potencia','Puntería','Juego en red'];
-const DEFAULT_CORRECTION = ['Preparar antes','Usar piernas','Distancia con la bola','Mirar la bola','Recuperar posición','Elegir mejor golpe','Bajar la pala','Terminar el gesto'];
+const DEFAULT_FOCUS    = ['Revés','Volea','Bandeja','Pared','Saque','Posición'];
+const DEFAULT_IMPROVED = ['Consistencia','Técnica','Confianza','Actitud','Red','Puntería'];
+const DEFAULT_CORRECTION = ['Preparar antes','Usar piernas','Mirar bola','Recuperar','Elegir golpe','Terminar gesto'];
 const DEFAULT_HOMEWORK = ['Practicar bandeja','Ver video','Ejercicio físico','Practicar saque','Ver partido','Fortalecer muñeca'];
 
 const chipCustomKey = (coachId, category) => `coach_chips:${category}:${coachId}`;
@@ -4335,9 +4653,9 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
 
         <div className="quick-report-header">
           <div className="quick-report-copy">
-            <div className="quick-report-kicker">Reporte rápido</div>
-            <h1 className="quick-report-title">3 toques y listo</h1>
-            <p className="quick-report-sub">{isGroup ? `El mismo reporte se guarda para ${students.length} alumnos.` : `Solo lo esencial para ${firstName}.`}</p>
+            <div className="quick-report-kicker">Reporte</div>
+            <h1 className="quick-report-title">Registro rápido</h1>
+            <p className="quick-report-sub">{isGroup ? `${students.length} alumnos` : firstName}</p>
           </div>
           <div className={`quick-report-status${requiredComplete ? ' quick-report-status--ready' : ''}`}>
             {requiredComplete ? 'Listo' : `${requiredDone}/3 listo`}
@@ -4385,7 +4703,7 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
           {renderRequiredField({
             step: 'focus',
             number: 1,
-            title: 'Foco del día',
+            title: 'Foco',
             values: focus,
             children: (
             <ChipGroup
@@ -4403,7 +4721,7 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
           {renderRequiredField({
             step: 'improved',
             number: 2,
-            title: 'Qué mejoró',
+            title: 'Mejoró',
             values: improved,
             children: (
             <ChipGroup
@@ -4421,7 +4739,7 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
           {renderRequiredField({
             step: 'correction',
             number: 3,
-            title: 'Corrección principal',
+            title: 'Corrección',
             values: correction,
             children: (
             <ChipGroup
@@ -4438,10 +4756,10 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
           <div className="required-submit">
             {error && <div className="error-msg">{error}</div>}
             <button className="btn btn-primary" onClick={save} disabled={loading || !requiredComplete || mediaUploading}>
-              {loading ? 'Guardando...' : mediaUploading ? 'Subiendo archivo…' : 'Guardar y enviar reporte'}
+              {loading ? 'Guardando...' : mediaUploading ? 'Subiendo archivo…' : 'Guardar reporte'}
             </button>
             {!requiredComplete && (
-              <div className="required-hint">Selecciona una opción en cada punto.</div>
+              <div className="required-hint">Completa 3 puntos.</div>
             )}
           </div>
         </section>
@@ -4453,8 +4771,8 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
             aria-expanded={optionalOpen}
           >
             <span className="optional-trigger-main">
-              <span className="optional-trigger-title">Agregar más detalles (opcional)</span>
-              <span className="optional-trigger-sub">Video, tarea, notas y referencia visual</span>
+              <span className="optional-trigger-title">Detalles opcionales</span>
+              <span className="optional-trigger-sub">Nota, video o tarea</span>
             </span>
             <span className="optional-chevron" aria-hidden="true">⌄</span>
           </button>
@@ -4515,7 +4833,7 @@ function LogClassScreen({ students, coachId, onBack, onSaved }) {
 
               <div className="optional-save">
                 <button className="btn btn-primary" onClick={save} disabled={loading || !requiredComplete || mediaUploading}>
-                  {loading ? 'Guardando...' : mediaUploading ? 'Subiendo archivo…' : 'Guardar y enviar reporte'}
+                  {loading ? 'Guardando...' : mediaUploading ? 'Subiendo archivo…' : 'Guardar reporte'}
                 </button>
               </div>
             </div>
@@ -5810,9 +6128,9 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
 
         <div className="quick-report-header">
           <div className="quick-report-copy">
-            <div className="quick-report-kicker">Editar reporte</div>
-            <h1 className="quick-report-title">3 toques y listo</h1>
-            <p className="quick-report-sub">Ajusta solo lo esencial para {firstName}.</p>
+            <div className="quick-report-kicker">Editar</div>
+            <h1 className="quick-report-title">Registro rápido</h1>
+            <p className="quick-report-sub">{firstName}</p>
           </div>
           <div className={`quick-report-status${requiredComplete ? ' quick-report-status--ready' : ''}`}>
             {requiredComplete ? 'Listo' : `${requiredDone}/3 listo`}
@@ -5830,7 +6148,7 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
           {renderRequiredField({
             step: 'focus',
             number: 1,
-            title: 'Foco del día',
+            title: 'Foco',
             values: focus,
             children: (
             <ChipGroup
@@ -5847,7 +6165,7 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
           {renderRequiredField({
             step: 'improved',
             number: 2,
-            title: 'Qué mejoró',
+            title: 'Mejoró',
             values: improved,
             children: (
             <ChipGroup
@@ -5864,7 +6182,7 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
           {renderRequiredField({
             step: 'correction',
             number: 3,
-            title: 'Corrección principal',
+            title: 'Corrección',
             values: correction,
             children: (
             <ChipGroup
@@ -5884,7 +6202,7 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
               {loading ? 'Guardando...' : mediaUploading ? 'Subiendo archivo…' : 'Guardar cambios'}
             </button>
             {!requiredComplete && (
-              <div className="required-hint">Selecciona una opción en cada punto.</div>
+              <div className="required-hint">Completa 3 puntos.</div>
             )}
           </div>
         </section>
@@ -5896,8 +6214,8 @@ function EditLogScreen({ log, student, onBack, onSaved }) {
             aria-expanded={optionalOpen}
           >
             <span className="optional-trigger-main">
-              <span className="optional-trigger-title">Agregar más detalles (opcional)</span>
-              <span className="optional-trigger-sub">Video, tarea, notas y referencia visual</span>
+              <span className="optional-trigger-title">Detalles opcionales</span>
+              <span className="optional-trigger-sub">Nota, video o tarea</span>
             </span>
             <span className="optional-chevron" aria-hidden="true">⌄</span>
           </button>
@@ -6938,6 +7256,8 @@ function App() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [groupStudents, setGroupStudents] = useState(null);
   const [selectedScheduledClass, setSelectedScheduledClass] = useState(null);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [selectedBonus, setSelectedBonus] = useState(null);
   const [savedOffline, setSavedOffline]     = useState(false);
   const [savedLog, setSavedLog]             = useState(null);
   const [selectedLog, setSelectedLog]         = useState(null);
@@ -6985,7 +7305,7 @@ function App() {
 
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
       if (session?.user) { saveCoachEmail(session.user.email); setUser(session.user); loadEverything(session.user.id); }
-      else { setUser(null); setProfile(null); setStudents([]); setPayments([]); setBonuses([]); setScheduledClasses([]); setSelectedScheduledClass(null); go('auth'); }
+      else { setUser(null); setProfile(null); setStudents([]); setPayments([]); setBonuses([]); setScheduledClasses([]); setSelectedScheduledClass(null); setSelectedPayment(null); setSelectedBonus(null); go('auth'); }
     });
 
     const handleHash = () => { const pid = publicMatch(); if (pid) go({ name: 'public', id: pid }); };
@@ -7031,6 +7351,22 @@ function App() {
         const restoredClass = ops.scheduledClasses.find(c => c.id === savedRoute?.classId);
         if (restoredClass) {
           setSelectedScheduledClass(restoredClass);
+          setRoute(savedRoute);
+          flushQueue(uid);
+          return;
+        }
+      } else if (rName === 'editPayment') {
+        const restoredPayment = ops.payments.find(p => p.id === savedRoute?.paymentId);
+        if (restoredPayment) {
+          setSelectedPayment(restoredPayment);
+          setRoute(savedRoute);
+          flushQueue(uid);
+          return;
+        }
+      } else if (rName === 'editBonus') {
+        const restoredBonus = ops.bonuses.find(b => b.id === savedRoute?.bonusId);
+        if (restoredBonus) {
+          setSelectedBonus(restoredBonus);
           setRoute(savedRoute);
           flushQueue(uid);
           return;
@@ -7096,6 +7432,10 @@ function App() {
       else go('dashboard');
       return;
     }
+    if (routeName === 'addStudent' && route?.from === 'pickStudent') {
+      go('pickStudent');
+      return;
+    }
     if (routeName === 'share') {
       setSelectedStudent(null);
       setSavedOffline(false);
@@ -7106,6 +7446,16 @@ function App() {
     }
     if (routeName === 'editScheduledClass') {
       setSelectedScheduledClass(null);
+      go('dashboard');
+      return;
+    }
+    if (routeName === 'editPayment') {
+      setSelectedPayment(null);
+      go('dashboard');
+      return;
+    }
+    if (routeName === 'editBonus') {
+      setSelectedBonus(null);
       go('dashboard');
       return;
     }
@@ -7178,6 +7528,26 @@ function App() {
             const saved = await useClassBonus(user.id, bonus);
             setBonuses(prev => prev.map(b => b.id === saved.id ? saved : b));
           }}
+          onEditPayment={payment => {
+            setSelectedPayment(payment);
+            go({ name: 'editPayment', paymentId: payment.id });
+          }}
+          onDeletePayment={async payment => {
+            const ok = window.confirm('¿Eliminar este pago? Esta acción no borra alumnos, bonos ni clases.');
+            if (!ok) return;
+            const deletedId = await deleteCoachPayment(user.id, payment);
+            setPayments(prev => prev.filter(p => p.id !== deletedId));
+          }}
+          onEditBonus={bonus => {
+            setSelectedBonus(bonus);
+            go({ name: 'editBonus', bonusId: bonus.id });
+          }}
+          onDeleteBonus={async bonus => {
+            const ok = window.confirm('¿Eliminar este bono? No se borran pagos, alumnos ni reportes.');
+            if (!ok) return;
+            const deletedId = await deleteClassBonus(user.id, bonus);
+            setBonuses(prev => prev.filter(b => b.id !== deletedId));
+          }}
           managing={isManaging}
           onManagingChange={setIsManaging} />
       )}
@@ -7200,16 +7570,24 @@ function App() {
       {route === 'pickStudent' && (
         <PickStudentScreen students={students} onBack={() => go('dashboard')}
           onSelect={s => { setGroupStudents(null); setSelectedStudent(s); go({ name: 'logClass', from: 'pickStudent', studentId: s.id }); }}
-          onSelectGroup={arr => { setGroupStudents(arr); setSelectedStudent(arr[0]); go({ name: 'logClass', from: 'pickStudent', group: true }); }} />
+          onSelectGroup={arr => { setGroupStudents(arr); setSelectedStudent(arr[0]); go({ name: 'logClass', from: 'pickStudent', group: true }); }}
+          onAddStudent={() => go({ name: 'addStudent', from: 'pickStudent' })} />
       )}
 
-      {route === 'addStudent' && (
-        <AddStudentScreen coachId={user.id} onBack={() => go('dashboard')}
+      {routeName === 'addStudent' && (
+        <AddStudentScreen coachId={user.id} onBack={() => go(route?.from === 'pickStudent' ? 'pickStudent' : 'dashboard')}
           onDone={s => {
+            const savedStudent = { ...s, lastLog: null };
             setStudents(prev =>
-              [...prev, { ...s, lastLog: null }].sort((a, b) => a.name.localeCompare(b.name))
+              [...prev, savedStudent].sort((a, b) => a.name.localeCompare(b.name))
             );
-            go('dashboard');
+            if (route?.from === 'pickStudent') {
+              setGroupStudents(null);
+              setSelectedStudent(savedStudent);
+              go({ name: 'logClass', from: 'pickStudent', studentId: savedStudent.id });
+            } else {
+              go('dashboard');
+            }
           }} />
       )}
 
@@ -7219,6 +7597,29 @@ function App() {
             setPayments(prev => [payment, ...prev.filter(p => p.id !== payment.id)]);
             go('dashboard');
           }} />
+      )}
+
+      {route?.name === 'editPayment' && (
+        (() => {
+          const payment = selectedPayment || payments.find(p => p.id === route.paymentId);
+          return payment ? (
+            <AddPaymentScreen
+              coachId={user.id}
+              students={students}
+              existingPayment={payment}
+              onBack={() => { setSelectedPayment(null); go('dashboard'); }}
+              onDone={updated => {
+                setPayments(prev => [updated, ...prev.filter(p => p.id !== updated.id)]);
+                setSelectedPayment(null);
+                go('dashboard');
+              }}
+              onDeleted={deletedId => {
+                setPayments(prev => prev.filter(p => p.id !== deletedId));
+                setSelectedPayment(null);
+                go('dashboard');
+              }} />
+          ) : null;
+        })()
       )}
 
       {routeName === 'addScheduledClass' && (
@@ -7266,6 +7667,29 @@ function App() {
             setBonuses(prev => [bonus, ...prev.filter(b => b.id !== bonus.id)]);
             go('dashboard');
           }} />
+      )}
+
+      {route?.name === 'editBonus' && (
+        (() => {
+          const bonus = selectedBonus || bonuses.find(b => b.id === route.bonusId);
+          return bonus ? (
+            <AddBonusScreen
+              coachId={user.id}
+              students={students}
+              existingBonus={bonus}
+              onBack={() => { setSelectedBonus(null); go('dashboard'); }}
+              onDone={updated => {
+                setBonuses(prev => [updated, ...prev.filter(b => b.id !== updated.id)]);
+                setSelectedBonus(null);
+                go('dashboard');
+              }}
+              onDeleted={deletedId => {
+                setBonuses(prev => prev.filter(b => b.id !== deletedId));
+                setSelectedBonus(null);
+                go('dashboard');
+              }} />
+          ) : null;
+        })()
       )}
 
       {route?.name === 'logClass' && (selectedStudent || groupStudents) && (
@@ -7346,7 +7770,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-24-agenda-edit';
+    const APP_VERSION = '2026-06-24-add-label-consistency';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 
