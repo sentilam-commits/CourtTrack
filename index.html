@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-24-persist-view">
+  <meta name="app-version" content="2026-06-24-agenda-edit">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-24-persist-view">
+  <link rel="manifest" href="./manifest.json?v=2026-06-24-agenda-edit">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3016,7 +3016,7 @@ function OnboardingScreen({ user, onDone }) {
 // ── S3 Dashboard ─────────────────────────────────────────────
 // ── Panel de inicio del coach: clases de esta semana ──────────
 // Solo lo que le importa al coach: qué clases tiene agendadas en los próximos 7 días.
-function CoachDashboardPanel({ students, scheduledClasses, onSelectStudent, onEditScheduledClass, onDeleteScheduledClass }) {
+function CoachDashboardPanel({ students, scheduledClasses, onSelectStudent, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass }) {
   const today = todayISO();
   const ahead = (d) => Math.round((new Date(d) - new Date(today)) / 86400000);
   const open = (s) => { if (s && onSelectStudent) onSelectStudent(s); };
@@ -3054,7 +3054,7 @@ function CoachDashboardPanel({ students, scheduledClasses, onSelectStudent, onEd
               : `${d === 0 ? 'Hoy' : d === 1 ? 'Mañana' : formatDateEs(date)} · sin hora`;
             const title = row.type === 'schedule' ? scheduleRowTitle(item, studentMap) : s.name;
             const rowButton = (
-              <button onClick={() => row.type === 'schedule' ? onEditScheduledClass(item) : open(s)} style={{
+              <button onClick={() => row.type === 'schedule' ? onEditScheduledClass(item) : onAssignTime(s)} style={{
                 width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10,
                 background:'none', border:'none', borderTop: i === 0 ? 'none' : '1px solid var(--border)',
                 padding:'13px 0', cursor:'pointer', textAlign:'left',
@@ -3073,7 +3073,14 @@ function CoachDashboardPanel({ students, scheduledClasses, onSelectStudent, onEd
                 {rowButton}
               </SwipeActionsRow>
             ) : (
-              <React.Fragment key={s.id}>{rowButton}</React.Fragment>
+              <SwipeActionsRow
+                key={s.id}
+                actions={[
+                  { label: 'Asignar hora', tone: 'secondary', onClick: () => onAssignTime(s) },
+                  { label: 'Quitar', tone: 'danger', onClick: () => onRemoveLegacy(s) },
+                ]}>
+                {rowButton}
+              </SwipeActionsRow>
             );
           })}
         </div>
@@ -3275,7 +3282,7 @@ function CoachDetailModal({ type, students, payments, bonuses, scheduledClasses,
   );
 }
 
-function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, todayCount, onRegisterClass, onSelectStudent, onOpenStudents, onAddPayment, onAddBonus, onAddScheduledClass, onEditScheduledClass, onDeleteScheduledClass, onMarkPaymentPaid, onUseBonus, onOpenDetail }) {
+function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, todayCount, onRegisterClass, onSelectStudent, onOpenStudents, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onMarkPaymentPaid, onUseBonus, onOpenDetail }) {
   const today = todayISO();
   const monthKey = today.slice(0, 7);
   const studentMap = new Map(students.map(s => [s.id, s]));
@@ -3378,14 +3385,21 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
             if (row.type === 'legacy') {
               const s = row.student;
               return (
-                <button key={s.id} className="coach-home-row" onClick={() => onSelectStudent(s)}>
-                  <div className="coach-home-time">{dueLabel(s.next_class)}</div>
-                  <div className="coach-home-row-main">
-                    <div className="coach-home-row-title">{s.name}</div>
-                    <div className="coach-home-row-sub">{s.level || 'Alumno'} · falta hora exacta</div>
-                  </div>
-                  <span className="coach-home-badge coach-home-badge--muted">Sin hora</span>
-                </button>
+                <SwipeActionsRow
+                  key={s.id}
+                  actions={[
+                    { label: 'Asignar hora', tone: 'secondary', onClick: () => onAssignTime(s) },
+                    { label: 'Quitar', tone: 'danger', onClick: () => onRemoveLegacy(s) },
+                  ]}>
+                  <button className="coach-home-row" onClick={() => onAssignTime(s)}>
+                    <div className="coach-home-time">{dueLabel(s.next_class)}</div>
+                    <div className="coach-home-row-main">
+                      <div className="coach-home-row-title">{s.name}</div>
+                      <div className="coach-home-row-sub">{s.level || 'Alumno'} · toca para poner hora</div>
+                    </div>
+                    <span className="coach-home-badge coach-home-badge--muted">Sin hora</span>
+                  </button>
+                </SwipeActionsRow>
               );
             }
             const item = row.item;
@@ -3502,7 +3516,7 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
   );
 }
 
-function DashboardScreen({ profile, students, payments, bonuses, scheduledClasses, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog, onAddPayment, onAddBonus, onAddScheduledClass, onEditScheduledClass, onDeleteScheduledClass, onMarkPaymentPaid, onUseBonus, managing, onManagingChange }) {
+function DashboardScreen({ profile, students, payments, bonuses, scheduledClasses, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onMarkPaymentPaid, onUseBonus, managing, onManagingChange }) {
   const [showMenu, setShowMenu]         = useState(false);
   const [dashboardView, setDashboardView] = useState(() => LS.get('dashboardView') || 'home');
   const [detailType, setDetailType]     = useState(null);
@@ -3563,6 +3577,8 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
             onAddPayment={onAddPayment}
             onAddBonus={onAddBonus}
             onAddScheduledClass={onAddScheduledClass}
+            onAssignTime={onAssignTime}
+            onRemoveLegacy={onRemoveLegacy}
             onEditScheduledClass={onEditScheduledClass}
             onDeleteScheduledClass={onDeleteScheduledClass}
             onMarkPaymentPaid={onMarkPaymentPaid}
@@ -3614,7 +3630,7 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
             </div>}
           </button>
         </div>
-        {!managingStudents && <CoachDashboardPanel students={students} scheduledClasses={scheduledClasses} onSelectStudent={onSelectStudent} onEditScheduledClass={onEditScheduledClass} onDeleteScheduledClass={onDeleteScheduledClass} />}
+        {!managingStudents && <CoachDashboardPanel students={students} scheduledClasses={scheduledClasses} onSelectStudent={onSelectStudent} onAssignTime={onAssignTime} onRemoveLegacy={onRemoveLegacy} onEditScheduledClass={onEditScheduledClass} onDeleteScheduledClass={onDeleteScheduledClass} />}
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginTop:8, marginBottom:14}}>
           <div className="section-label" style={{marginBottom:0}}>{managingStudents ? 'GESTIONAR ALUMNOS' : 'ALUMNOS'}</div>
           {!managingStudents && (
@@ -3913,11 +3929,11 @@ function AddPaymentScreen({ coachId, students, onBack, onDone }) {
   );
 }
 
-function AddScheduledClassScreen({ coachId, students, existingClass, onBack, onDone, onDeleted }) {
+function AddScheduledClassScreen({ coachId, students, existingClass, prefill, onBack, onDone, onDeleted }) {
   const editing = !!existingClass;
   const current = existingClass ? normalizeScheduledClass(existingClass) : null;
-  const [studentId, setStudentId] = useState(current?.student_id || students[0]?.id || '');
-  const [classDate, setClassDate] = useState(current?.class_date || todayISO());
+  const [studentId, setStudentId] = useState(current?.student_id || prefill?.student_id || students[0]?.id || '');
+  const [classDate, setClassDate] = useState(current?.class_date || prefill?.class_date || todayISO());
   const [startTime, setStartTime] = useState(formatTimeShort(current?.start_time || '09:00'));
   const [duration, setDuration]   = useState(String(current?.duration_minutes || 60));
   const [court, setCourt]         = useState(current?.court || '');
@@ -7037,6 +7053,19 @@ function App() {
     setStudents(studs.map(s => ({ ...s, lastLog: logs.find(l => l.student_id === s.id) || null })));
   }
 
+  async function setStudentNextClass(studentId, nextClass) {
+    // Optimistic UI + persist; used to clear/upgrade the legacy "next_class" agenda slot
+    setStudents(prev => prev.map(s => s.id === studentId ? { ...s, next_class: nextClass } : s));
+    try {
+      await sb.from('students').update({ next_class: nextClass, updated_at: new Date().toISOString() }).eq('id', studentId);
+    } catch (e) {}
+    const cacheKey = `s:${user.id}`;
+    const cached = LS.get(cacheKey);
+    if (Array.isArray(cached)) {
+      LS.set(cacheKey, cached.map(s => s.id === studentId ? { ...s, next_class: nextClass } : s));
+    }
+  }
+
   async function refreshCoachOps(uid) {
     const ops = await fetchCoachOps(uid);
     setPayments(ops.payments);
@@ -7125,6 +7154,12 @@ function App() {
           onAddPayment={() => go('addPayment')}
           onAddBonus={() => go('addBonus')}
           onAddScheduledClass={() => go('addScheduledClass')}
+          onAssignTime={s => go({ name: 'addScheduledClass', studentId: s.id, date: s.next_class, fromLegacy: true })}
+          onRemoveLegacy={async s => {
+            const ok = window.confirm(`¿Quitar la clase de ${s.name} de la agenda? El alumno y su historial no se borran.`);
+            if (!ok) return;
+            await setStudentNextClass(s.id, null);
+          }}
           onEditScheduledClass={scheduled => {
             setSelectedScheduledClass(scheduled);
             go({ name: 'editScheduledClass', classId: scheduled.id });
@@ -7186,10 +7221,18 @@ function App() {
           }} />
       )}
 
-      {route === 'addScheduledClass' && (
-        <AddScheduledClassScreen coachId={user.id} students={students} onBack={() => go('dashboard')}
-          onDone={scheduled => {
+      {routeName === 'addScheduledClass' && (
+        <AddScheduledClassScreen coachId={user.id} students={students}
+          prefill={typeof route === 'object' ? { student_id: route.studentId, class_date: route.date } : null}
+          onBack={() => go('dashboard')}
+          onDone={async scheduled => {
             setScheduledClasses(prev => upcomingScheduledClasses([scheduled, ...prev.filter(c => c.id !== scheduled.id)]));
+            // If this upgraded a legacy "sin hora" slot, clear next_class so it doesn't show twice.
+            // Only clear it when the scheduled class persisted SERVER-SIDE (not the local fallback),
+            // otherwise we'd erase the only durable record of the class.
+            if (typeof route === 'object' && route.fromLegacy && route.studentId && !scheduled?._local) {
+              await setStudentNextClass(route.studentId, null);
+            }
             go('dashboard');
           }} />
       )}
@@ -7303,7 +7346,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-24-persist-view';
+    const APP_VERSION = '2026-06-24-agenda-edit';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 
