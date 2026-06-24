@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-24-bottom-tabs">
+  <meta name="app-version" content="2026-06-24-persist-view">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-24-bottom-tabs">
+  <link rel="manifest" href="./manifest.json?v=2026-06-24-persist-view">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3504,8 +3504,9 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
 
 function DashboardScreen({ profile, students, payments, bonuses, scheduledClasses, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog, onAddPayment, onAddBonus, onAddScheduledClass, onEditScheduledClass, onDeleteScheduledClass, onMarkPaymentPaid, onUseBonus, managing, onManagingChange }) {
   const [showMenu, setShowMenu]         = useState(false);
-  const [dashboardView, setDashboardView] = useState('home');
+  const [dashboardView, setDashboardView] = useState(() => LS.get('dashboardView') || 'home');
   const [detailType, setDetailType]     = useState(null);
+  useEffect(() => { LS.set('dashboardView', dashboardView); }, [dashboardView]);
   const managingStudents = managing;
   const setManaging = onManagingChange;
   const firstName = (profile?.display_name || 'Coach').split(' ')[0];
@@ -6925,7 +6926,8 @@ function App() {
   const [savedLog, setSavedLog]             = useState(null);
   const [selectedLog, setSelectedLog]         = useState(null);
   const [isOffline, setIsOffline]           = useState(!navigator.onLine);
-  const [isManaging, setIsManaging]         = useState(false);
+  const [isManaging, setIsManaging]         = useState(() => LS.get('isManaging') || false);
+  useEffect(() => { LS.set('isManaging', isManaging); }, [isManaging]);
 
   const go = r => {
     setRoute(r);
@@ -7301,7 +7303,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-24-bottom-tabs';
+    const APP_VERSION = '2026-06-24-persist-view';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 
