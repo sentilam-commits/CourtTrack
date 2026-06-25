@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-25-coach-tweaks">
+  <meta name="app-version" content="2026-06-25-student-feedback">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-25-coach-tweaks">
+  <link rel="manifest" href="./manifest.json?v=2026-06-25-student-feedback">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -78,6 +78,44 @@
     FROM public.students s WHERE s.id = public_student_id LIMIT 1;
   $$;
   GRANT EXECUTE ON FUNCTION public.get_public_student(uuid) TO anon, authenticated;
+
+  -- Comentarios del alumno desde el reporte público: run once in Supabase SQL Editor.
+  CREATE TABLE IF NOT EXISTS public.student_feedback (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id uuid NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+    coach_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    category text NOT NULL DEFAULT 'general'
+      CHECK (category IN ('clase','reporte','videos','general')),
+    message text NOT NULL CHECK (char_length(message) BETWEEN 1 AND 1000),
+    created_at timestamptz DEFAULT now(),
+    read_at timestamptz
+  );
+  CREATE INDEX IF NOT EXISTS student_feedback_coach_idx
+    ON public.student_feedback (coach_id, read_at);
+  ALTER TABLE public.student_feedback ENABLE ROW LEVEL SECURITY;
+
+  DROP POLICY IF EXISTS "Coaches read own feedback" ON public.student_feedback;
+  CREATE POLICY "Coaches read own feedback"
+    ON public.student_feedback FOR ALL
+    USING (auth.uid() = coach_id)
+    WITH CHECK (auth.uid() = coach_id);
+
+  CREATE OR REPLACE FUNCTION public.submit_student_feedback(
+    public_student_id uuid, fb_category text, fb_message text
+  ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+  DECLARE v_coach uuid;
+  BEGIN
+    IF fb_message IS NULL OR char_length(trim(fb_message)) = 0 THEN RETURN; END IF;
+    SELECT coach_id INTO v_coach FROM public.students WHERE id = public_student_id;
+    IF v_coach IS NULL THEN RETURN; END IF;
+    INSERT INTO public.student_feedback (student_id, coach_id, category, message)
+    VALUES (
+      public_student_id, v_coach,
+      CASE WHEN fb_category IN ('clase','reporte','videos','general') THEN fb_category ELSE 'general' END,
+      left(trim(fb_message), 1000)
+    );
+  END; $$;
+  GRANT EXECUTE ON FUNCTION public.submit_student_feedback(uuid, text, text) TO anon, authenticated;
 
   -- Profiles RLS: run once in Supabase SQL Editor.
   -- The app writes profiles.id = auth.uid(). If your profiles table also has
@@ -897,6 +935,20 @@
       border: 1px solid var(--border);
       background: var(--white);
     }
+    .coach-home-alert--button {
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+    }
+    .coach-home-alert--button:active { transform: translateY(1px); }
+    .coach-home-alert--feedback {
+      border-color: rgba(79,143,95,0.38);
+      background: #FBFCFA;
+    }
+    .coach-home-alert--feedback .coach-home-alert-icon {
+      background: var(--green-soft);
+      color: var(--green-dark);
+    }
     .coach-home-alert-icon {
       width: 24px;
       height: 24px;
@@ -1543,6 +1595,172 @@
     .hist-title { font-size: 0.9rem; font-weight: 600; }
     .hist-tag   { font-size: 0.75rem; font-weight: 600; color: var(--green-mid); background: var(--green-soft); border-radius: 100px; padding: 4px 10px; white-space: nowrap; }
 
+    .student-feedback-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      margin-top: 24px;
+    }
+    .student-feedback-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .student-feedback-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--green-soft);
+      color: var(--green-dark);
+    }
+    .student-feedback-title {
+      font-size: 1rem;
+      line-height: 1.25;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .student-feedback-sub {
+      margin-top: 5px;
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+    .student-feedback-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .student-feedback-chip {
+      min-height: 34px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--text-primary);
+      padding: 0 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .student-feedback-chip--selected {
+      background: var(--green-dark);
+      border-color: var(--green-dark);
+      color: white;
+    }
+    .student-feedback-textarea {
+      width: 100%;
+      min-height: 64px;
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      background: var(--white);
+      color: var(--text-primary);
+      padding: 12px 14px;
+      resize: vertical;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+    .student-feedback-textarea:focus { border-color: var(--green-dark); }
+    .student-feedback-submit {
+      width: 100%;
+      height: 48px;
+      margin-top: 12px;
+      border-radius: 14px;
+      background: var(--green-dark);
+      color: white;
+      font-size: 0.92rem;
+      font-weight: 800;
+    }
+    .student-feedback-submit:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+    .student-feedback-foot {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: var(--text-secondary);
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+    .student-feedback-thanks {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      background: var(--green-soft);
+      border-color: rgba(79,143,95,0.34);
+    }
+    .student-feedback-check {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--green-dark);
+      color: white;
+      font-weight: 900;
+    }
+    .coach-feedback-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .coach-feedback-card {
+      position: relative;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+    }
+    .coach-feedback-card--unread {
+      border-color: rgba(79,143,95,0.42);
+      box-shadow: 0 1px 0 rgba(14,42,28,0.04);
+    }
+    .coach-feedback-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .coach-feedback-topic {
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green-dark);
+      padding: 4px 10px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .coach-feedback-date {
+      color: var(--text-secondary);
+      font-size: 0.76rem;
+      font-weight: 650;
+    }
+    .coach-feedback-message {
+      color: var(--text-primary);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+    .coach-feedback-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--green-mid);
+      position: absolute;
+      right: 12px;
+      top: 12px;
+    }
+
     /* ── Loading / empty ── */
     .loading { min-height: 100svh; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 0.9rem; }
     .empty-state { text-align: center; padding: 32px 0; color: var(--text-secondary); font-size: 0.88rem; }
@@ -1660,6 +1878,32 @@ function relativeDate(dateStr) {
   if (diff === 0) return 'hoy';
   if (diff === 1) return 'ayer';
   return `hace ${diff} días`;
+}
+
+const STUDENT_FEEDBACK_CATEGORIES = [
+  { value: 'clase', label: 'Mi clase' },
+  { value: 'reporte', label: 'El reporte' },
+  { value: 'videos', label: 'Los videos' },
+  { value: 'general', label: 'General' },
+];
+const STUDENT_FEEDBACK_LABELS = STUDENT_FEEDBACK_CATEGORIES.reduce((acc, item) => {
+  acc[item.value] = item.label;
+  return acc;
+}, {});
+const feedbackCategoryLabel = category => STUDENT_FEEDBACK_LABELS[category] || 'General';
+
+async function fetchUnreadStudentFeedback() {
+  try {
+    const { data, error } = await sb.from('student_feedback')
+      .select('id, student_id, category, message, created_at, read_at')
+      .is('read_at', null)
+      .order('created_at', { ascending: false })
+      .limit(25);
+    if (error) return [];
+    return data || [];
+  } catch {
+    return [];
+  }
 }
 
 function formatDateEs(dateStr) {
@@ -3696,7 +3940,7 @@ function CoachDetailModal({ type, students, payments, bonuses, scheduledClasses,
   );
 }
 
-function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, todayCount, selectedDetail, onRegisterClass, onSelectStudent, onOpenStudents, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onCompleteScheduledClass, onMarkPaymentPaid, onUseBonus, onEditPayment, onDeletePayment, onEditBonus, onDeleteBonus, onOpenDetail }) {
+function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, unreadFeedback, todayCount, selectedDetail, onRegisterClass, onSelectStudent, onOpenStudents, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onCompleteScheduledClass, onMarkPaymentPaid, onUseBonus, onEditPayment, onDeletePayment, onEditBonus, onDeleteBonus, onOpenFeedbackStudent, onOpenDetail }) {
   const today = todayISO();
   const monthKey = today.slice(0, 7);
   const studentMap = new Map(students.map(s => [s.id, s]));
@@ -3729,6 +3973,9 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
     .filter(b => Number(b.remaining_classes || 0) <= Number(b.alert_at || 3))
     .sort((a, b) => Number(a.remaining_classes || 0) - Number(b.remaining_classes || 0));
   const bonusesToShow = lowBonuses.length ? lowBonuses : activeBonuses;
+  const unreadFeedbackRows = unreadFeedback || [];
+  const firstFeedback = unreadFeedbackRows[0];
+  const firstFeedbackStudent = firstFeedback ? studentMap.get(firstFeedback.student_id) : null;
   const todayClassesValue = Math.max(todaySchedule.length, legacyToday.length, todayCount);
   const todayClassesMeta = todaySchedule.length && todayCount
     ? `${todaySchedule.length} agendadas · ${todayCount} reportes`
@@ -3935,6 +4182,23 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
           <div className="coach-home-section-title">Atención</div>
         </div>
         <div className="coach-home-alerts">
+          {unreadFeedbackRows.length > 0 && (
+            <button
+              type="button"
+              className="coach-home-alert coach-home-alert--button coach-home-alert--feedback"
+              onClick={() => firstFeedback?.student_id && onOpenFeedbackStudent?.(firstFeedback.student_id)}
+            >
+              <div className="coach-home-alert-icon">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6A8.4 8.4 0 0 1 12.5 3h.5A8.5 8.5 0 0 1 21 11.5z"/>
+                </svg>
+              </div>
+              <div className="coach-home-alert-text">
+                {unreadFeedbackRows.length} comentario{unreadFeedbackRows.length === 1 ? '' : 's'} nuevo{unreadFeedbackRows.length === 1 ? '' : 's'}
+                {firstFeedbackStudent ? ` · ${firstFeedbackStudent.name}` : ''}
+              </div>
+            </button>
+          )}
           {alerts.slice(0, 3).map((alert, i) => (
             <div key={alert} className="coach-home-alert">
               <div className="coach-home-alert-icon">{i === 0 ? '!' : '·'}</div>
@@ -3947,7 +4211,7 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, toda
   );
 }
 
-function DashboardScreen({ profile, students, payments, bonuses, scheduledClasses, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onCompleteScheduledClass, onMarkPaymentPaid, onUseBonus, onEditPayment, onDeletePayment, onEditBonus, onDeleteBonus, managing, onManagingChange }) {
+function DashboardScreen({ profile, students, payments, bonuses, scheduledClasses, unreadFeedback, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onCompleteScheduledClass, onMarkPaymentPaid, onUseBonus, onEditPayment, onDeletePayment, onEditBonus, onDeleteBonus, onOpenFeedbackStudent, managing, onManagingChange }) {
   const [showMenu, setShowMenu]         = useState(false);
   const [dashboardView, setDashboardView] = useState(() => LS.get('dashboardView') || 'home');
   const [detailType, setDetailType]     = useState(null);
@@ -4011,6 +4275,7 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
             payments={payments}
             bonuses={bonuses}
             scheduledClasses={scheduledClasses}
+            unreadFeedback={unreadFeedback}
             todayCount={todayCount}
             selectedDetail={detailType}
             onRegisterClass={onRegisterClass}
@@ -4030,6 +4295,7 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
             onDeletePayment={onDeletePayment}
             onEditBonus={onEditBonus}
             onDeleteBonus={onDeleteBonus}
+            onOpenFeedbackStudent={onOpenFeedbackStudent}
             onOpenDetail={setDetailType} />
         ) : (
           <>
@@ -5517,6 +5783,99 @@ function HistCard({ log, idx = 0 }) {
   );
 }
 
+function StudentFeedbackBox({ studentId }) {
+  const [fbCat, setFbCat] = useState('general');
+  const [fbMsg, setFbMsg] = useState('');
+  const [fbSent, setFbSent] = useState(false);
+  const [fbSending, setFbSending] = useState(false);
+
+  useEffect(() => {
+    const lastSent = Number(LS.get(`fb:${studentId}`) || 0);
+    setFbSent(!!lastSent && Date.now() - lastSent < 60_000);
+    setFbMsg('');
+    setFbCat('general');
+  }, [studentId]);
+
+  async function submitFeedback() {
+    const message = fbMsg.trim();
+    if (!message || fbSending) return;
+    setFbSending(true);
+    try {
+      await sb.rpc('submit_student_feedback', {
+        public_student_id: studentId,
+        fb_category: fbCat,
+        fb_message: message,
+      });
+    } catch (e) {}
+    LS.set(`fb:${studentId}`, Date.now());
+    setFbSent(true);
+    setFbSending(false);
+  }
+
+  if (fbSent) {
+    return (
+      <div className="student-feedback-card student-feedback-thanks">
+        <div className="student-feedback-check">✓</div>
+        <div>
+          <div className="student-feedback-title">¡Gracias! Tu coach lo tendrá en cuenta</div>
+          <div className="student-feedback-sub">Seguimos mejorando tus clases contigo.</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <section className="student-feedback-card" aria-label="Enviar comentario al coach">
+      <div className="student-feedback-head">
+        <div className="student-feedback-icon" aria-hidden="true">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6A8.4 8.4 0 0 1 12.5 3h.5A8.5 8.5 0 0 1 21 11.5z"/>
+          </svg>
+        </div>
+        <div>
+          <div className="student-feedback-title">¿Cómo lo hacemos aún mejor para ti?</div>
+          <div className="student-feedback-sub">Cuéntale a tu coach qué te gustaría mejorar. Lo lee solo tu coach.</div>
+        </div>
+      </div>
+      <div className="student-feedback-chips" role="group" aria-label="Tema del comentario">
+        {STUDENT_FEEDBACK_CATEGORIES.map(cat => (
+          <button
+            key={cat.value}
+            type="button"
+            className={`student-feedback-chip${fbCat === cat.value ? ' student-feedback-chip--selected' : ''}`}
+            onClick={() => setFbCat(cat.value)}
+            aria-pressed={fbCat === cat.value}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+      <textarea
+        className="student-feedback-textarea"
+        value={fbMsg}
+        onChange={e => setFbMsg(e.target.value.slice(0, 1000))}
+        maxLength={1000}
+        placeholder="Ej: me encantarían más videos de bandeja…"
+      />
+      <button
+        type="button"
+        className="student-feedback-submit"
+        onClick={submitFeedback}
+        disabled={!fbMsg.trim() || fbSending}
+      >
+        {fbSending ? 'Enviando…' : 'Enviar a mi coach'}
+      </button>
+      <div className="student-feedback-foot">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="3" y="11" width="18" height="11" rx="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        Privado · solo tu coach lo ve
+      </div>
+    </section>
+  );
+}
+
 function PublicReportScreen({ studentId }) {
   const [data, setData]           = useState(null);
   const [loading, setLoading]     = useState(true);
@@ -5771,6 +6130,8 @@ function PublicReportScreen({ studentId }) {
             </div>
           </>
         )}
+
+        <StudentFeedbackBox studentId={studentId} />
       </div>
     </div>
   );
@@ -7268,8 +7629,10 @@ async function shareProgressCard(student) {
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
-function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClass, onEditLog, onLogDeleted }) {
+function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClass, onEditLog, onLogDeleted, onFeedbackRead }) {
   const [logs, setLogs]           = useState([]);
+  const [feedback, setFeedback]   = useState([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(true);
   const [loading, setLoading]     = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [shareCopied, setShareCopied]     = useState(false);
@@ -7306,6 +7669,43 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
       .is('deleted_at', null)
       .order('date', { ascending: false })
       .then(({ data }) => { setLogs(data || []); setLoading(false); });
+  }, [student.id]);
+
+  useEffect(() => {
+    let alive = true;
+    setFeedbackLoading(true);
+    sb.from('student_feedback')
+      .select('*')
+      .eq('student_id', student.id)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) {
+          setFeedback([]);
+          setFeedbackLoading(false);
+          return;
+        }
+        const rows = data || [];
+        setFeedback(rows);
+        setFeedbackLoading(false);
+        if (rows.some(row => !row.read_at)) {
+          const readAt = new Date().toISOString();
+          sb.from('student_feedback')
+            .update({ read_at: readAt })
+            .eq('student_id', student.id)
+            .is('read_at', null)
+            .then(() => {
+              if (!alive) return;
+              setFeedback(prev => prev.map(row => row.read_at ? row : { ...row, read_at: readAt }));
+              onFeedbackRead?.();
+            }, () => {});
+        }
+      }, () => {
+        if (!alive) return;
+        setFeedback([]);
+        setFeedbackLoading(false);
+      });
+    return () => { alive = false; };
   }, [student.id]);
 
   async function deleteLog(logId) {
@@ -7386,6 +7786,26 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
         </div>
 
         <ProgressSection student={student} />
+
+        <div className="section-label">COMENTARIOS DEL ALUMNO</div>
+        {feedbackLoading && <div className="empty-state" style={{padding:'18px 0 24px'}}>Cargando comentarios...</div>}
+        {!feedbackLoading && feedback.length === 0 && (
+          <div className="empty-state" style={{padding:'18px 0 24px'}}>Aún no hay comentarios.</div>
+        )}
+        {!feedbackLoading && feedback.length > 0 && (
+          <div className="coach-feedback-list">
+            {feedback.map(item => (
+              <div key={item.id} className={`coach-feedback-card${!item.read_at ? ' coach-feedback-card--unread' : ''}`}>
+                {!item.read_at && <span className="coach-feedback-dot" aria-hidden="true" />}
+                <div className="coach-feedback-top">
+                  <span className="coach-feedback-topic">{feedbackCategoryLabel(item.category)}</span>
+                  <span className="coach-feedback-date">{viewedLabel(item.created_at) || formatDateEs(String(item.created_at || todayISO()).slice(0, 10))}</span>
+                </div>
+                <div className="coach-feedback-message">{linkify(item.message || '')}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Class history */}
         <div className="section-label">HISTORIAL DE CLASES</div>
@@ -7533,6 +7953,7 @@ function App() {
   const [payments, setPayments]             = useState([]);
   const [bonuses, setBonuses]               = useState([]);
   const [scheduledClasses, setScheduledClasses] = useState([]);
+  const [unreadFeedback, setUnreadFeedback] = useState([]);
   const [todayCount, setTodayCount]         = useState(0);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [groupStudents, setGroupStudents] = useState(null);
@@ -7604,7 +8025,7 @@ function App() {
 
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, session) => {
       if (session?.user) { saveCoachEmail(session.user.email); setUser(session.user); loadEverything(session.user.id); }
-      else { setUser(null); setProfile(null); setStudents([]); setPayments([]); setBonuses([]); setScheduledClasses([]); setSelectedScheduledClass(null); setSelectedPayment(null); setSelectedBonus(null); go('auth'); }
+      else { setUser(null); setProfile(null); setStudents([]); setPayments([]); setBonuses([]); setScheduledClasses([]); setUnreadFeedback([]); setSelectedScheduledClass(null); setSelectedPayment(null); setSelectedBonus(null); go('auth'); }
     });
 
     const handleHash = () => { const pid = publicMatch(); if (pid) go({ name: 'public', id: pid }); };
@@ -7625,6 +8046,7 @@ function App() {
     setPayments(ops.payments);
     setBonuses(ops.bonuses);
     setScheduledClasses(ops.scheduledClasses);
+    await refreshUnreadFeedback();
 
     // Restore last route (no time limit)
     const savedRoute = LS.get('lastRoute');
@@ -7706,6 +8128,12 @@ function App() {
     setPayments(ops.payments);
     setBonuses(ops.bonuses);
     setScheduledClasses(ops.scheduledClasses);
+  }
+
+  async function refreshUnreadFeedback() {
+    const rows = await fetchUnreadStudentFeedback();
+    setUnreadFeedback(rows);
+    return rows;
   }
 
   const routeName = typeof route === 'object' ? route.name : route;
@@ -7792,7 +8220,7 @@ function App() {
       )}
 
       {route === 'dashboard' && (
-        <DashboardScreen profile={profile} students={students} payments={payments} bonuses={bonuses} scheduledClasses={scheduledClasses} todayCount={todayCount}
+        <DashboardScreen profile={profile} students={students} payments={payments} bonuses={bonuses} scheduledClasses={scheduledClasses} unreadFeedback={unreadFeedback} todayCount={todayCount}
           onAddStudent={() => go('addStudent')}
           onRegisterClass={() => go('pickStudent')}
           onSelectStudent={s => { setSelectedStudent(s); go({ name: 'studentProfile', studentId: s.id }); }}
@@ -7853,6 +8281,12 @@ function App() {
             const deletedId = await deleteClassBonus(user.id, bonus);
             setBonuses(prev => prev.filter(b => b.id !== deletedId));
           }}
+          onOpenFeedbackStudent={studentId => {
+            const s = students.find(st => st.id === studentId);
+            if (!s) return;
+            setSelectedStudent(s);
+            go({ name: 'studentProfile', studentId: s.id });
+          }}
           managing={isManaging}
           onManagingChange={setIsManaging} />
       )}
@@ -7868,7 +8302,8 @@ function App() {
               onEdit={() => { setSelectedStudent(s); go({ name: 'editStudent', from: 'studentProfile', studentId: s.id }); }}
               onRegisterClass={() => { setGroupStudents(null); setSelectedStudent(s); go({ name: 'logClass', from: 'studentProfile', studentId: s.id }); }}
               onEditLog={log => { setSelectedStudent(s); setSelectedLog(log); go({ name: 'editLog', from: 'studentProfile', studentId: s.id, logId: log.id }); }}
-              onLogDeleted={() => refreshStudents(user.id)} />
+              onLogDeleted={() => refreshStudents(user.id)}
+              onFeedbackRead={() => refreshUnreadFeedback()} />
           ) : null;
         })()
       )}
@@ -8076,7 +8511,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-25-coach-tweaks';
+    const APP_VERSION = '2026-06-25-student-feedback';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 
