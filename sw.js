@@ -1,4 +1,4 @@
-const VERSION = '2026-06-25-feedback-alerts';
+const VERSION = '2026-06-25-premium-actions-export';
 const CACHE = `padel-log-${VERSION}`;
 const APP_SHELL = './index.html';
 

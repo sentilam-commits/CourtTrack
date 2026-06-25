@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-25-feedback-alerts">
+  <meta name="app-version" content="2026-06-25-premium-actions-export">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-25-feedback-alerts">
+  <link rel="manifest" href="./manifest.json?v=2026-06-25-premium-actions-export">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -142,6 +142,61 @@
     ON public.profiles FOR UPDATE TO authenticated
     USING (id = auth.uid())
     WITH CHECK (id = auth.uid());
+
+  -- Feedback interno del coach sobre la app: run once in Supabase SQL Editor.
+  CREATE TABLE IF NOT EXISTS public.coach_app_feedback (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    coach_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    coach_email text,
+    coach_display_name text,
+    category text NOT NULL DEFAULT 'general'
+      CHECK (category IN ('bug','idea','confuso','general')),
+    message text NOT NULL CHECK (char_length(message) BETWEEN 1 AND 1200),
+    context jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz DEFAULT now(),
+    reviewed_at timestamptz
+  );
+  CREATE INDEX IF NOT EXISTS coach_app_feedback_created_idx
+    ON public.coach_app_feedback (created_at DESC);
+  CREATE INDEX IF NOT EXISTS coach_app_feedback_coach_idx
+    ON public.coach_app_feedback (coach_id, created_at DESC);
+  ALTER TABLE public.coach_app_feedback ENABLE ROW LEVEL SECURITY;
+
+  DROP POLICY IF EXISTS "Coaches insert own app feedback" ON public.coach_app_feedback;
+  CREATE POLICY "Coaches insert own app feedback"
+    ON public.coach_app_feedback FOR INSERT TO authenticated
+    WITH CHECK (auth.uid() = coach_id);
+
+  DROP POLICY IF EXISTS "Coaches read own app feedback" ON public.coach_app_feedback;
+  CREATE POLICY "Coaches read own app feedback"
+    ON public.coach_app_feedback FOR SELECT TO authenticated
+    USING (auth.uid() = coach_id);
+
+  CREATE OR REPLACE FUNCTION public.submit_coach_app_feedback(
+    fb_category text, fb_message text, fb_context jsonb DEFAULT '{}'::jsonb
+  ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+  DECLARE
+    v_coach uuid := auth.uid();
+    v_name text;
+    v_email text := auth.jwt() ->> 'email';
+  BEGIN
+    IF v_coach IS NULL THEN
+      RAISE EXCEPTION 'auth required';
+    END IF;
+    IF fb_message IS NULL OR char_length(trim(fb_message)) = 0 THEN RETURN; END IF;
+    SELECT display_name INTO v_name FROM public.profiles WHERE id = v_coach;
+    INSERT INTO public.coach_app_feedback (
+      coach_id, coach_email, coach_display_name, category, message, context
+    )
+    VALUES (
+      v_coach, v_email, v_name,
+      CASE WHEN fb_category IN ('bug','idea','confuso','general') THEN fb_category ELSE 'general' END,
+      left(trim(fb_message), 1200),
+      COALESCE(fb_context, '{}'::jsonb)
+    );
+  END; $$;
+  GRANT EXECUTE ON FUNCTION public.submit_coach_app_feedback(text, text, jsonb) TO authenticated;
+  NOTIFY pgrst, 'reload schema';
 
   -- Referencia Visual: run once in Supabase SQL Editor
   ALTER TABLE public.class_logs
@@ -663,6 +718,30 @@
       font-weight: 800;
       white-space: nowrap;
     }
+    .coach-home-action-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .coach-home-export-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      border: 1px solid rgba(14,42,28,0.14);
+      background: var(--white);
+      color: var(--green-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 1px 0 rgba(14,19,17,0.04);
+    }
+    .coach-home-export-btn:active { transform: translateY(1px); }
+    .coach-home-export-btn:disabled {
+      opacity: 0.55;
+      cursor: default;
+      transform: none;
+    }
     .coach-home-kpis {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -933,14 +1012,14 @@
     .coach-home-meter {
       height: 6px;
       border-radius: 999px;
-      background: #EDF0EC;
+      background: #E8ECE8;
       overflow: hidden;
     }
     .coach-home-meter span {
       display: block;
       height: 100%;
       border-radius: inherit;
-      background: var(--orange);
+      background: linear-gradient(90deg, #0E2A1C 0%, #6D8F78 100%);
     }
     .coach-home-alerts {
       display: flex;
@@ -996,6 +1075,156 @@
       width: 8px;
       height: 8px;
       box-shadow: none;
+    }
+    .coach-home-app-feedback {
+      width: 100%;
+      min-height: 42px;
+      margin-top: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--green-dark);
+      font-size: 0.84rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .coach-home-app-feedback:active { transform: translateY(1px); }
+    .coach-app-feedback-panel {
+      width: min(100%, 520px);
+      max-height: min(82vh, 680px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--white);
+      box-shadow: 0 20px 60px rgba(15, 24, 20, 0.22);
+    }
+    .coach-app-feedback-body {
+      padding: 18px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .coach-app-feedback-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .coach-app-feedback-chip {
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1.5px solid var(--border);
+      background: var(--white);
+      color: var(--text-primary);
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+    .coach-app-feedback-chip--selected {
+      border-color: var(--green-dark);
+      background: var(--green-dark);
+      color: white;
+    }
+    .coach-app-feedback-textarea {
+      width: 100%;
+      min-height: 118px;
+      resize: vertical;
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 13px 14px;
+      color: var(--text-primary);
+      background: var(--white);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+    .coach-app-feedback-textarea:focus { border-color: var(--green-dark); }
+    .coach-app-feedback-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .coach-app-feedback-note {
+      margin-top: 10px;
+      color: var(--text-secondary);
+      font-size: 0.76rem;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    .coach-app-feedback-thanks {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 16px;
+      border-radius: 14px;
+      background: var(--green-soft);
+      border: 1px solid rgba(79,143,95,0.34);
+    }
+    .coach-app-feedback-check {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--green-dark);
+      color: white;
+      font-weight: 900;
+    }
+    .soft-confirm-panel {
+      width: min(100%, 420px);
+      border-radius: 18px;
+      border: 1px solid rgba(14,42,28,0.10);
+      background: var(--white);
+      box-shadow: 0 20px 60px rgba(15, 24, 20, 0.22);
+      padding: 20px;
+    }
+    .soft-confirm-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+      background: #FDECEC;
+      color: #B3261E;
+    }
+    .soft-confirm-icon--primary {
+      background: var(--green-soft);
+      color: var(--green-dark);
+    }
+    .soft-confirm-title {
+      color: var(--text-primary);
+      font-size: 1.04rem;
+      line-height: 1.25;
+      font-weight: 850;
+      margin-bottom: 6px;
+    }
+    .soft-confirm-message {
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+      line-height: 1.42;
+      font-weight: 560;
+    }
+    .soft-confirm-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .soft-confirm-actions--single {
+      grid-template-columns: 1fr;
+    }
+    .btn-danger-soft {
+      background: #B3261E;
+      color: white;
+      border-color: #B3261E;
     }
     .coach-detail-backdrop {
       position: fixed;
@@ -1940,6 +2169,33 @@ const STUDENT_FEEDBACK_LABELS = STUDENT_FEEDBACK_CATEGORIES.reduce((acc, item) =
 const feedbackCategoryLabel = category => STUDENT_FEEDBACK_LABELS[category] || 'General';
 const FEEDBACK_THANKS_MS = 60_000;
 
+const COACH_APP_FEEDBACK_CATEGORIES = [
+  { value: 'bug', label: 'Bug' },
+  { value: 'idea', label: 'Idea' },
+  { value: 'confuso', label: 'Confuso' },
+  { value: 'general', label: 'General' },
+];
+
+async function submitCoachAppFeedback(category, message, context = {}) {
+  const { error } = await sb.rpc('submit_coach_app_feedback', {
+    fb_category: category,
+    fb_message: message,
+    fb_context: context,
+  });
+  if (error) throw error;
+}
+
+function softConfirm(options) {
+  const config = typeof options === 'string' ? { message: options } : (options || {});
+  if (window.PADEL_LOG_CONFIRM) return window.PADEL_LOG_CONFIRM(config);
+  return Promise.resolve(false);
+}
+
+function softAlert(options) {
+  const config = typeof options === 'string' ? { message: options } : (options || {});
+  return softConfirm({ ...config, confirmLabel: config.confirmLabel || 'Entendido', cancelLabel: null, tone: config.tone || 'primary' });
+}
+
 async function fetchUnreadStudentFeedback(uid) {
   try {
     let query = sb.from('student_feedback')
@@ -2347,6 +2603,207 @@ const parseMoney = value => {
   const n = Number(raw);
   return Number.isFinite(n) ? n : 0;
 };
+
+function excelXmlEscape(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function excelDisplay(value) {
+  if (value == null) return '';
+  if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+  if (Array.isArray(value)) return value.map(excelDisplay).filter(Boolean).join(', ');
+  if (typeof value === 'object') {
+    try { return JSON.stringify(value); } catch { return String(value); }
+  }
+  return value;
+}
+
+function excelCell(value, styleId = '') {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return `<Cell${styleId ? ` ss:StyleID="${styleId}"` : ''}><Data ss:Type="Number">${value}</Data></Cell>`;
+  }
+  return `<Cell${styleId ? ` ss:StyleID="${styleId}"` : ''}><Data ss:Type="String">${excelXmlEscape(excelDisplay(value))}</Data></Cell>`;
+}
+
+function excelSheetName(name) {
+  return String(name || 'Hoja')
+    .replace(/[\[\]\*\?\/\\:]/g, ' ')
+    .slice(0, 31)
+    .trim() || 'Hoja';
+}
+
+function excelWorksheet(sheet) {
+  const headers = sheet.headers || [];
+  const rows = sheet.rows || [];
+  return `
+    <Worksheet ss:Name="${excelXmlEscape(excelSheetName(sheet.name))}">
+      <Table>
+        <Row>${headers.map(h => excelCell(h, 'Header')).join('')}</Row>
+        ${rows.map(row => `<Row>${row.map(value => excelCell(value)).join('')}</Row>`).join('')}
+      </Table>
+    </Worksheet>`;
+}
+
+function buildExcelWorkbook(sheets) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook
+  xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+  xmlns:x="urn:schemas-microsoft-com:office:excel"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:html="http://www.w3.org/TR/REC-html40">
+  <Styles>
+    <Style ss:ID="Default" ss:Name="Normal">
+      <Alignment ss:Vertical="Top" ss:WrapText="1"/>
+      <Font ss:FontName="Inter" ss:Size="11"/>
+    </Style>
+    <Style ss:ID="Header">
+      <Font ss:FontName="Inter" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/>
+      <Interior ss:Color="#0E2A1C" ss:Pattern="Solid"/>
+      <Alignment ss:Vertical="Center" ss:WrapText="1"/>
+    </Style>
+  </Styles>
+  ${sheets.map(excelWorksheet).join('')}
+</Workbook>`;
+}
+
+function downloadExcelXml(filename, sheets) {
+  const blob = new Blob([buildExcelWorkbook(sheets)], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+async function safeExportQuery(query, fallback = []) {
+  try {
+    const { data, error } = await query;
+    if (error) return fallback;
+    return data || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function exportCoachDataToExcel(uid, profile, current = {}) {
+  const [
+    studentsRows,
+    logRows,
+    scoreRows,
+    paymentRows,
+    bonusRows,
+    scheduleRows,
+    feedbackRows,
+  ] = await Promise.all([
+    safeExportQuery(sb.from('students').select('*').eq('coach_id', uid).is('deleted_at', null).order('name'), current.students || []),
+    safeExportQuery(sb.from('class_logs').select('*').eq('coach_id', uid).is('deleted_at', null).order('date', { ascending: false }), LS.get(`l:${uid}`) || []),
+    safeExportQuery(sb.from('progress_scores').select('*').eq('coach_id', uid), []),
+    safeExportQuery(sb.from('coach_payments').select('*').eq('coach_id', uid).order('created_at', { ascending: false }), current.payments || []),
+    safeExportQuery(sb.from('class_bonuses').select('*').eq('coach_id', uid).order('created_at', { ascending: false }), current.bonuses || []),
+    safeExportQuery(sb.from('scheduled_classes').select('*').eq('coach_id', uid).order('class_date', { ascending: true }).order('start_time', { ascending: true }), current.scheduledClasses || []),
+    safeExportQuery(sb.from('student_feedback').select('*').eq('coach_id', uid).order('created_at', { ascending: false }), []),
+  ]);
+
+  const studentMap = new Map((studentsRows || []).map(s => [s.id, s]));
+  const studentName = id => studentMap.get(id)?.name || '';
+  const dateOnly = value => value ? String(value).slice(0, 10) : '';
+  const skillKeys = ['forehand','backhand','volley','bandeja','positioning','decision_making','consistency','match_confidence'];
+  const paidTotal = (paymentRows || []).filter(p => p.status === 'paid').reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const pendingTotal = (paymentRows || []).filter(p => p.status !== 'paid').reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const activeBonuses = (bonusRows || []).filter(b => b.status !== 'exhausted' && Number(b.remaining_classes || 0) > 0);
+
+  const sheets = [
+    {
+      name: 'Resumen',
+      headers: ['Métrica', 'Valor'],
+      rows: [
+        ['Coach', profile?.display_name || ''],
+        ['Email', profile?.email || ''],
+        ['Fecha de exportación', new Date().toLocaleString('es-PA')],
+        ['Alumnos', studentsRows.length],
+        ['Clases registradas', logRows.length],
+        ['Pagos cobrados total', paidTotal],
+        ['Pagos pendientes total', pendingTotal],
+        ['Bonos activos', activeBonuses.length],
+        ['Clases en agenda', scheduleRows.length],
+        ['Comentarios de alumnos', feedbackRows.length],
+      ],
+    },
+    {
+      name: 'Alumnos',
+      headers: ['Nombre', 'Contacto', 'Nivel', 'Objetivo', 'Frecuencia', 'Inicio', 'Próxima clase', 'Creado', 'Habilidades actuales', 'Historial habilidades'],
+      rows: studentsRows.map(s => [
+        s.name, s.email_or_phone, s.level, s.main_goal, s.class_frequency,
+        dateOnly(s.start_date), dateOnly(s.next_class), dateOnly(s.created_at), s.skills, s.skill_history,
+      ]),
+    },
+    {
+      name: 'Clases',
+      headers: ['Fecha', 'Alumno', 'Tipo', 'Trabajo', 'Mejoró', 'Corrección', 'Tarea', 'Siguiente foco', 'Nota del coach', 'Media tipo', 'Media URL'],
+      rows: logRows.map(log => [
+        dateOnly(log.date), studentName(log.student_id), log.class_type, log.today_focus,
+        log.what_improved, log.main_correction, log.homework, log.next_focus,
+        log.coach_note, log.media_type, log.media_url,
+      ]),
+    },
+    {
+      name: 'Habilidades',
+      headers: ['Alumno', ...skillKeys, 'Creado', 'Actualizado'],
+      rows: scoreRows.map(score => [
+        studentName(score.student_id),
+        ...skillKeys.map(key => score[key] ?? ''),
+        dateOnly(score.created_at),
+        dateOnly(score.updated_at),
+      ]),
+    },
+    {
+      name: 'Pagos',
+      headers: ['Alumno', 'Concepto', 'Monto', 'Estado', 'Vence', 'Pagado', 'Creado'],
+      rows: paymentRows.map(payment => [
+        studentName(payment.student_id), payment.title, Number(payment.amount || 0), payment.status,
+        dateOnly(payment.due_date), dateOnly(payment.paid_at), dateOnly(payment.created_at),
+      ]),
+    },
+    {
+      name: 'Bonos',
+      headers: ['Alumno', 'Nombre', 'Total clases', 'Restantes', 'Alerta en', 'Estado', 'Creado'],
+      rows: bonusRows.map(bonus => [
+        studentName(bonus.student_id), bonus.name, Number(bonus.total_classes || 0),
+        Number(bonus.remaining_classes || 0), Number(bonus.alert_at || 0),
+        bonus.status, dateOnly(bonus.created_at),
+      ]),
+    },
+    {
+      name: 'Agenda',
+      headers: ['Fecha', 'Hora', 'Alumno', 'Título', 'Duración', 'Cancha', 'Estado', 'Notas', 'Creado'],
+      rows: scheduleRows.map(item => [
+        dateOnly(item.class_date), item.start_time ? formatTimeShort(item.start_time) : '',
+        studentName(item.student_id), item.title, Number(item.duration_minutes || 0),
+        item.court, item.status, item.notes, dateOnly(item.created_at),
+      ]),
+    },
+    {
+      name: 'Comentarios',
+      headers: ['Alumno', 'Tema', 'Mensaje', 'Creado', 'Leído'],
+      rows: feedbackRows.map(item => [
+        studentName(item.student_id), feedbackCategoryLabel(item.category),
+        item.message, dateOnly(item.created_at), dateOnly(item.read_at),
+      ]),
+    },
+  ];
+
+  downloadExcelXml(`CourtTrack-export-${todayISO()}.xls`, sheets);
+}
 
 const opsLocalId = prefix =>
   `local_${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -3766,7 +4223,6 @@ function CoachDashboardPanel({ students, scheduledClasses, onSelectStudent, onAs
               <SwipeActionsRow
                 key={item.id}
                 actions={[
-                  { label: 'Dada', tone: 'primary', onClick: () => onCompleteScheduledClass(item) },
                   { label: 'Editar', tone: 'secondary', onClick: () => onEditScheduledClass(item) },
                   { label: 'Eliminar', tone: 'danger', onClick: () => onDeleteScheduledClass(item) },
                 ]}>
@@ -3996,7 +4452,7 @@ function CoachDetailModal({ type, students, payments, bonuses, scheduledClasses,
   );
 }
 
-function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, unreadFeedback, todayCount, selectedDetail, onRegisterClass, onSelectStudent, onOpenStudents, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onCompleteScheduledClass, onMarkPaymentPaid, onUseBonus, onEditPayment, onDeletePayment, onEditBonus, onDeleteBonus, onOpenFeedbackStudent, onOpenDetail }) {
+function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, unreadFeedback, todayCount, selectedDetail, exportingData, onExportData, onRegisterClass, onSelectStudent, onOpenStudents, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onCompleteScheduledClass, onMarkPaymentPaid, onUseBonus, onEditPayment, onDeletePayment, onEditBonus, onDeleteBonus, onOpenFeedbackStudent, onOpenDetail, onOpenAppFeedback }) {
   const today = todayISO();
   const monthKey = today.slice(0, 7);
   const studentMap = new Map(students.map(s => [s.id, s]));
@@ -4083,7 +4539,26 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, unre
     <div className="coach-home">
       <div className="coach-home-actions">
         <div className="coach-home-eyebrow">Inicio del coach</div>
-        <button className="coach-home-link" onClick={onRegisterClass}>+ Nueva clase ↗</button>
+        <div className="coach-home-action-group">
+          <button
+            type="button"
+            className="coach-home-export-btn"
+            onClick={onExportData}
+            disabled={exportingData}
+            title="Exportar datos a Excel"
+            aria-label="Exportar datos a Excel">
+            {exportingData ? (
+              <span style={{fontSize:'0.72rem', fontWeight:900}}>...</span>
+            ) : (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <path d="M7 10l5 5 5-5"/>
+                <path d="M12 15V3"/>
+              </svg>
+            )}
+          </button>
+          <button className="coach-home-link" onClick={onRegisterClass}>+ Nueva clase ↗</button>
+        </div>
       </div>
 
       <div className="coach-home-kpis">
@@ -4141,7 +4616,6 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, unre
               <SwipeActionsRow
                 key={item.id}
                 actions={[
-                  { label: 'Dada', tone: 'primary', onClick: () => onCompleteScheduledClass(item) },
                   { label: 'Editar', tone: 'secondary', onClick: () => onEditScheduledClass(item) },
                   { label: 'Eliminar', tone: 'danger', onClick: () => onDeleteScheduledClass(item) },
                 ]}>
@@ -4264,16 +4738,133 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, unre
               <div className="coach-home-alert-text">{alert}</div>
             </div>
           ))}
+          <button type="button" className="coach-home-app-feedback" onClick={onOpenAppFeedback}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6A8.4 8.4 0 0 1 12.5 3h.5A8.5 8.5 0 0 1 21 11.5z"/>
+            </svg>
+            Feedback de la app
+          </button>
         </div>
       </section>
     </div>
   );
 }
 
-function DashboardScreen({ profile, students, payments, bonuses, scheduledClasses, unreadFeedback, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onCompleteScheduledClass, onMarkPaymentPaid, onUseBonus, onEditPayment, onDeletePayment, onEditBonus, onDeleteBonus, onOpenFeedbackStudent, managing, onManagingChange }) {
+function CoachAppFeedbackModal({ context, onClose }) {
+  const [category, setCategory] = useState('general');
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
+
+  async function send() {
+    const text = message.trim();
+    if (!text || sending) return;
+    setSending(true);
+    setError('');
+    try {
+      await submitCoachAppFeedback(category, text, context);
+      setSent(true);
+      setMessage('');
+      setCategory('general');
+    } catch (e) {
+      setError('No se pudo enviar. Intenta de nuevo en un momento.');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="coach-detail-backdrop" onClick={onClose}>
+      <div className="coach-app-feedback-panel" role="dialog" aria-modal="true" aria-label="Feedback de la app" onClick={e => e.stopPropagation()}>
+        <div className="coach-detail-header">
+          <div>
+            <div className="coach-detail-title">Feedback de la app</div>
+            <div className="coach-detail-subtitle">Bug, idea o algo que se siente confuso.</div>
+          </div>
+          <button className="coach-detail-close" onClick={onClose} aria-label="Cerrar">×</button>
+        </div>
+        <div className="coach-app-feedback-body">
+          {sent ? (
+            <>
+              <div className="coach-app-feedback-thanks">
+                <div className="coach-app-feedback-check">✓</div>
+                <div>
+                  <div className="student-feedback-title">Gracias, lo recibimos</div>
+                  <div className="student-feedback-sub">Esto ayuda a mejorar CourtTrack sin sacarte de tu flujo.</div>
+                </div>
+              </div>
+              <button type="button" className="btn btn-primary" style={{width:'100%', marginTop:14}} onClick={onClose}>Cerrar</button>
+            </>
+          ) : (
+            <>
+              <div className="coach-app-feedback-chips" role="group" aria-label="Tema del feedback">
+                {COACH_APP_FEEDBACK_CATEGORIES.map(cat => (
+                  <button
+                    key={cat.value}
+                    type="button"
+                    className={`coach-app-feedback-chip${category === cat.value ? ' coach-app-feedback-chip--selected' : ''}`}
+                    onClick={() => setCategory(cat.value)}
+                    aria-pressed={category === cat.value}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                className="coach-app-feedback-textarea"
+                value={message}
+                onChange={e => setMessage(e.target.value.slice(0, 1200))}
+                maxLength={1200}
+                placeholder="Ej: me cuesta encontrar dónde editar un bono..."
+              />
+              <div className="coach-app-feedback-note">Se guarda con tu perfil de coach, versión de la app y pantalla actual.</div>
+              {error && <div className="student-feedback-error">{error}</div>}
+              <div className="coach-app-feedback-actions">
+                <button type="button" className="btn btn-outline" onClick={onClose} disabled={sending}>Cancelar</button>
+                <button type="button" className="btn btn-primary" onClick={send} disabled={!message.trim() || sending}>
+                  {sending ? 'Enviando...' : 'Enviar'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SoftConfirmModal({ config, onResolve }) {
+  if (!config) return null;
+  const cancelLabel = config.cancelLabel === null ? null : (config.cancelLabel || 'Cancelar');
+  const confirmLabel = config.confirmLabel || 'Confirmar';
+  const tone = config.tone || 'danger';
+
+  return (
+    <div className="coach-detail-backdrop" onClick={() => onResolve(false)}>
+      <div className="soft-confirm-panel" role="dialog" aria-modal="true" aria-label={config.title || 'Confirmar'} onClick={e => e.stopPropagation()}>
+        <div className={`soft-confirm-icon${tone === 'danger' ? '' : ' soft-confirm-icon--primary'}`} aria-hidden="true">
+          {tone === 'danger'
+            ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>}
+        </div>
+        <div className="soft-confirm-title">{config.title || 'Confirmar acción'}</div>
+        {config.message && <div className="soft-confirm-message">{config.message}</div>}
+        <div className={`soft-confirm-actions${cancelLabel ? '' : ' soft-confirm-actions--single'}`}>
+          {cancelLabel && <button type="button" className="btn btn-outline" onClick={() => onResolve(false)}>{cancelLabel}</button>}
+          <button type="button" className={`btn ${tone === 'danger' ? 'btn-danger-soft' : 'btn-primary'}`} onClick={() => onResolve(true)}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardScreen({ profile, students, payments, bonuses, scheduledClasses, unreadFeedback, todayCount, onAddStudent, onRegisterClass, onSelectStudent, onSignOut, onEditProfile, onEditStudent, onEditLog, onManageStudents, onQuickLog, onAddPayment, onAddBonus, onAddScheduledClass, onAssignTime, onRemoveLegacy, onEditScheduledClass, onDeleteScheduledClass, onCompleteScheduledClass, onMarkPaymentPaid, onUseBonus, onEditPayment, onDeletePayment, onEditBonus, onDeleteBonus, onOpenFeedbackStudent, onExportData, managing, onManagingChange }) {
   const [showMenu, setShowMenu]         = useState(false);
   const [dashboardView, setDashboardView] = useState(() => LS.get('dashboardView') || 'home');
   const [detailType, setDetailType]     = useState(null);
+  const [showAppFeedback, setShowAppFeedback] = useState(false);
+  const [exportingData, setExportingData] = useState(false);
   const menuRef = useRef(null);
   useEffect(() => { LS.set('dashboardView', dashboardView); }, [dashboardView]);
   useEffect(() => {
@@ -4299,6 +4890,20 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
     setDashboardView('students');
     setManaging(false);
   };
+  async function handleExportData() {
+    if (exportingData || !onExportData) return;
+    setExportingData(true);
+    try {
+      await onExportData();
+    } catch (e) {
+      await softAlert({
+        title: 'No se pudo exportar',
+        message: 'Revisa tu conexión e intenta nuevamente.',
+      });
+    } finally {
+      setExportingData(false);
+    }
+  }
 
   return (
     <div className="screen">
@@ -4339,6 +4944,8 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
             unreadFeedback={unreadFeedback}
             todayCount={todayCount}
             selectedDetail={detailType}
+            exportingData={exportingData}
+            onExportData={handleExportData}
             onRegisterClass={onRegisterClass}
             onSelectStudent={onSelectStudent}
             onOpenStudents={openStudentsTab}
@@ -4357,7 +4964,8 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
             onEditBonus={onEditBonus}
             onDeleteBonus={onDeleteBonus}
             onOpenFeedbackStudent={onOpenFeedbackStudent}
-            onOpenDetail={setDetailType} />
+            onOpenDetail={setDetailType}
+            onOpenAppFeedback={() => setShowAppFeedback(true)} />
         ) : (
           <>
         <div className="stat-cards">
@@ -4511,6 +5119,18 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
         onDeletePayment={onDeletePayment}
         onEditBonus={onEditBonus}
         onDeleteBonus={onDeleteBonus} />
+      {showAppFeedback && (
+        <CoachAppFeedbackModal
+          onClose={() => setShowAppFeedback(false)}
+          context={{
+            screen: 'coach_home',
+            dashboard_view: dashboardView,
+            managing_students: !!managingStudents,
+            app_version: window.PADEL_LOG_APP_VERSION || null,
+            path: location.pathname,
+            user_agent: navigator.userAgent,
+          }} />
+      )}
     </div>
   );
 }
@@ -4676,7 +5296,12 @@ function AddPaymentScreen({ coachId, students, existingPayment, onBack, onDone, 
 
   async function remove() {
     if (!editing) return;
-    const ok = window.confirm('¿Eliminar este pago? Esta acción no borra alumnos, bonos ni clases.');
+    const ok = await softConfirm({
+      title: 'Eliminar pago',
+      message: 'Se quitará este registro. Tus alumnos, bonos y clases no se borran.',
+      confirmLabel: 'Eliminar',
+      tone: 'danger',
+    });
     if (!ok) return;
     setDeleting(true); setError('');
     const deletedId = await deleteCoachPayment(coachId, current);
@@ -4775,7 +5400,12 @@ function AddScheduledClassScreen({ coachId, students, existingClass, prefill, on
 
   async function remove() {
     if (!editing) return;
-    const ok = window.confirm('¿Eliminar esta clase agendada? No se borran pagos, bonos ni reportes.');
+    const ok = await softConfirm({
+      title: 'Eliminar clase agendada',
+      message: 'Se quitará esta clase de la agenda. No se borran pagos, bonos ni reportes.',
+      confirmLabel: 'Eliminar',
+      tone: 'danger',
+    });
     if (!ok) return;
     setDeleting(true); setError('');
     const deletedId = await deleteScheduledClass(coachId, current);
@@ -4886,7 +5516,12 @@ function AddBonusScreen({ coachId, students, existingBonus, onBack, onDone, onDe
 
   async function remove() {
     if (!editing) return;
-    const ok = window.confirm('¿Eliminar este bono? No se borran pagos, alumnos ni reportes.');
+    const ok = await softConfirm({
+      title: 'Eliminar bono',
+      message: 'Se quitará este bono. No se borran pagos, alumnos ni reportes.',
+      confirmLabel: 'Eliminar',
+      tone: 'danger',
+    });
     if (!ok) return;
     setDeleting(true); setError('');
     const deletedId = await deleteClassBonus(coachId, current);
@@ -7807,7 +8442,10 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
   async function deleteLog(logId) {
     const { error } = await sb.from('class_logs').update({ deleted_at: new Date().toISOString() }).eq('id', logId);
     if (error) {
-      alert('No se pudo eliminar la clase. Verificá tu conexión e intentá de nuevo.');
+      await softAlert({
+        title: 'No se pudo eliminar',
+        message: 'Revisa tu conexión e intenta de nuevo.',
+      });
       setConfirmDelete(null);
       return;
     }
@@ -8065,9 +8703,33 @@ function App() {
   const [isOffline, setIsOffline]           = useState(!navigator.onLine);
   const [isManaging, setIsManaging]         = useState(() => LS.get('isManaging') || false);
   const [edgePreviewHtml, setEdgePreviewHtml] = useState('');
+  const [confirmConfig, setConfirmConfig]   = useState(null);
   const edgePreviewStackRef = useRef([]);
+  const confirmResolveRef = useRef(null);
   const routeScrollRef = useRef({});
   useEffect(() => { LS.set('isManaging', isManaging); }, [isManaging]);
+
+  function askConfirm(config) {
+    return new Promise(resolve => {
+      if (confirmResolveRef.current) confirmResolveRef.current(false);
+      confirmResolveRef.current = resolve;
+      setConfirmConfig(config || {});
+    });
+  }
+
+  function resolveConfirm(value) {
+    const resolve = confirmResolveRef.current;
+    confirmResolveRef.current = null;
+    setConfirmConfig(null);
+    if (resolve) resolve(!!value);
+  }
+
+  useEffect(() => {
+    window.PADEL_LOG_CONFIRM = askConfirm;
+    return () => {
+      if (window.PADEL_LOG_CONFIRM === askConfirm) delete window.PADEL_LOG_CONFIRM;
+    };
+  });
 
   const routeBaseName = r => (typeof r === 'object' ? r.name : r);
 
@@ -8440,7 +9102,12 @@ function App() {
           onAddScheduledClass={() => go('addScheduledClass')}
           onAssignTime={s => go({ name: 'addScheduledClass', studentId: s.id, date: s.next_class, fromLegacy: true })}
           onRemoveLegacy={async s => {
-            const ok = window.confirm(`¿Quitar la clase de ${s.name} de la agenda? El alumno y su historial no se borran.`);
+            const ok = await softConfirm({
+              title: 'Quitar de agenda',
+              message: `Se quitará la clase de ${s.name}. El alumno y su historial no se borran.`,
+              confirmLabel: 'Quitar',
+              tone: 'danger',
+            });
             if (!ok) return;
             await setStudentNextClass(s.id, null);
           }}
@@ -8449,7 +9116,12 @@ function App() {
             go({ name: 'editScheduledClass', classId: scheduled.id });
           }}
           onDeleteScheduledClass={async scheduled => {
-            const ok = window.confirm('¿Eliminar esta clase agendada? No se borran pagos, bonos ni reportes.');
+            const ok = await softConfirm({
+              title: 'Eliminar clase agendada',
+              message: 'Se quitará esta clase de la agenda. No se borran pagos, bonos ni reportes.',
+              confirmLabel: 'Eliminar',
+              tone: 'danger',
+            });
             if (!ok) return;
             const deletedId = await deleteScheduledClass(user.id, scheduled);
             setScheduledClasses(prev => prev.filter(c => c.id !== deletedId));
@@ -8471,7 +9143,12 @@ function App() {
             go({ name: 'editPayment', paymentId: payment.id });
           }}
           onDeletePayment={async payment => {
-            const ok = window.confirm('¿Eliminar este pago? Esta acción no borra alumnos, bonos ni clases.');
+            const ok = await softConfirm({
+              title: 'Eliminar pago',
+              message: 'Se quitará este registro. Tus alumnos, bonos y clases no se borran.',
+              confirmLabel: 'Eliminar',
+              tone: 'danger',
+            });
             if (!ok) return;
             const deletedId = await deleteCoachPayment(user.id, payment);
             setPayments(prev => prev.filter(p => p.id !== deletedId));
@@ -8481,7 +9158,12 @@ function App() {
             go({ name: 'editBonus', bonusId: bonus.id });
           }}
           onDeleteBonus={async bonus => {
-            const ok = window.confirm('¿Eliminar este bono? No se borran pagos, alumnos ni reportes.');
+            const ok = await softConfirm({
+              title: 'Eliminar bono',
+              message: 'Se quitará este bono. No se borran pagos, alumnos ni reportes.',
+              confirmLabel: 'Eliminar',
+              tone: 'danger',
+            });
             if (!ok) return;
             const deletedId = await deleteClassBonus(user.id, bonus);
             setBonuses(prev => prev.filter(b => b.id !== deletedId));
@@ -8492,6 +9174,13 @@ function App() {
             setSelectedStudent(s);
             go({ name: 'studentProfile', studentId: s.id });
           }}
+          onExportData={() => exportCoachDataToExcel(user.id, { ...profile, email: profile?.email || user?.email || '' }, {
+            students,
+            payments,
+            bonuses,
+            scheduledClasses,
+            unreadFeedback,
+          })}
           managing={isManaging}
           onManagingChange={setIsManaging} />
       )}
@@ -8706,6 +9395,8 @@ function App() {
         <ShareScreen student={selectedStudent} savedOffline={savedOffline} savedLog={savedLog}
           onHome={() => { setSelectedStudent(null); setSavedOffline(false); setSavedLog(null); LS.set('lastRoute', null); go('dashboard'); }} />
       )}
+
+      <SoftConfirmModal config={confirmConfig} onResolve={resolveConfirm} />
     </>
   );
 }
@@ -8716,7 +9407,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-25-feedback-alerts';
+    const APP_VERSION = '2026-06-25-premium-actions-export';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 
