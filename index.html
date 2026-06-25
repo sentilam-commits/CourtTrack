@@ -5423,7 +5423,7 @@ function HistCard({ log, idx = 0 }) {
         </div>
       </div>
       {expanded && (
-        <div className="hist-card-body">
+        <div className="hist-card-body" onClick={e => e.stopPropagation()}>
           {workedText && (
             <div>
               <div className="hist-field-lbl hist-field-lbl--worked">TRABAJARON</div>
