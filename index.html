@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-25-optional-agenda-time">
+  <meta name="app-version" content="2026-06-25-feedback-alerts">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-25-optional-agenda-time">
+  <link rel="manifest" href="./manifest.json?v=2026-06-25-feedback-alerts">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -576,7 +576,8 @@
       box-sizing: border-box;
     }
     .dash-avatar-wrap {
-      width: 36px; height: 36px; border-radius: 50%; overflow: hidden;
+      position: relative;
+      width: 36px; height: 36px; border-radius: 50%;
       background: rgba(255,255,255,0.15);
       display: flex; align-items: center; justify-content: center;
     }
@@ -584,6 +585,22 @@
       width: 36px !important; height: 36px !important;
       border-radius: 50% !important; background: white !important;
       color: var(--green-dark) !important; font-size: 0.8rem !important;
+    }
+    .dash-feedback-dot,
+    .tab-feedback-dot,
+    .coach-home-alert-new-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #D92D20;
+      box-shadow: 0 0 0 2px var(--white);
+      flex-shrink: 0;
+    }
+    .dash-feedback-dot {
+      position: absolute;
+      right: -2px;
+      top: -2px;
+      box-shadow: 0 0 0 2px var(--green-dark);
     }
     .dash-date     { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 4px; }
     .dash-greeting { font-size: 1.8rem; font-weight: 800; margin-bottom: 24px; }
@@ -946,12 +963,12 @@
     }
     .coach-home-alert--button:active { transform: translateY(1px); }
     .coach-home-alert--feedback {
-      border-color: rgba(79,143,95,0.38);
-      background: #FBFCFA;
+      border-color: rgba(217,45,32,0.26);
+      background: #FFF8F7;
     }
     .coach-home-alert--feedback .coach-home-alert-icon {
-      background: var(--green-soft);
-      color: var(--green-dark);
+      background: #FDECEC;
+      color: #D92D20;
     }
     .coach-home-alert-icon {
       width: 24px;
@@ -967,10 +984,18 @@
       font-weight: 900;
     }
     .coach-home-alert-text {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       color: var(--text-primary);
       font-size: 0.84rem;
       line-height: 1.35;
       font-weight: 650;
+    }
+    .coach-home-alert-new-dot {
+      width: 8px;
+      height: 8px;
+      box-shadow: none;
     }
     .coach-detail-backdrop {
       position: fixed;
@@ -1164,6 +1189,7 @@
     }
     .tab-nav-item {
       flex: 1;
+      position: relative;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 4px; padding: 6px 4px;
       border: none; background: transparent; cursor: pointer;
@@ -1177,6 +1203,12 @@
       width: 30px; height: 30px;
       padding: 4px; border-radius: 50%;
       background: var(--green-dark); color: var(--white);
+    }
+    .tab-feedback-dot {
+      position: absolute;
+      top: 7px;
+      right: calc(50% - 18px);
+      box-shadow: 0 0 0 2px var(--white);
     }
 
     /* ── Log Class ── */
@@ -1693,6 +1725,17 @@
       font-size: 0.76rem;
       font-weight: 600;
     }
+    .student-feedback-error {
+      margin-top: 10px;
+      color: #B3261E;
+      background: #FDECEC;
+      border: 1px solid rgba(179,38,30,0.18);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.78rem;
+      font-weight: 650;
+      line-height: 1.35;
+    }
     .student-feedback-thanks {
       display: flex;
       gap: 12px;
@@ -1726,8 +1769,8 @@
       padding: 14px 16px;
     }
     .coach-feedback-card--unread {
-      border-color: rgba(79,143,95,0.42);
-      box-shadow: 0 1px 0 rgba(14,42,28,0.04);
+      border-color: rgba(217,45,32,0.28);
+      box-shadow: 0 1px 0 rgba(217,45,32,0.06);
     }
     .coach-feedback-top {
       display: flex;
@@ -1759,7 +1802,7 @@
       width: 9px;
       height: 9px;
       border-radius: 999px;
-      background: var(--green-mid);
+      background: #D92D20;
       position: absolute;
       right: 12px;
       top: 12px;
@@ -1895,12 +1938,15 @@ const STUDENT_FEEDBACK_LABELS = STUDENT_FEEDBACK_CATEGORIES.reduce((acc, item) =
   return acc;
 }, {});
 const feedbackCategoryLabel = category => STUDENT_FEEDBACK_LABELS[category] || 'General';
+const FEEDBACK_THANKS_MS = 60_000;
 
-async function fetchUnreadStudentFeedback() {
+async function fetchUnreadStudentFeedback(uid) {
   try {
-    const { data, error } = await sb.from('student_feedback')
+    let query = sb.from('student_feedback')
       .select('id, student_id, category, message, created_at, read_at')
-      .is('read_at', null)
+      .is('read_at', null);
+    if (uid) query = query.eq('coach_id', uid);
+    const { data, error } = await query
       .order('created_at', { ascending: false })
       .limit(25);
     if (error) return [];
@@ -3121,6 +3167,12 @@ function useEdgeSwipeBack(enabled, onBack, previousScreenHtml = '') {
         previewScreen.removeAttribute('style');
       }
       root.insertBefore(previewEl, screenEl);
+      const previewContent = previewEl.querySelector('[data-preview-scroll-top]');
+      if (previewContent) {
+        const y = Number(previewContent.dataset.previewScrollTop || 0);
+        previewContent.scrollTop = y;
+        window.requestAnimationFrame(() => { previewContent.scrollTop = y; });
+      }
     };
 
     const updatePreview = dx => {
@@ -4198,8 +4250,11 @@ function CoachHomeOverview({ students, payments, bonuses, scheduledClasses, unre
                 </svg>
               </div>
               <div className="coach-home-alert-text">
-                {unreadFeedbackRows.length} comentario{unreadFeedbackRows.length === 1 ? '' : 's'} nuevo{unreadFeedbackRows.length === 1 ? '' : 's'}
-                {firstFeedbackStudent ? ` · ${firstFeedbackStudent.name}` : ''}
+                <span className="coach-home-alert-new-dot" aria-hidden="true" />
+                <span>
+                  {unreadFeedbackRows.length} comentario{unreadFeedbackRows.length === 1 ? '' : 's'} nuevo{unreadFeedbackRows.length === 1 ? '' : 's'}
+                  {firstFeedbackStudent ? ` · ${firstFeedbackStudent.name}` : ''}
+                </span>
               </div>
             </button>
           )}
@@ -4239,6 +4294,7 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
                   'julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const dateStr = `${days[today.getDay()]}, ${today.getDate()} ${months[today.getMonth()]}`;
   const showHome = dashboardView === 'home';
+  const hasUnreadFeedback = (unreadFeedback || []).length > 0;
   const openStudentsTab = () => {
     setDashboardView('students');
     setManaging(false);
@@ -4251,6 +4307,7 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
         <div ref={menuRef} style={{position:'relative'}}>
           <button className="dash-avatar-wrap" onClick={() => setShowMenu(s => !s)}>
             <Avatar name={profile?.display_name || 'U'} size={36} />
+            {hasUnreadFeedback && <span className="dash-feedback-dot" aria-hidden="true" />}
           </button>
           {showMenu && (
             <div style={{
@@ -4417,6 +4474,7 @@ function DashboardScreen({ profile, students, payments, bonuses, scheduledClasse
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/><path d="M9.5 20v-5h5v5"/>
           </svg>
+          {hasUnreadFeedback && <span className="tab-feedback-dot" aria-hidden="true" />}
           Inicio
         </button>
         <button
@@ -5791,29 +5849,56 @@ function StudentFeedbackBox({ studentId }) {
   const [fbCat, setFbCat] = useState('general');
   const [fbMsg, setFbMsg] = useState('');
   const [fbSent, setFbSent] = useState(false);
+  const [fbSentAt, setFbSentAt] = useState(0);
   const [fbSending, setFbSending] = useState(false);
+  const [fbError, setFbError] = useState('');
 
   useEffect(() => {
     const lastSent = Number(LS.get(`fb:${studentId}`) || 0);
-    setFbSent(!!lastSent && Date.now() - lastSent < 60_000);
+    const stillShowingThanks = !!lastSent && Date.now() - lastSent < FEEDBACK_THANKS_MS;
+    setFbSent(stillShowingThanks);
+    setFbSentAt(stillShowingThanks ? lastSent : 0);
     setFbMsg('');
     setFbCat('general');
+    setFbError('');
   }, [studentId]);
+
+  useEffect(() => {
+    if (!fbSent || !fbSentAt) return undefined;
+    const remaining = Math.max(0, FEEDBACK_THANKS_MS - (Date.now() - fbSentAt));
+    const timer = window.setTimeout(() => {
+      setFbSent(false);
+      setFbSentAt(0);
+      setFbMsg('');
+      setFbCat('general');
+      setFbError('');
+    }, remaining);
+    return () => window.clearTimeout(timer);
+  }, [fbSent, fbSentAt]);
 
   async function submitFeedback() {
     const message = fbMsg.trim();
     if (!message || fbSending) return;
     setFbSending(true);
+    setFbError('');
     try {
-      await sb.rpc('submit_student_feedback', {
+      const { error } = await sb.rpc('submit_student_feedback', {
         public_student_id: studentId,
         fb_category: fbCat,
         fb_message: message,
       });
-    } catch (e) {}
-    LS.set(`fb:${studentId}`, Date.now());
-    setFbSent(true);
-    setFbSending(false);
+      if (error) throw error;
+      const sentAt = Date.now();
+      LS.set(`fb:${studentId}`, sentAt);
+      setFbSentAt(sentAt);
+      setFbSent(true);
+      setFbMsg('');
+      setFbCat('general');
+    } catch (e) {
+      setFbError('No se pudo enviar. Inténtalo de nuevo en un momento.');
+    } finally {
+      setFbSending(false);
+    }
   }
 
   if (fbSent) {
@@ -5822,7 +5907,7 @@ function StudentFeedbackBox({ studentId }) {
         <div className="student-feedback-check">✓</div>
         <div>
           <div className="student-feedback-title">¡Gracias! Tu coach lo tendrá en cuenta</div>
-          <div className="student-feedback-sub">Seguimos mejorando tus clases contigo.</div>
+          <div className="student-feedback-sub">Seguimos mejorando tus clases contigo. Puedes enviar otro comentario en 1 minuto.</div>
         </div>
       </div>
     );
@@ -5876,6 +5961,7 @@ function StudentFeedbackBox({ studentId }) {
         </svg>
         Privado · solo tu coach lo ve
       </div>
+      {fbError && <div className="student-feedback-error">{fbError}</div>}
     </section>
   );
 }
@@ -7636,6 +7722,7 @@ async function shareProgressCard(student) {
 function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClass, onEditLog, onLogDeleted, onFeedbackRead }) {
   const [logs, setLogs]           = useState([]);
   const [feedback, setFeedback]   = useState([]);
+  const [newFeedbackIds, setNewFeedbackIds] = useState(() => new Set());
   const [feedbackLoading, setFeedbackLoading] = useState(true);
   const [loading, setLoading]     = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -7678,6 +7765,7 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
   useEffect(() => {
     let alive = true;
     setFeedbackLoading(true);
+    setNewFeedbackIds(new Set());
     sb.from('student_feedback')
       .select('*')
       .eq('student_id', student.id)
@@ -7686,10 +7774,13 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
         if (!alive) return;
         if (error) {
           setFeedback([]);
+          setNewFeedbackIds(new Set());
           setFeedbackLoading(false);
           return;
         }
         const rows = data || [];
+        const unreadIds = rows.filter(row => !row.read_at).map(row => row.id);
+        setNewFeedbackIds(new Set(unreadIds));
         setFeedback(rows);
         setFeedbackLoading(false);
         if (rows.some(row => !row.read_at)) {
@@ -7707,6 +7798,7 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
       }, () => {
         if (!alive) return;
         setFeedback([]);
+        setNewFeedbackIds(new Set());
         setFeedbackLoading(false);
       });
     return () => { alive = false; };
@@ -7798,16 +7890,19 @@ function StudentProfileScreen({ student, coachId, onBack, onEdit, onRegisterClas
         )}
         {!feedbackLoading && feedback.length > 0 && (
           <div className="coach-feedback-list">
-            {feedback.map(item => (
-              <div key={item.id} className={`coach-feedback-card${!item.read_at ? ' coach-feedback-card--unread' : ''}`}>
-                {!item.read_at && <span className="coach-feedback-dot" aria-hidden="true" />}
-                <div className="coach-feedback-top">
-                  <span className="coach-feedback-topic">{feedbackCategoryLabel(item.category)}</span>
-                  <span className="coach-feedback-date">{viewedLabel(item.created_at) || formatDateEs(String(item.created_at || todayISO()).slice(0, 10))}</span>
+            {feedback.map(item => {
+              const isNew = !item.read_at || newFeedbackIds.has(item.id);
+              return (
+                <div key={item.id} className={`coach-feedback-card${isNew ? ' coach-feedback-card--unread' : ''}`}>
+                  {isNew && <span className="coach-feedback-dot" aria-hidden="true" />}
+                  <div className="coach-feedback-top">
+                    <span className="coach-feedback-topic">{feedbackCategoryLabel(item.category)}</span>
+                    <span className="coach-feedback-date">{viewedLabel(item.created_at) || formatDateEs(String(item.created_at || todayISO()).slice(0, 10))}</span>
+                  </div>
+                  <div className="coach-feedback-message">{linkify(item.message || '')}</div>
                 </div>
-                <div className="coach-feedback-message">{linkify(item.message || '')}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -7971,15 +8066,53 @@ function App() {
   const [isManaging, setIsManaging]         = useState(() => LS.get('isManaging') || false);
   const [edgePreviewHtml, setEdgePreviewHtml] = useState('');
   const edgePreviewStackRef = useRef([]);
+  const routeScrollRef = useRef({});
   useEffect(() => { LS.set('isManaging', isManaging); }, [isManaging]);
+
+  const routeBaseName = r => (typeof r === 'object' ? r.name : r);
+
+  const routeScrollKey = r => {
+    if (!r) return '';
+    if (typeof r === 'string') return r;
+    return [
+      r.name,
+      r.studentId,
+      r.logId,
+      r.classId,
+      r.paymentId,
+      r.bonusId,
+      r.group ? 'group' : '',
+      r.from || '',
+    ].filter(Boolean).join(':');
+  };
+
+  const shouldRestoreRouteScroll = r => ['dashboard', 'studentProfile', 'pickStudent', 'manageStudents'].includes(routeBaseName(r));
+
+  const activeScreenContent = () => {
+    const screens = document.querySelectorAll('#root .screen');
+    const screen = Array.from(screens).filter(el => !el.closest('.screen-edge-preview')).pop();
+    return screen?.querySelector('.screen-content') || null;
+  };
+
+  const saveRouteScroll = r => {
+    const key = routeScrollKey(r);
+    const content = activeScreenContent();
+    if (key && content && shouldRestoreRouteScroll(r)) routeScrollRef.current[key] = content.scrollTop || 0;
+  };
 
   const captureActiveScreenHtml = () => {
     const screens = document.querySelectorAll('#root .screen');
     const screen = Array.from(screens).filter(el => !el.closest('.screen-edge-preview')).pop();
-    return screen ? screen.outerHTML : '';
+    if (!screen) return '';
+    const clone = screen.cloneNode(true);
+    const content = screen.querySelector('.screen-content');
+    const cloneContent = clone.querySelector('.screen-content');
+    if (content && cloneContent) cloneContent.dataset.previewScrollTop = String(content.scrollTop || 0);
+    return clone.outerHTML;
   };
 
   const go = (r, options = {}) => {
+    saveRouteScroll(route);
     if (options.history === 'back') {
       edgePreviewStackRef.current.pop();
       setEdgePreviewHtml(edgePreviewStackRef.current[edgePreviewStackRef.current.length - 1] || '');
@@ -7996,6 +8129,26 @@ function App() {
       LS.set('lastRouteTs', Date.now());
     }
   };
+
+  useEffect(() => {
+    if (!shouldRestoreRouteScroll(route)) return undefined;
+    const key = routeScrollKey(route);
+    const savedY = routeScrollRef.current[key];
+    if (!key || savedY == null) return undefined;
+    let raf2 = 0;
+    const raf1 = window.requestAnimationFrame(() => {
+      const restore = () => {
+        const content = activeScreenContent();
+        if (content) content.scrollTop = savedY;
+      };
+      restore();
+      raf2 = window.requestAnimationFrame(restore);
+    });
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      if (raf2) window.cancelAnimationFrame(raf2);
+    };
+  }, [route]);
 
   const publicMatch = () => {
     const pm = location.pathname.match(/^\/p\/([0-9a-f-]{36})$/i);
@@ -8050,7 +8203,7 @@ function App() {
     setPayments(ops.payments);
     setBonuses(ops.bonuses);
     setScheduledClasses(ops.scheduledClasses);
-    await refreshUnreadFeedback();
+    await refreshUnreadFeedback(uid);
 
     // Restore last route (no time limit)
     const savedRoute = LS.get('lastRoute');
@@ -8134,11 +8287,59 @@ function App() {
     setScheduledClasses(ops.scheduledClasses);
   }
 
-  async function refreshUnreadFeedback() {
-    const rows = await fetchUnreadStudentFeedback();
+  async function refreshUnreadFeedback(uid = user?.id) {
+    const rows = await fetchUnreadStudentFeedback(uid);
     setUnreadFeedback(rows);
     return rows;
   }
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    let alive = true;
+    const refreshIfAlive = async () => {
+      if (!alive) return;
+      await refreshUnreadFeedback(user.id);
+    };
+    refreshIfAlive();
+
+    const interval = window.setInterval(refreshIfAlive, 30_000);
+    const onFocus = () => refreshIfAlive();
+    const onVisibility = () => {
+      if (!document.hidden) refreshIfAlive();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    let channel = null;
+    if (sb.channel) {
+      channel = sb
+        .channel(`student-feedback-${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'student_feedback', filter: `coach_id=eq.${user.id}` },
+          payload => {
+            const row = payload?.new;
+            if (!row || row.read_at) {
+              refreshIfAlive();
+              return;
+            }
+            setUnreadFeedback(prev => {
+              if ((prev || []).some(item => item.id === row.id)) return prev;
+              return [row, ...(prev || [])].slice(0, 25);
+            });
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      alive = false;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (channel) sb.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   const routeName = typeof route === 'object' ? route.name : route;
   const goBack = r => go(r, { history: 'back' });
@@ -8515,7 +8716,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-25-optional-agenda-time';
+    const APP_VERSION = '2026-06-25-feedback-alerts';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 
