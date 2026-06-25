@@ -1,4 +1,4 @@
-const VERSION = '2026-06-24-unified-log';
+const VERSION = '2026-06-25-coach-tweaks';
 const CACHE = `padel-log-${VERSION}`;
 const APP_SHELL = './index.html';
 
