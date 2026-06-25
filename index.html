@@ -3,10 +3,10 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Padel Log</title>
-  <meta name="app-version" content="2026-06-25-student-feedback">
+  <meta name="app-version" content="2026-06-25-optional-agenda-time">
 
   <!-- PWA -->
-  <link rel="manifest" href="./manifest.json?v=2026-06-25-student-feedback">
+  <link rel="manifest" href="./manifest.json?v=2026-06-25-optional-agenda-time">
   <meta name="theme-color" content="#0E2A1C">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -42,6 +42,10 @@
 
   -- Próxima clase: run once in Supabase SQL Editor
   ALTER TABLE public.students ADD COLUMN IF NOT EXISTS next_class DATE;
+
+  -- Agenda con hora opcional: run once in Supabase SQL Editor
+  ALTER TABLE public.scheduled_classes
+    ALTER COLUMN start_time DROP NOT NULL;
 
   -- Update get_public_student to include coach profile + upcoming scheduled classes:
   CREATE OR REPLACE FUNCTION public.get_public_student(public_student_id uuid)
@@ -3774,7 +3778,7 @@ function scheduleRowTitle(item, studentMap) {
 
 function scheduleRowSub(item) {
   const duration = `${Number(item.duration_minutes || 60)} min`;
-  return `${duration} · ${item.court || 'Cancha pendiente'}`;
+  return item.court ? `${duration} · ${item.court}` : duration;
 }
 
 function CoachDetailModal({ type, students, payments, bonuses, scheduledClasses, todayCount, onClose, onMarkPaymentPaid, onUseBonus, onEditScheduledClass, onEditPayment, onDeletePayment, onEditBonus, onDeleteBonus }) {
@@ -4727,7 +4731,7 @@ function AddScheduledClassScreen({ coachId, students, existingClass, prefill, on
       <div className="screen-content">
         <h1 className="screen-title" style={{marginTop: 8}}>{editing ? 'Reprogramar clase' : 'Nueva clase en agenda'}</h1>
         <p className="screen-subtitle" style={{marginBottom: 28}}>
-          {editing ? 'Cambia fecha, hora, duración o cancha. Esto no toca pagos, bonos ni reportes.' : 'Pon fecha y hora para que aparezca organizada en el inicio del coach.'}
+          {editing ? 'Cambia fecha, hora, duración o cancha. Esto no toca pagos, bonos ni reportes.' : 'Pon la fecha para que aparezca en el inicio del coach. La hora puede quedar pendiente.'}
         </p>
         {error && <div className="error-msg">{error}</div>}
         <div className="form-field">
@@ -4754,7 +4758,7 @@ function AddScheduledClassScreen({ coachId, students, existingClass, prefill, on
               onChange={e => setDuration(e.target.value)} />
           </div>
           <div className="form-field">
-            <label className="field-label">Cancha</label>
+            <label className="field-label">Cancha <span style={{color:'var(--text-hint)', fontWeight:400, textTransform:'none', letterSpacing:0}}>· opcional</span></label>
             <input className="field-input" value={court} onChange={e => setCourt(e.target.value)} placeholder="Cancha 2" />
           </div>
         </div>
@@ -4766,7 +4770,7 @@ function AddScheduledClassScreen({ coachId, students, existingClass, prefill, on
           </div>
         </div>
         <div className="form-field">
-          <label className="field-label">Nota para agenda</label>
+          <label className="field-label">Nota para agenda <span style={{color:'var(--text-hint)', fontWeight:400, textTransform:'none', letterSpacing:0}}>· opcional</span></label>
           <textarea
             className="field-input field-textarea"
             value={notes}
@@ -4775,7 +4779,7 @@ function AddScheduledClassScreen({ coachId, students, existingClass, prefill, on
         </div>
       </div>
       <div className="screen-bottom" style={{display:'grid', gap:10}}>
-        <button className="btn btn-primary" onClick={save} disabled={loading || !studentId || !classDate || !startTime}>
+        <button className="btn btn-primary" onClick={save} disabled={loading || !studentId || !classDate}>
           {loading ? 'Guardando...' : editing ? 'Guardar cambios' : 'Guardar en agenda'}
         </button>
         {editing && (
@@ -8511,7 +8515,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   <!-- Service Worker registration (requires HTTP/HTTPS, not file://) -->
   <script>
   (function() {
-    const APP_VERSION = '2026-06-25-student-feedback';
+    const APP_VERSION = '2026-06-25-optional-agenda-time';
     window.PADEL_LOG_APP_VERSION = APP_VERSION;
     console.log('Padel Log build:', APP_VERSION);
 

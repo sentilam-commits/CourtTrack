@@ -79,7 +79,7 @@ create table if not exists public.scheduled_classes (
   student_id uuid references public.students(id) on delete set null,
   title text not null default 'Clase',
   class_date date not null,
-  start_time time not null,
+  start_time time,
   duration_minutes integer not null default 60 check (duration_minutes > 0),
   court text,
   status text not null default 'scheduled' check (status in ('scheduled', 'confirmed', 'completed', 'cancelled')),
@@ -104,6 +104,9 @@ create index if not exists student_feedback_coach_idx
 
 alter table public.students
   add column if not exists next_class date;
+
+alter table public.scheduled_classes
+  alter column start_time drop not null;
 
 alter table public.students enable row level security;
 alter table public.class_logs enable row level security;

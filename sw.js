@@ -1,4 +1,4 @@
-const VERSION = '2026-06-25-student-feedback';
+const VERSION = '2026-06-25-optional-agenda-time';
 const CACHE = `padel-log-${VERSION}`;
 const APP_SHELL = './index.html';
 
